@@ -1,4 +1,7 @@
 /.DS_Store
 /apogeeEnv/
-/.ipynb_checkpoints
-/*.job
+/py/.ipynb_checkpoints
+/py/__pycache__/
+/py/*.job
+/py/*.out
+/sav/*.dat
