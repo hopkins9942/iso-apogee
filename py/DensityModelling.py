@@ -10,7 +10,9 @@ from pyro.optim import Adam
 
 class MyDist(TorchDistribution): # think of better name
     """
-    Write something here
+    This is the distribution for [N, sumR, summodz] for an exponential disk PPP, which are the
+    only data quantities which appear in the likelihood function. Default is for one bin, but can
+    be batched for multiple bins.
 
     Inheriting TorchDistribution means I can use torch.distributions.Distribution's __init__,
     which automatically sorts batch_shape, event_shape and validation of arguments, and methods
@@ -31,6 +33,8 @@ class MyDist(TorchDistribution): # think of better name
         validate_args is used by torch.distributions.Distribution __init__ to decide whether or not
         to check parameters and sample values match constraints. True/False means check/don't check,
         None means default behavior.
+
+        may need to add bin edges somehow - make it work with batches
         """
         self.logA, self.a_R, self.a_z = broadcast_all(logA, a_R, a_z) # probably converts all to tensors
         # make checks like parameters all have same length, define batch_shape
