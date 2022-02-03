@@ -27,7 +27,7 @@ class MyDist(TorchDistribution): # think of better name
     support = constraints.real_vector
     has_rsample = 
 
-    def __init__(self, logA, a_R, a_z, validate_args=None):
+    def __init__(self, FeHBinEdges, logA, a_R, a_z, validate_args=None):
         """
         logA, a_R, a_z are parameters, can be entered as tensors all of same size to get batch.
         validate_args is used by torch.distributions.Distribution __init__ to decide whether or not
@@ -36,9 +36,16 @@ class MyDist(TorchDistribution): # think of better name
 
         may need to add bin edges somehow - make it work with batches
         """
-        self.logA, self.a_R, self.a_z = broadcast_all(logA, a_R, a_z) # probably converts all to tensors
+        self._FeHBinEdges = FeHBinEdges
+        self.logA, self.a_R, self.a_z = broadcast_all(logA, a_R, a_z) # probably converts all to tensors - should I do this with binedges?
         # make checks like parameters all have same length, define batch_shape
         super().__init__(batch_shape=batch_shape, event_shape=, validate_args=validate_args)
+
+    @property
+    def FeHBinEdges(self):
+        """returns bin edges. Writing as property reduces risk of them accidentlly being changed after object is created"""
+        return self.FeHBinEdges
+
 
     def log_prob(self, value):
         """
@@ -50,6 +57,7 @@ class MyDist(TorchDistribution): # think of better name
             self._validate_sample(value)
         #define integral, sum over fields of integral over distance of rate function
         return value[...,0]*(self.logA+2*torch.log(self.a_R)+torch.log(self.a_z) - value[...,1]*self.a_R - value[...,2]*self.a_z - integral
+        #IMPORTANT: this is only log_p up to constant - check if this is ok - it isn't difficult to do exact log_p so just do it
 
     def rsample(self, sample_shape=torch.Size()):
         """I don't know how to do this, or if reparatrimisation is possible"""
@@ -58,13 +66,14 @@ class MyDist(TorchDistribution): # think of better name
 
 def model(FeHBinEdges, sums):
     """
-    FeHBinEdges mark edges of metallicity bins being used, sums is 3*nbins tensor with [N,sumR,summodz] for each bin
+    FeHBinEdges mark edges of metallicity bins being used, in form of 2*nbins tensor with [lowerEdge, upperEdge] for each bin
+    sums is 3*nbins tensor with [N,sumR,summodz] for each bin
     """
     with pyro.plate('bins', len(FeHBinEdges)-1):
         logA = pyro.sample('logA', dist.Normal(...))
         a_R = pyro.sample('a_R', dist.Normal(...))
         a_z = pyro.sample('a_z', dist.Normal(...))
-        return pyro.sample('obs', MyDist, obs=sums)
+        return pyro.sample('obs', MyDist(FeHBinEdges, logA, a_R, a_z, validate_args=True), obs=sums)
 
 # def guide or autoguide
 
