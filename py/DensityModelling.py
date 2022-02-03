@@ -57,7 +57,7 @@ class MyDist(TorchDistribution): # think of better name
             self._validate_sample(value)
         #define integral, sum over fields of integral over distance of rate function
         return value[...,0]*(self.logA+2*torch.log(self.a_R)+torch.log(self.a_z) - value[...,1]*self.a_R - value[...,2]*self.a_z - integral
-        #IMPORTANT: this is only log_p up to constant - check if this is ok - it isn't difficult to do exact log_p so just do it
+        #IMPORTANT: this is only log_p up to constant not dependent on latents- check if this is ok - full log_p requires sumlogD and sumlogEffSelFucnct(D), which will be slower
 
     def rsample(self, sample_shape=torch.Size()):
         """I don't know how to do this, or if reparatrimisation is possible"""
