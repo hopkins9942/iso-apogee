@@ -4,6 +4,9 @@ import pyro.distributions.constraints as constraints
 import pyro.distributions.utils import broadcast_all
 
 from pyro.distributions.torch_distribution import TorchDistribution
+from pyro.infer import SVI, Trace_ELBO
+from pyro.optim import Adam
+
 
 class MyDist(TorchDistribution): # think of better name
     """
@@ -23,6 +26,12 @@ class MyDist(TorchDistribution): # think of better name
     has_rsample = 
 
     def __init__(self, logA, a_R, a_z, validate_args=None):
+        """
+        logA, a_R, a_z are parameters, can be entered as tensors all of same size to get batch.
+        validate_args is used by torch.distributions.Distribution __init__ to decide whether or not
+        to check parameters and sample values match constraints. True/False means check/don't check,
+        None means default behavior.
+        """
         self.logA, self.a_R, self.a_z = broadcast_all(logA, a_R, a_z) # probably converts all to tensors
         # make checks like parameters all have same length, define batch_shape
         super().__init__(batch_shape=batch_shape, event_shape=, validate_args=validate_args)
@@ -44,8 +53,26 @@ class MyDist(TorchDistribution): # think of better name
 
 
 def model(FeHBinEdges, sums):
+    """
+    FeHBinEdges mark edges of metallicity bins being used, sums is 3*nbins tensor with [N,sumR,summodz] for each bin
+    """
     with pyro.plate('bins', len(FeHBinEdges)-1):
         logA = pyro.sample('logA', dist.Normal(...))
         a_R = pyro.sample('a_R', dist.Normal(...))
         a_z = pyro.sample('a_z', dist.Normal(...))
         return pyro.sample('obs', MyDist, obs=sums)
+
+# def guide or autoguide
+
+# main
+
+optimiser = Adam() #look at parameters
+svi = SVI(model, guide, optimiser, loss=Trace_ELBO())
+
+losses = []
+for step in range(1000):
+    loss = svi.step(FeHBinEdges, sums)
+    losses.append(loss)
+    if step%100==0:
+        print(f'Loss = {loss}')
+#extract data
