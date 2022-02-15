@@ -5,3 +5,4 @@
 /py/*.job
 /py/*.out
 /sav/*.dat
+/tests/__pycache__/

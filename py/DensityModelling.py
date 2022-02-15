@@ -8,9 +8,10 @@ from pyro.infer import SVI, Trace_ELBO
 from pyro.optim import Adam
 
 
-class MyDist(TorchDistribution): # think of better name
+class FeHBinnedDoubleExpPPP(TorchDistribution):
     """
-    This is the distribution for [N, sumR, summodz] for an exponential disk PPP, which are the
+    This is the distribution for [N, sumR, summodz] for an exponential disk PPP of stars uniform in
+    metallicity in bins, which are the
     only data quantities which appear in the likelihood function. Default is for one bin, but can
     be batched for multiple bins.
 
@@ -25,7 +26,7 @@ class MyDist(TorchDistribution): # think of better name
         'a_z':  constraints.real,
     }
     support = constraints.real_vector
-    has_rsample = 
+    has_rsample = False
 
     def __init__(self, FeHBinEdges, logA, a_R, a_z, validate_args=None):
         """
@@ -36,15 +37,16 @@ class MyDist(TorchDistribution): # think of better name
 
         may need to add bin edges somehow - make it work with batches
         """
-        self._FeHBinEdges = FeHBinEdges
-        self.logA, self.a_R, self.a_z = broadcast_all(logA, a_R, a_z) # probably converts all to tensors - should I do this with binedges?
-        # make checks like parameters all have same length, define batch_shape
-        super().__init__(batch_shape=batch_shape, event_shape=, validate_args=validate_args)
+        self.logA, self.a_R, self.a_z = broadcast_all(logA, a_R, a_z)
+        # broadcasts tensors so they are same shape. Ideally have way of broadcasting all scalar parameters to (n,) if n given by bins
+        
+        # make checks like parameters all have same length, work out what to do with batch and event shape - may need to define batch_shape
+        super().__init__(batch_shape=, event_shape=, validate_args=validate_args)
 
     @property
     def FeHBinEdges(self):
         """returns bin edges. Writing as property reduces risk of them accidentlly being changed after object is created"""
-        return self.FeHBinEdges
+        return self._FeHBinEdges
 
 
     def log_prob(self, value):
@@ -59,8 +61,10 @@ class MyDist(TorchDistribution): # think of better name
         return value[...,0]*(self.logA+2*torch.log(self.a_R)+torch.log(self.a_z) - value[...,1]*self.a_R - value[...,2]*self.a_z - integral
         #IMPORTANT: this is only log_p up to constant not dependent on latents- check if this is ok - full log_p requires sumlogD and sumlogEffSelFucnct(D), which will be slower
 
-    def rsample(self, sample_shape=torch.Size()):
-        """I don't know how to do this, or if reparatrimisation is possible"""
+    def sample(self, sample_shape=torch.Size()):
+        """
+        May never implement, as not needed for fitting
+        """
             pass
 
 
@@ -69,7 +73,7 @@ def model(FeHBinEdges, sums):
     FeHBinEdges mark edges of metallicity bins being used, in form of 2*nbins tensor with [lowerEdge, upperEdge] for each bin
     sums is 3*nbins tensor with [N,sumR,summodz] for each bin
     """
-    with pyro.plate('bins', len(FeHBinEdges)-1):
+    with pyro.plate('bins', len(FeHBinEdges)-1): # needs new bin definition
         logA = pyro.sample('logA', dist.Normal(...))
         a_R = pyro.sample('a_R', dist.Normal(...))
         a_z = pyro.sample('a_z', dist.Normal(...))
