@@ -1,7 +1,7 @@
 import torch
 import pyro.distributions as dist
 import pyro.distributions.constraints as constraints
-import pyro.distributions.utils import broadcast_all
+from pyro.distributions.util import broadcast_all
 
 from pyro.distributions.torch_distribution import TorchDistribution
 from pyro.infer import SVI, Trace_ELBO
@@ -37,11 +37,11 @@ class FeHBinnedDoubleExpPPP(TorchDistribution):
 
         may need to add bin edges somehow - make it work with batches
         """
+        self._FeHBinEdges = FeHBinEdges
         self.logA, self.a_R, self.a_z = broadcast_all(logA, a_R, a_z)
         # broadcasts tensors so they are same shape. Ideally have way of broadcasting all scalar parameters to (n,) if n given by bins
-        
         # make checks like parameters all have same length, work out what to do with batch and event shape - may need to define batch_shape
-        super().__init__(batch_shape=, event_shape=, validate_args=validate_args)
+        #super().__init__(batch_shape=, event_shape=, validate_args=validate_args)
 
     @property
     def FeHBinEdges(self):
@@ -58,14 +58,14 @@ class FeHBinnedDoubleExpPPP(TorchDistribution):
         if self._validate_args:
             self._validate_sample(value)
         #define integral, sum over fields of integral over distance of rate function
-        return value[...,0]*(self.logA+2*torch.log(self.a_R)+torch.log(self.a_z) - value[...,1]*self.a_R - value[...,2]*self.a_z - integral
+        return value[...,0]*(self.logA+2*torch.log(self.a_R)+torch.log(self.a_z)) - value[...,1]*self.a_R - value[...,2]*self.a_z - integral
         #IMPORTANT: this is only log_p up to constant not dependent on latents- check if this is ok - full log_p requires sumlogD and sumlogEffSelFucnct(D), which will be slower
 
     def sample(self, sample_shape=torch.Size()):
         """
         May never implement, as not needed for fitting
         """
-            pass
+        pass
 
 
 def model(FeHBinEdges, sums):
@@ -83,13 +83,13 @@ def model(FeHBinEdges, sums):
 
 # main
 
-optimiser = Adam() #look at parameters
-svi = SVI(model, guide, optimiser, loss=Trace_ELBO())
+#optimiser = Adam() #look at parameters
+#svi = SVI(model, guide, optimiser, loss=Trace_ELBO())
 
-losses = []
-for step in range(1000):
-    loss = svi.step(FeHBinEdges, sums)
-    losses.append(loss)
-    if step%100==0:
-        print(f'Loss = {loss}')
+#losses = []
+#for step in range(1000):
+#    loss = svi.step(FeHBinEdges, sums)
+#    losses.append(loss)
+#    if step%100==0:
+#        print(f'Loss = {loss}')
 #extract data
