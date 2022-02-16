@@ -37,8 +37,10 @@ class FeHBinnedDoubleExpPPP(TorchDistribution):
 
         may need to add bin edges somehow - make it work with batches
         """
-        self._FeHBinEdges = FeHBinEdges
-        self.logA, self.a_R, self.a_z = broadcast_all(logA, a_R, a_z)
+        #lowerEdges = FeHBinEdges[:,0]
+        #upperEdges = FeHBinEdges[:,1]
+        self._FeHBinEdges = torch.zeros(FeHBinEdges.size(0), 2) # ideally should work for batches of any size - edges.shape = (n1,n2,n3,...,2)
+        self._FeHBinEdges[:,0], self._FeHBinEdges[:,1], self.logA, self.a_R, self.a_z = broadcast_all(FeHBinEdges[:,0], FeHBinEdges[:,1], logA, a_R, a_z)
         # broadcasts tensors so they are same shape. Ideally have way of broadcasting all scalar parameters to (n,) if n given by bins
         # make checks like parameters all have same length, work out what to do with batch and event shape - may need to define batch_shape
         #super().__init__(batch_shape=, event_shape=, validate_args=validate_args)

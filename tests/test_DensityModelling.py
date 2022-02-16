@@ -13,7 +13,7 @@ class TestTests:
         assert 1==2
 
 
-# distro instances for use in tests
+# distro instance parameters for use in tests
 oneBin = (torch.tensor([0.0,0.5]), 0, 1, 1)
 
 threeBin_sameParam = (
@@ -41,32 +41,33 @@ oneBin_threeDiffParam = (
     torch.tensor([0.1,0.2,0.3])
     )
 
-@pytest.mark.parametrize("inputs", [
-    oneBin,
-    threeBin_sameParam,
-    threeBin_oneDiffParam,
-    threeBin_threeDiffParam,
-    oneBin_threeDiffParam,
+#@pytest.mark.parametrize("inputs", [
+#    oneBin,
+#    threeBin_sameParam,
+#    threeBin_oneDiffParam,
+#    threeBin_threeDiffParam,
+#    oneBin_threeDiffParam,
+#    ],
+#    ids=["oneBin","threeBin_sameParam","threeBin_oneDiffParam","threeBin_threeDiffParam","oneBin_threeDiffParam"
+#])
+#def test_distro_binEdges(inputs):
+#    assert torch.equal(inputs[0], PPP(*inputs).FeHBinEdges)
+
+
+@pytest.mark.parametrize("inputs,expected_attributes",
+    [
+    (oneBin, (torch.tensor([0.0,0.5]), torch.tensor(0), torch.tensor(1), torch.tensor(1))),
+    (threeBin_sameParam, (torch.tensor([[-1.0,-0.5],[-0.5,0.0],[0.0,0.5]]), torch.tensor([0,0,0]), torch.tensor([1,1,1]), torch.tensor([1,1,1]))),
+    (threeBin_oneDiffParam, (torch.tensor([[-1.0,-0.5],[-0.5,0.0],[0.0,0.5]]), torch.tensor([-0.5,0.5,0]), torch.tensor([2,2,2]), torch.tensor([0.2,0.2,0.2]))),
+    (threeBin_threeDiffParam, (torch.tensor([[-1.0,-0.5],[-0.5,0.0],[0.0,0.5]]), torch.tensor([-0.5,0.5,0]), torch.tensor([0.8,1,1.2]), torch.tensor([0.1,0.2,0.3]))),
+    (oneBin_threeDiffParam, (torch.tensor([[0.0,0.5],[0.0,0.5],[0.0,0.5]]), torch.tensor([-0.5,0.5,0]), torch.tensor([0.8,1,1.2]), torch.tensor([0.1,0.2,0.3]))),
     ],
     ids=["oneBin","threeBin_sameParam","threeBin_oneDiffParam","threeBin_threeDiffParam","oneBin_threeDiffParam"
 ])
-def test_distro_binEdges(inputs):
-    assert torch.equal(inputs[0], PPP(*inputs).FeHBinEdges)
-
-
-@pytest.mark.parametrize("inputs,expected_param_shape", [
-    (oneBin, torch.Size([1])),
-    (threeBin_sameParam, torch.Size([3])),
-    (threeBin_oneDiffParam, torch.Size([3])),
-    (threeBin_threeDiffParam, torch.Size([3])),
-    (oneBin_threeDiffParam, torch.Size([3])),
-    ],
-    ids=["oneBin","threeBin_sameParam","threeBin_oneDiffParam","threeBin_threeDiffParam","oneBin_threeDiffParam"
-])
-def test_distro_shapes(inputs, expected_param_shape):
+def test_distro_broadcasting(inputs, expected_attributes):
     distro = PPP(*inputs)
-    shapes = (distro.logA.shape, distro.a_R.shape, distro.a_z.shape)
-    assert all(shapes[i]==expected_param_shape)
+    attributes = (distro.FeHBinEdges, distro.logA, distro.a_R, distro.a_z)
+    assert all(torch.equal(attributes[i], expected_attributes[i]) for i in range(4))
 
 #@pytest.mark.parametrize("bins,logA,a_R,a_z", [
 #    (
