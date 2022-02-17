@@ -41,6 +41,8 @@ oneBin_threeDiffParam = (
     torch.tensor([0.1,0.2,0.3])
     )
 
+#TODO add example with more than one batch dimention
+
 #@pytest.mark.parametrize("inputs", [
 #    oneBin,
 #    threeBin_sameParam,
@@ -56,17 +58,18 @@ oneBin_threeDiffParam = (
 
 @pytest.mark.parametrize("inputs,expected_attributes",
     [
-    (oneBin, (torch.tensor([0.0,0.5]), torch.tensor(0), torch.tensor(1), torch.tensor(1))),
-    (threeBin_sameParam, (torch.tensor([[-1.0,-0.5],[-0.5,0.0],[0.0,0.5]]), torch.tensor([0,0,0]), torch.tensor([1,1,1]), torch.tensor([1,1,1]))),
-    (threeBin_oneDiffParam, (torch.tensor([[-1.0,-0.5],[-0.5,0.0],[0.0,0.5]]), torch.tensor([-0.5,0.5,0]), torch.tensor([2,2,2]), torch.tensor([0.2,0.2,0.2]))),
-    (threeBin_threeDiffParam, (torch.tensor([[-1.0,-0.5],[-0.5,0.0],[0.0,0.5]]), torch.tensor([-0.5,0.5,0]), torch.tensor([0.8,1,1.2]), torch.tensor([0.1,0.2,0.3]))),
-    (oneBin_threeDiffParam, (torch.tensor([[0.0,0.5],[0.0,0.5],[0.0,0.5]]), torch.tensor([-0.5,0.5,0]), torch.tensor([0.8,1,1.2]), torch.tensor([0.1,0.2,0.3]))),
+    (oneBin, (torch.tensor([0.0,0.5]), torch.tensor(0.0), torch.tensor(1.0), torch.tensor(1.0))),
+    (threeBin_sameParam, (torch.tensor([[-1.0,-0.5],[-0.5,0.0],[0.0,0.5]]), torch.tensor([0.0,0.0,0.0]), torch.tensor([1.0,1.0,1.0]), torch.tensor([1.0,1.0,1.0]))),
+    (threeBin_oneDiffParam, (torch.tensor([[-1.0,-0.5],[-0.5,0.0],[0.0,0.5]]), torch.tensor([-0.5,0.5,0.0]), torch.tensor([2.0,2.0,2.0]), torch.tensor([0.2,0.2,0.2]))),
+    (threeBin_threeDiffParam, (torch.tensor([[-1.0,-0.5],[-0.5,0.0],[0.0,0.5]]), torch.tensor([-0.5,0.5,0]), torch.tensor([0.8,1.0,1.2]), torch.tensor([0.1,0.2,0.3]))),
+    (oneBin_threeDiffParam, (torch.tensor([[0.0,0.5],[0.0,0.5],[0.0,0.5]]), torch.tensor([-0.5,0.5,0]), torch.tensor([0.8,1.0,1.2]), torch.tensor([0.1,0.2,0.3]))),
     ],
     ids=["oneBin","threeBin_sameParam","threeBin_oneDiffParam","threeBin_threeDiffParam","oneBin_threeDiffParam"
 ])
 def test_distro_broadcasting(inputs, expected_attributes):
     distro = PPP(*inputs)
     attributes = (distro.FeHBinEdges, distro.logA, distro.a_R, distro.a_z)
+    print(attributes)
     assert all(torch.equal(attributes[i], expected_attributes[i]) for i in range(4))
 
 #@pytest.mark.parametrize("bins,logA,a_R,a_z", [
