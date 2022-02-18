@@ -1,3 +1,5 @@
+from numbers import Number
+
 import torch
 import pyro.distributions as dist
 import pyro.distributions.constraints as constraints
@@ -37,9 +39,10 @@ class FeHBinnedDoubleExpPPP(TorchDistribution):
 
         may need to add bin edges somehow - make it work with batches
         """
-        #lowerEdges = FeHBinEdges[:,0]
-        #upperEdges = FeHBinEdges[:,1]
-        #self._FeHBinEdges = torch.zeros(FeHBinEdges.size(0), 2) # ideally should work for batches of any size - edges.shape = (n1,n2,n3,...,2)
+        #FeHBinEdges, logA, a_R, a_z = (input if torch.is_tensor(input) else torch.tensor(input) for input in (FeHBinEdges, logA, a_R, a_z))
+        for value, name in [(FeHBinEdges,"FeHBinEdges"),(logA,"logA"),(a_R,"a_R"),(a_z,"a_z")]:
+            if not (isinstance(value,torch.Tensor) or isinstance(value,Number)):
+                raise ValueError(name+" must be either a Number or a torch.Tensor")
         lowerEdges, upperEdges, self.logA, self.a_R, self.a_z = broadcast_all(FeHBinEdges[...,0], FeHBinEdges[...,1], logA, a_R, a_z)
         self._FeHBinEdges = torch.stack((lowerEdges,upperEdges), lowerEdges.dim()) #I think this will stack along right dimention
         # broadcasts tensors so they are same shape. Ideally have way of broadcasting all scalar parameters to (n,) if n given by bins
