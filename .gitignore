@@ -4,5 +4,7 @@
 /py/__pycache__/
 /py/*.job
 /py/*.out
+/jobs/*.job
+/jobs/*.out
 /sav/*.dat
 /tests/__pycache__/

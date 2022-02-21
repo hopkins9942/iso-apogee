@@ -122,9 +122,41 @@ threeBin_typeFail = (
 def test_distro_broadcasting(inputs, expected_attributes):
     distro = PPP(*inputs)
     attributes = (distro.FeHBinEdges, distro.logA, distro.a_R, distro.a_z)
-    print(attributes)
-    print(expected_attributes)
     assert all(torch.equal(attributes[i], expected_attributes[i]) for i in range(4))
+
+@pytest.mark.parametrize("inputs,expected_shape",
+    [
+    (oneBin, torch.Size()),
+    (threeBin_sameParam, torch.Size([3])),
+    (threeBin_oneDiffParam, torch.Size([3])),
+    (threeBin_threeDiffParam, torch.Size([3])),
+    (oneBin_threeDiffParam, torch.Size([3])),
+    (oneBin_batched, torch.Size([4,3])),
+    (threeBin_batchedParam, torch.Size([4,3])),
+    (threeBin_batchedBin, torch.Size([2,3]))
+    ],
+    ids=["oneBin","threeBin_sameParam","threeBin_oneDiffParam","threeBin_threeDiffParam","oneBin_threeDiffParam","oneBin_batched","threeBin_batchedParam","threeBin_batchedBin"]
+)
+def test_distro_batch_shapes(inputs, expected_shape):
+    """Not testing event_shape as it should be set to 3, and not testing
+    sample_shape as sample method not defined"""
+    distro = PPP(*inputs)
+    assert distro.batch_shape == expected_shape
+
+@pytest.mark.parametrize("inputs,sums,expected_log_prob",
+    [
+    (oneBin, torch.tensor(), ),
+    (threeBin_sameParam, torch.Size([3])),
+    (threeBin_oneDiffParam, torch.Size([3])),
+    (threeBin_threeDiffParam, torch.Size([3])),
+    (oneBin_threeDiffParam, torch.Size([3])),
+    (oneBin_batched, torch.Size([4,3])),
+    (threeBin_batchedParam, torch.Size([4,3])),
+    (threeBin_batchedBin, torch.Size([2,3]))
+    ],
+    ids=["oneBin","threeBin_sameParam","threeBin_oneDiffParam","threeBin_threeDiffParam","oneBin_threeDiffParam","oneBin_batched","threeBin_batchedParam","threeBin_batchedBin"]
+)
+def test_distro_log_prob()
 
 #@pytest.mark.parametrize("bins,logA,a_R,a_z", [
 #    (

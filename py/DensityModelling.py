@@ -14,8 +14,7 @@ class FeHBinnedDoubleExpPPP(TorchDistribution):
     """
     This is the distribution for [N, sumR, summodz] for an exponential disk PPP of stars uniform in
     metallicity in bins, which are the
-    only data quantities which appear in the likelihood function. Default is for one bin, but can
-    be batched for multiple bins.
+    only data quantities which appear in the likelihood function.
 
     Inheriting TorchDistribution means I can use torch.distributions.Distribution's __init__,
     which automatically sorts batch_shape, event_shape and validation of arguments, and methods
@@ -32,22 +31,18 @@ class FeHBinnedDoubleExpPPP(TorchDistribution):
 
     def __init__(self, FeHBinEdges, logA, a_R, a_z, validate_args=None):
         """
-        logA, a_R, a_z are parameters, can be entered as tensors all of same size to get batch.
+        FeHBinEdges is tensor with final dimention length 2, representing lower and upper bound
+        of bins. logA, a_R, a_z are parameters, can be entered as tensors to get batching.
         validate_args is used by torch.distributions.Distribution __init__ to decide whether or not
         to check parameters and sample values match constraints. True/False means check/don't check,
         None means default behavior.
-
-        may need to add bin edges somehow - make it work with batches
         """
-        #FeHBinEdges, logA, a_R, a_z = (input if torch.is_tensor(input) else torch.tensor(input) for input in (FeHBinEdges, logA, a_R, a_z))
         for value, name in [(FeHBinEdges,"FeHBinEdges"),(logA,"logA"),(a_R,"a_R"),(a_z,"a_z")]:
             if not (isinstance(value,torch.Tensor) or isinstance(value,Number)):
                 raise ValueError(name+" must be either a Number or a torch.Tensor")
         lowerEdges, upperEdges, self.logA, self.a_R, self.a_z = broadcast_all(FeHBinEdges[...,0], FeHBinEdges[...,1], logA, a_R, a_z)
-        self._FeHBinEdges = torch.stack((lowerEdges,upperEdges), lowerEdges.dim()) #I think this will stack along right dimention
-        # broadcasts tensors so they are same shape. Ideally have way of broadcasting all scalar parameters to (n,) if n given by bins
-        # make checks like parameters all have same length, work out what to do with batch and event shape - may need to define batch_shape
-        #super().__init__(batch_shape=, event_shape=, validate_args=validate_args)
+        self._FeHBinEdges = torch.stack((lowerEdges,upperEdges), lowerEdges.dim())
+        super().__init__(batch_shape=self.logA.shape, event_shape=torch.Size([3]), validate_args=validate_args)
 
     @property
     def FeHBinEdges(self):
@@ -69,7 +64,8 @@ class FeHBinnedDoubleExpPPP(TorchDistribution):
 
     def sample(self, sample_shape=torch.Size()):
         """
-        May never implement, as not needed for fitting
+        May never implement, as not needed for fitting.
+        Should sample event (N, SumR, SumModz) in whatever sample shape requested
         """
         pass
 
