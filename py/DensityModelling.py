@@ -1,4 +1,11 @@
 from numbers import Number
+import os
+
+assert os.getenv('RESULTS_VERS')=='l33' # apogee should automatically use dr16 as long as this is correct
+
+import apogee.select as apsel
+import apogee.tools.read as apread
+import isochrones as iso
 
 import torch
 import pyro.distributions as dist
@@ -8,6 +15,9 @@ from pyro.distributions.util import broadcast_all
 from pyro.distributions.torch_distribution import TorchDistribution
 from pyro.infer import SVI, Trace_ELBO
 from pyro.optim import Adam
+
+import astropy.coordinates as coord
+import astropy.units as u
 
 
 class FeHBinnedDoubleExpPPP(TorchDistribution):
@@ -19,6 +29,9 @@ class FeHBinnedDoubleExpPPP(TorchDistribution):
     Inheriting TorchDistribution means I can use torch.distributions.Distribution's __init__,
     which automatically sorts batch_shape, event_shape and validation of arguments, and methods
     from TorchDistribution and TorchDistributionMixin such as shape, to_event.
+
+    since definition of log_p, a batch size of one is assumed in this code in the hope that
+    plate sorts batching automatically
     """
 
     arg_constraints = {
@@ -49,18 +62,53 @@ class FeHBinnedDoubleExpPPP(TorchDistribution):
         """returns bin edges. Writing as property reduces risk of them accidentlly being changed after object is created"""
         return self._FeHBinEdges
 
+    def EffectiveVolume(self, optionBool):
+        """
+        UNTESTED - ASSUMES ONE BIN ONLY
+        parallelisabel?
+        Ted's isochrones are used with isogrid, an astropy.Table, masks made by isogrid>value which is probably np.arraylike
+        """
+        if os.path.exists('../sav/apodr16_csf.dat'):
+            with open('../sav/apodr16_csf.dat', 'rb') as f:
+                apo = pickle.load(f)
+        else:
+            raise ValueError("precalculate combined selection function")
+        locations = apo.list_fields(cohort='all')
+        # locations is list of fields with at least completed cohort of any type, therefore some stars in statistical sample
+        # default value of cohort is "short", which only includes fields with completed short cohort, which tbh probably will always be first cohort to be completed
+        print("total number of fields: " + len(locations))
+
+        Neffsamp = 600 #tune this, or change to sampling entire isochrone
+        isogrid = iso.newgrid()
+        mask = ((isogrid['logg'] > 1) & (isogrid['logg'] < 3) & (isogrid['MH'] > self.FeHBinEdges[0])
+                                                              & (isogrid['MH'] <= self.FeHBinEdges[1]))
+        effsel_samples = iso.sampleiso(Neffsamp, isogrid[mask], newgrid=True) #why new grid?
+
+        apof = apsel.apogeeEffectiveSelect(apo, dmap3d=dmap, MH=effsel_samples['Hmag'],
+                                           JK0=effsel_samples['Jmag']-effsel_samples['Ksmag'])
+        if optionBool: #calculated myself
+            mu_grid = 
+            sum = 0
+            for loc in locations:
+                
+        else: # calculated with scipy
+
 
     def log_prob(self, value):
         """
+        UNTESTED
+        
         make sure works with batches and samples
         value[...,i] will be [N,sumR,summodz] for i=0,1,2, but im not sure if broadcasting will match 
         batch_shapped logA etc to batch indices of value
         """
         if self._validate_args:
             self._validate_sample(value)
-        #define integral, sum over fields of integral over distance of rate function
+        # can I check for int here? all values in value need to be same type
+        integral = self.EffectiveVolume() #play around with defining _Effective volume as a property, or a method (ie calculated once every time instance made, or calculated every time it is used) - may effect speed
         return value[...,0]*(self.logA+2*torch.log(self.a_R)+torch.log(self.a_z)) - value[...,1]*self.a_R - value[...,2]*self.a_z - integral
         #IMPORTANT: this is only log_p up to constant not dependent on latents- check if this is ok - full log_p requires sumlogD and sumlogEffSelFucnct(D), which will be slower
+
 
     def sample(self, sample_shape=torch.Size()):
         """
@@ -75,7 +123,7 @@ def model(FeHBinEdges, sums):
     FeHBinEdges mark edges of metallicity bins being used, in form of 2*nbins tensor with [lowerEdge, upperEdge] for each bin
     sums is 3*nbins tensor with [N,sumR,summodz] for each bin
     """
-    with pyro.plate('bins', len(FeHBinEdges)-1): # needs new bin definition
+    with pyro.plate('bins', len(FeHBinEdges)-1): # needs new bin definition: do something like with plate as 
         logA = pyro.sample('logA', dist.Normal(...))
         a_R = pyro.sample('a_R', dist.Normal(...))
         a_z = pyro.sample('a_z', dist.Normal(...))
@@ -83,15 +131,71 @@ def model(FeHBinEdges, sums):
 
 # def guide or autoguide
 
-# main
+def makeEffSelFunct(FeHBinEdges):
+    """if EffSelFunct tensor exists for bin, loads it. If not, it calculates it"""
 
-#optimiser = Adam() #look at parameters
-#svi = SVI(model, guide, optimiser, loss=Trace_ELBO())
 
-#losses = []
-#for step in range(1000):
-#    loss = svi.step(FeHBinEdges, sums)
-#    losses.append(loss)
-#    if step%100==0:
-#        print(f'Loss = {loss}')
-#extract data
+
+
+    
+
+def makeCoords(apo, muGridParams):
+    """makes mu, D, R, modz tensors, for ease of use
+    units are kpc, and R and modz is for central angle of field"""
+    locations = apo.list_fields(cohort='all')
+    # locations is list of indices of fields with at least completed cohort of any type, therefore some stars in statistical sample
+    # default value of cohort is "short", which only includes fields with completed short cohort, which tbh probably will always be first cohort to be completed
+    Nfields = len(locations)
+
+    mu = torch.linspace(*mugridParams)
+    D = 10**(-2+0.2*mu) #kpc
+    gLon = np.zeros((Nfields, 1))
+    gLat = np.zeros((Nfields, 1))
+    for i_loc, loc in enumerate(locations):
+        gLon[i_loc,1], gLat[i_loc,1] = apo.glonGlat(loc)
+    gLon, gLat = np.split(np.array([list(apo.glonGlat(loc)) for loc in locations]),2,axis=1) #makes gLon and gLat as (Nfield,1) arrays
+    gCoords = coord.SkyCoord(l=gLon*u.deg, b=gLat*u.deg, distance=D*u.kpc)
+    # check this has right layout
+    gCentricCoords = gCoords.transform_to(coord.Galactocentric)
+    # check this looks right
+    R = torch.tensor(np.sqrt(gCentricCoords.x**2, gCentricCoords.y**2))
+    modz = torch.tensor(np.abs(gCentricCoords.x))
+    # check these are right values and shape - write tests!
+    return mu, D, R, modz
+
+### main ###
+
+if __name__=="__main__":
+
+    if os.path.exists('../sav/apodr16_csf.dat'):
+        with open('../sav/apodr16_csf.dat', 'rb') as f:
+            apo = pickle.load(f)
+    else:
+        apo = apsel.apogeeCombinedSelect()
+        with open('../sav/apodr16_csf.dat', 'wb') as f:
+            pickle.dump(apo, f)
+
+    muMin = 0.0
+    muMax = 16.5 # CHECK THIS against allStar
+    muDiff = 0.1
+    muGridParams = (muMin, muMax, int((muMax-muMin)//muDiff)) # (start,stop,size)
+    effSelFunct = makeEffSelFunct(apo, FeHBinEdges, muGridParams)
+    mu, D, R, modz = makeCoords(apo, muGridParams)
+    
+    
+    
+    
+    
+    
+    
+    
+    #optimiser = Adam() #look at parameters
+    #svi = SVI(model, guide, optimiser, loss=Trace_ELBO())
+    
+    #losses = []
+    #for step in range(1000):
+    #    loss = svi.step(FeHBinEdges, sums)
+    #    losses.append(loss)
+    #    if step%100==0:
+    #        print(f'Loss = {loss}')
+    #extract data

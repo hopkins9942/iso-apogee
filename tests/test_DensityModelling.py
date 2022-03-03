@@ -84,18 +84,6 @@ threeBin_typeFail = (
     [0.4,0.5],
     )
 
-#@pytest.mark.parametrize("inputs", [
-#    oneBin,
-#    threeBin_sameParam,
-#    threeBin_oneDiffParam,
-#    threeBin_threeDiffParam,
-#    oneBin_threeDiffParam,
-#    ],
-#    ids=["oneBin","threeBin_sameParam","threeBin_oneDiffParam","threeBin_threeDiffParam","oneBin_threeDiffParam"
-#])
-#def test_distro_binEdges(inputs):
-#    assert torch.equal(inputs[0], PPP(*inputs).FeHBinEdges)
-
 
 @pytest.mark.parametrize("inputs,expected_attributes",
     [
@@ -138,75 +126,8 @@ def test_distro_broadcasting(inputs, expected_attributes):
     ids=["oneBin","threeBin_sameParam","threeBin_oneDiffParam","threeBin_threeDiffParam","oneBin_threeDiffParam","oneBin_batched","threeBin_batchedParam","threeBin_batchedBin"]
 )
 def test_distro_batch_shapes(inputs, expected_shape):
-    """Not testing event_shape as it should be set to 3, and not testing
-    sample_shape as sample method not defined"""
     distro = PPP(*inputs)
-    assert distro.batch_shape == expected_shape
+    assert (distro.batch_shape == expected_shape) and (distro.event_shape == torch.Size([3]))
 
-@pytest.mark.parametrize("inputs,sums,expected_log_prob",
-    [
-    (oneBin, torch.tensor(), ),
-    (threeBin_sameParam, torch.Size([3])),
-    (threeBin_oneDiffParam, torch.Size([3])),
-    (threeBin_threeDiffParam, torch.Size([3])),
-    (oneBin_threeDiffParam, torch.Size([3])),
-    (oneBin_batched, torch.Size([4,3])),
-    (threeBin_batchedParam, torch.Size([4,3])),
-    (threeBin_batchedBin, torch.Size([2,3]))
-    ],
-    ids=["oneBin","threeBin_sameParam","threeBin_oneDiffParam","threeBin_threeDiffParam","oneBin_threeDiffParam","oneBin_batched","threeBin_batchedParam","threeBin_batchedBin"]
-)
-def test_distro_log_prob()
-
-#@pytest.mark.parametrize("bins,logA,a_R,a_z", [
-#    (
-#    torch.tensor([0.0,0.5]), 0, 1, 1
-#    ), # one bin
-#    (
-#    torch.tensor([[-1.0,-0.5],[-0.5,0.0],[0.0,0.5]]), 0, 1, 1
-#    ), # three bins, same parameters
-#    (
-#    torch.tensor([[-1.0,-0.5],[-0.5,0.0],[0.0,0.5]]),
-#    torch.tensor([-0.5,0.5,0]),
-#    2,
-#    0.2
-#    ), # three bins, one different parameter
-#    (
-#    torch.tensor([[-1.0,-0.5],[-0.5,0.0],[0.0,0.5]]),
-#    torch.tensor([-0.5,0.5,0]),
-#    torch.tensor([0.8,1,1.2]),
-#    torch.tensor([0.1,0.2,0.3])
-#    ), # three bins, all different parameters
-#]) # possible additions - one bin, multiple parameters?
-#class TestDistribution:
-#    #distro = PPP(bins,logA,a_R,a_z) # should/can this be a fixture?
-#
-#    def test_bins(self, bins, logA, a_R, a_z):
-#        assert torch.equal(bins, PPP(bins, logA, a_R, a_z).FeHBinEdges)
-#
-#
-#    @pytest.fixtures
-#    def 1bin(self):
-#        return PPP(torch.tensor([0.0,0.5]), 0, 1, 1)
-#
-#    @pytest.fixtures
-#    def 3bin_alldiffparams(self):
-#        return PPP(torch.tensor([[-1.0,-0.5],[-0.5,0.0],[0.0,0.5]]),
-#                   torch.tensor([-0.5,0.5,0]),
-#                   torch.tensor([0.8,1,1.2]),
-#                   torch.tensor([0.1,0.2,0.3]))
-#
-#    @pytest.fixtures
-#    def 3bin_onediffparams(self):
-#        return PPP(torch.tensor([[-1.0,-0.5],[-0.5,0.0],[0.0,0.5]]),
-#                   torch.tensor([-0.5,0.5,0]),
-#                   2,
-#                   0.2)
-#
-#    @pytest.fixtures
-#    def 3bin_sameparams(self):
-#        return PPP(torch.tensor([[-1.0,-0.5],[-0.5,0.0],[0.0,0.5]]),
-#                   0,
-#                   1,
-#                   1)
-
+def test_distro_EffectiveVolume():
+    pass

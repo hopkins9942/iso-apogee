@@ -9,7 +9,7 @@ from galpy.util import bovy_plot, save_pickles
 allstar = apread.allStar(main=True,rmdups=True)
 print('total stars in DR16 main sample: '+str(len(allstar)))
 
-savename = os.path.join(os.environ['DATA'], 'APOGEE', 'apocsf-dr16.pkl')
+savename = os.path.join(os.environ['HOME'], 'APOGEE', 'iso-apogee', 'sav', 'apodr16_csf.dat')
 if os.path.exists(savename):
     with open(savename,'rb') as savefile:
         apo= pickle.load(savefile)
