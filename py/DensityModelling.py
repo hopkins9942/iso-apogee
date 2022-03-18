@@ -57,10 +57,85 @@ class FeHBinnedDoubleExpPPP(TorchDistribution):
         self._FeHBinEdges = torch.stack((lowerEdges,upperEdges), lowerEdges.dim())
         super().__init__(batch_shape=self.logA.shape, event_shape=torch.Size([3]), validate_args=validate_args)
 
+        if os.path.exists('../sav/apodr16_csf.dat'):
+            with open('../sav/apodr16_csf.dat', 'rb') as f:
+                self._apo = pickle.load(f)
+        else:
+            self._apo = apsel.apogeeCombinedSelect()
+            with open('../sav/apodr16_csf.dat', 'wb') as f:
+                pickle.dump(self.apo, f)
+
+        muMin = 0.0
+        muMax = 16.5 # CHECK THIS against allStar
+        muDiff = 0.1
+        muGridParams = (muMin, muMax, int((muMax-muMin)//muDiff)) # (start,stop,size)
+        self._mu, self._D, self._R, self._modz = self.makeCoords(muGridParams)
+        self._effSelFunct = self.makeEffSelFunct()
+
+
     @property
     def FeHBinEdges(self):
         """returns bin edges. Writing as property reduces risk of them accidentlly being changed after object is created"""
         return self._FeHBinEdges
+
+    @property
+    def apo(self):
+        """apo"""
+        return self._apo
+
+    @property
+    def mu(self):
+        """mu grid"""
+        return self._mu
+
+    @property
+    def D(self):
+        """D grid"""
+        return self._D
+
+    @property
+    def R(self):
+        """R grid"""
+        return self._R
+
+    @property
+    def modz(self):
+        """modz grid"""
+        return self._modz
+
+    @property
+    def effSelFunct(self):
+        """effSelFunct grid"""
+        return self._effSelFunct
+
+
+    def makeCoords(self, muGridParams):
+        """makes mu, D, R, modz tensors, for ease of use
+        units are kpc, and R and modz is for central angle of field"""
+        locations = self.apo.list_fields(cohort='all')
+        # locations is list of indices of fields with at least completed cohort of any type, therefore some stars in statistical sample
+        # default value of cohort is "short", which only includes fields with completed short cohort, which tbh probably will always be first cohort to be completed
+        Nfields = len(locations)
+
+        mu = torch.linspace(*muGridParams)
+        D = 10**(-2+0.2*mu) #kpc
+        gLon = np.zeros((Nfields, 1))
+        gLat = np.zeros((Nfields, 1))
+        for i_loc, loc in enumerate(locations):
+            gLon[i_loc,1], gLat[i_loc,1] = self.apo.glonGlat(loc)
+        gLon, gLat = np.split(np.array([list(self.apo.glonGlat(loc)) for loc in locations]),2,axis=1) #makes gLon and gLat as (Nfield,1) arrays
+        gCoords = coord.SkyCoord(l=gLon*u.deg, b=gLat*u.deg, distance=D*u.kpc)
+        # check this has right layout
+        gCentricCoords = gCoords.transform_to(coord.Galactocentric)
+        # check this looks right
+        R = torch.tensor(np.sqrt(gCentricCoords.x**2, gCentricCoords.y**2))
+        modz = torch.tensor(np.abs(gCentricCoords.x))
+        # check these are right values and shape - write tests!
+        return mu, D, R, modz
+
+    def makeEffSelFunct(self):
+        """if EffSelFunct tensor exists for bin, loads it. If not, it calculates it"""
+        
 
     def EffectiveVolume(self, optionBool):
         """
@@ -131,57 +206,12 @@ def model(FeHBinEdges, sums):
 
 # def guide or autoguide
 
-def makeEffSelFunct(FeHBinEdges):
-    """if EffSelFunct tensor exists for bin, loads it. If not, it calculates it"""
 
 
-
-
-    
-
-def makeCoords(apo, muGridParams):
-    """makes mu, D, R, modz tensors, for ease of use
-    units are kpc, and R and modz is for central angle of field"""
-    locations = apo.list_fields(cohort='all')
-    # locations is list of indices of fields with at least completed cohort of any type, therefore some stars in statistical sample
-    # default value of cohort is "short", which only includes fields with completed short cohort, which tbh probably will always be first cohort to be completed
-    Nfields = len(locations)
-
-    mu = torch.linspace(*mugridParams)
-    D = 10**(-2+0.2*mu) #kpc
-    gLon = np.zeros((Nfields, 1))
-    gLat = np.zeros((Nfields, 1))
-    for i_loc, loc in enumerate(locations):
-        gLon[i_loc,1], gLat[i_loc,1] = apo.glonGlat(loc)
-    gLon, gLat = np.split(np.array([list(apo.glonGlat(loc)) for loc in locations]),2,axis=1) #makes gLon and gLat as (Nfield,1) arrays
-    gCoords = coord.SkyCoord(l=gLon*u.deg, b=gLat*u.deg, distance=D*u.kpc)
-    # check this has right layout
-    gCentricCoords = gCoords.transform_to(coord.Galactocentric)
-    # check this looks right
-    R = torch.tensor(np.sqrt(gCentricCoords.x**2, gCentricCoords.y**2))
-    modz = torch.tensor(np.abs(gCentricCoords.x))
-    # check these are right values and shape - write tests!
-    return mu, D, R, modz
 
 ### main ###
 
-if __name__=="__main__":
 
-    if os.path.exists('../sav/apodr16_csf.dat'):
-        with open('../sav/apodr16_csf.dat', 'rb') as f:
-            apo = pickle.load(f)
-    else:
-        apo = apsel.apogeeCombinedSelect()
-        with open('../sav/apodr16_csf.dat', 'wb') as f:
-            pickle.dump(apo, f)
-
-    muMin = 0.0
-    muMax = 16.5 # CHECK THIS against allStar
-    muDiff = 0.1
-    muGridParams = (muMin, muMax, int((muMax-muMin)//muDiff)) # (start,stop,size)
-    effSelFunct = makeEffSelFunct(apo, FeHBinEdges, muGridParams)
-    mu, D, R, modz = makeCoords(apo, muGridParams)
-    
     
     
     
