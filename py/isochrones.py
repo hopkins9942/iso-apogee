@@ -10,6 +10,8 @@ from isodist import imf as mimf
 import tqdm
 from astropy.io import ascii
 
+_ROOTDIR = "/home/sjoh4701/APOGEE/iso-apogee/"
+
 def generate_isogrid():
     """
     generate a recarray with all the entries from PARSEC isochrones in isodist
@@ -107,7 +109,7 @@ def generate_isogrid():
     return rec
 
 def newgrid():
-    table = ascii.read('../sav/PARSEC_lognormChab2001_linearagefeh.dat', guess=True)
+    table = ascii.read(_ROOTDIR+'sav/PARSEC_lognormChab2001_linearagefeh.dat', guess=True)
     return table
 
 

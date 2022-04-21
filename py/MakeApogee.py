@@ -6,8 +6,8 @@ import apogee.select as apsel
 from galpy.util import bovy_plot, save_pickles
 
 
-allstar = apread.allStar(main=True,rmdups=True)
-print('total stars in DR16 main sample: '+str(len(allstar)))
+allstar = apread.allStar(main=True,rmdups=True,use_astroNN=True)
+print('total stars in main sample: '+str(len(allstar)))
 
 savename = os.path.join(os.environ['HOME'], 'APOGEE', 'iso-apogee', 'sav', 'apodr16_csf.dat')
 if os.path.exists(savename):

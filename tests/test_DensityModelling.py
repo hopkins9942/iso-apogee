@@ -3,6 +3,7 @@ import torch
 
 from DensityModelling import FeHBinnedDoubleExpPPP as PPP
 
+#TODO: add in tests for data files - checking length of file should be enough
 
 class TestTests:
     def test_pass(self):

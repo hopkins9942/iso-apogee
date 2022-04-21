@@ -1,4 +1,5 @@
 from numbers import Number
+import pickle
 import os
 
 assert os.getenv('RESULTS_VERS')=='l33' # apogee should automatically use dr16 as long as this is correct
@@ -6,18 +7,24 @@ assert os.getenv('RESULTS_VERS')=='l33' # apogee should automatically use dr16 a
 import apogee.select as apsel
 import apogee.tools.read as apread
 import isochrones as iso
+import mwdust
 
+import numpy as np
 import torch
 import pyro.distributions as dist
 import pyro.distributions.constraints as constraints
 from pyro.distributions.util import broadcast_all
-
 from pyro.distributions.torch_distribution import TorchDistribution
 from pyro.infer import SVI, Trace_ELBO
 from pyro.optim import Adam
 
 import astropy.coordinates as coord
 import astropy.units as u
+
+import corner
+
+_DEGTORAD = torch.pi/180
+_ROOTDIR = "/home/sjoh4701/APOGEE/iso-apogee/"
 
 
 class FeHBinnedDoubleExpPPP(TorchDistribution):
@@ -57,19 +64,19 @@ class FeHBinnedDoubleExpPPP(TorchDistribution):
         self._FeHBinEdges = torch.stack((lowerEdges,upperEdges), lowerEdges.dim())
         super().__init__(batch_shape=self.logA.shape, event_shape=torch.Size([3]), validate_args=validate_args)
 
-        if os.path.exists('../sav/apodr16_csf.dat'):
-            with open('../sav/apodr16_csf.dat', 'rb') as f:
+        if os.path.exists(_ROOTDIR+'sav/apodr16_csf.dat'):
+            with open(_ROOTDIR+'sav/apodr16_csf.dat', 'rb') as f:
                 self._apo = pickle.load(f)
         else:
             self._apo = apsel.apogeeCombinedSelect()
-            with open('../sav/apodr16_csf.dat', 'wb') as f:
+            with open(_ROOTDIR+'sav/apodr16_csf.dat', 'wb') as f:
                 pickle.dump(self.apo, f)
 
         muMin = 0.0
-        muMax = 16.5 # CHECK THIS against allStar
+        muMax = 15 # CHECK THIS against allStar - better to exclude fringe datapoints than have all data in nearest three bins - plot mu distribution
         muDiff = 0.1
         muGridParams = (muMin, muMax, int((muMax-muMin)//muDiff)) # (start,stop,size)
-        self._mu, self._D, self._R, self._modz = self.makeCoords(muGridParams)
+        self._mu, self._D, self._R, self._modz, self._solidAngles = self.makeCoords(muGridParams)
         self._effSelFunct = self.makeEffSelFunct()
 
 
@@ -104,6 +111,11 @@ class FeHBinnedDoubleExpPPP(TorchDistribution):
         return self._modz
 
     @property
+    def solidAngles(self):
+        """(Nfields,1) grid of solid angles of fields in rad**2"""
+        return self._solidAngles
+
+    @property
     def effSelFunct(self):
         """effSelFunct grid"""
         return self._effSelFunct
@@ -119,60 +131,76 @@ class FeHBinnedDoubleExpPPP(TorchDistribution):
 
         mu = torch.linspace(*muGridParams)
         D = 10**(-2+0.2*mu) #kpc
-        gLon = np.zeros((Nfields, 1))
-        gLat = np.zeros((Nfields, 1))
-        for i_loc, loc in enumerate(locations):
-            gLon[i_loc,1], gLat[i_loc,1] = self.apo.glonGlat(loc)
-        gLon, gLat = np.split(np.array([list(self.apo.glonGlat(loc)) for loc in locations]),2,axis=1) #makes gLon and gLat as (Nfield,1) arrays
-        gCoords = coord.SkyCoord(l=gLon*u.deg, b=gLat*u.deg, distance=D*u.kpc)
+        gLon = torch.zeros((Nfields, 1))
+        gLat = torch.zeros((Nfields, 1))
+        solidAngles = torch.zeros((Nfields, 1))
+        for loc_index, loc in enumerate(locations):
+            #gLon[loc_index,1], gLat[loc_index,1] = self.apo.glonGlat(loc)
+            solidAngles[loc_index,0] = self.apo.area(loc)*_DEGTORAD**2
+        gLon, gLat = np.split(np.array([self.apo.glonGlat(loc) for loc in locations]),2,1)
+        # makes gLon and gLat as (Nfield,1) arrays
+        gCoords = coord.SkyCoord(l=gLon*u.deg, b=gLat*u.deg, distance=D*u.kpc, frame='galactic')
         # check this has right layout
         gCentricCoords = gCoords.transform_to(coord.Galactocentric)
         # check this looks right
-        R = torch.tensor(np.sqrt(gCentricCoords.x**2, gCentricCoords.y**2))
-        modz = torch.tensor(np.abs(gCentricCoords.x))
+        R = torch.tensor(np.sqrt(gCentricCoords.x**2 + gCentricCoords.y**2))
+        modz = torch.tensor(np.abs(gCentricCoords.z))
         # check these are right values and shape - write tests!
-        return mu, D, R, modz
+        return mu, D, R, modz, solidAngles
 
     def makeEffSelFunct(self):
-        """if EffSelFunct tensor exists for bin, loads it. If not, it calculates it"""
-        
-
-    def EffectiveVolume(self, optionBool):
+        """UNTESTED - ASSUMES ONE BIN ONLY
+        if EffSelFunct tensor exists for bin, loads it. If not, it calculates it
+        in future may Return S[bin_index, loc_index, mu_index]
+        for now assumes one bin
+        Currently uses samples - chat to Ted and change to using whole isochrone (currently can't see any code on github that can take 'weights' argument)
         """
-        UNTESTED - ASSUMES ONE BIN ONLY
-        parallelisabel?
-        Ted's isochrones are used with isogrid, an astropy.Table, masks made by isogrid>value which is probably np.arraylike
-        """
-        if os.path.exists('../sav/apodr16_csf.dat'):
-            with open('../sav/apodr16_csf.dat', 'rb') as f:
-                apo = pickle.load(f)
+        filePath = (_ROOTDIR+"sav/EffSelGrids/" +
+                    '_'.join([str(self.FeHBinEdges[0]), str(self.FeHBinEdges[1]), str(self.mu[0]),
+                              str(self.mu[-1]), str(len(self.mu))])
+                    + ".dat")
+        if os.path.exists(filePath):
+            with open(filePath, 'rb') as f:
+                effSelFunct = pickle.load(f)
         else:
-            raise ValueError("precalculate combined selection function")
-        locations = apo.list_fields(cohort='all')
-        # locations is list of fields with at least completed cohort of any type, therefore some stars in statistical sample
-        # default value of cohort is "short", which only includes fields with completed short cohort, which tbh probably will always be first cohort to be completed
-        print("total number of fields: " + len(locations))
+            locations = self.apo.list_fields(cohort='all')
+            effSelFunct = torch.zeros(len(locations),len(self.mu))
 
-        Neffsamp = 600 #tune this, or change to sampling entire isochrone
-        isogrid = iso.newgrid()
-        mask = ((isogrid['logg'] > 1) & (isogrid['logg'] < 3) & (isogrid['MH'] > self.FeHBinEdges[0])
-                                                              & (isogrid['MH'] <= self.FeHBinEdges[1]))
-        effsel_samples = iso.sampleiso(Neffsamp, isogrid[mask], newgrid=True) #why new grid?
+            Neffsamp = 600 #tune this, or change to sampling entire isochrone
+            isogrid = iso.newgrid()
+            mask = ((isogrid['logg'] > 1) & (isogrid['logg'] < 3)
+                    & (isogrid['MH'] >  self.FeHBinEdges[0].item())
+                    & (isogrid['MH'] <= self.FeHBinEdges[1].item()))
+            effsel_samples = iso.sampleiso(Neffsamp, isogrid[mask], newgrid=True) #why new grid?
 
-        apof = apsel.apogeeEffectiveSelect(apo, dmap3d=dmap, MH=effsel_samples['Hmag'],
-                                           JK0=effsel_samples['Jmag']-effsel_samples['Ksmag'])
-        if optionBool: #calculated myself
-            mu_grid = 
-            sum = 0
-            for loc in locations:
-                
-        else: # calculated with scipy
+            dmap = mwdust.Combined19(filter='2MASS H')
+            # see Ted's code for how to include full grid
+            #apof = apsel.apogeeEffectiveSelect(self.apo, dmap3d=dmap, MH=effsel_samples['Hmag'], JK0=effsel_samples['Jmag']-effsel_samples['Ksmag'])
+            #this giving me an error caused by a sample apparently with JK0 less than minimum colour bin limit
+            apof = apsel.apogeeEffectiveSelect(self.apo, dmap3d=dmap, MH=, JK0=, weights=)
 
+            for loc_index, loc in enumerate(locations):
+                effSelFunct[loc_index,:] = apof(loc, np.array(self.D))
+
+            with open(filePath) as f:
+                pickle.dump(effSelFunct, f)
+
+        return effSelFunct
+
+    @property
+    def effectiveVolume(self):
+        """
+        UNTESTED - UNFINISHED - ASSUMES ONE BIN
+        Just multiple density, jacobian and effsel grids, then sum
+        Assumes grid uniform in mu and one bin
+        """
+        return ((self.a_R**2)*self.a_z*(self.FeHBinEdges[1]-self.FeHBinEdges[0])*torch.log(10)
+                *(self.mu[1]-self.mu[0])*self.solidAngles*(self.D**3)*self.effSelFunct
+                *torch.exp(self.logA-self.a_R*self.R-self.a_z*self.modz)/(20*torch.pi)).sum()
 
     def log_prob(self, value):
         """
         UNTESTED
-        
         make sure works with batches and samples
         value[...,i] will be [N,sumR,summodz] for i=0,1,2, but im not sure if broadcasting will match 
         batch_shapped logA etc to batch indices of value
@@ -180,8 +208,8 @@ class FeHBinnedDoubleExpPPP(TorchDistribution):
         if self._validate_args:
             self._validate_sample(value)
         # can I check for int here? all values in value need to be same type
-        integral = self.EffectiveVolume() #play around with defining _Effective volume as a property, or a method (ie calculated once every time instance made, or calculated every time it is used) - may effect speed
-        return value[...,0]*(self.logA+2*torch.log(self.a_R)+torch.log(self.a_z)) - value[...,1]*self.a_R - value[...,2]*self.a_z - integral
+        return (value[...,0]*(self.logA+2*torch.log(self.a_R)+torch.log(self.a_z))
+                - value[...,1]*self.a_R - value[...,2]*self.a_z - self.effectiveVolume)
         #IMPORTANT: this is only log_p up to constant not dependent on latents- check if this is ok - full log_p requires sumlogD and sumlogEffSelFucnct(D), which will be slower
 
 
@@ -193,39 +221,60 @@ class FeHBinnedDoubleExpPPP(TorchDistribution):
         pass
 
 
-def model(FeHBinEdges, sums):
+def model(FeHBinEdges, sums=None):
     """
     FeHBinEdges mark edges of metallicity bins being used, in form of 2*nbins tensor with [lowerEdge, upperEdge] for each bin
     sums is 3*nbins tensor with [N,sumR,summodz] for each bin
+
+    FOR NOW ASSUMES ONE BIN
     """
-    with pyro.plate('bins', len(FeHBinEdges)-1): # needs new bin definition: do something like with plate as 
-        logA = pyro.sample('logA', dist.Normal(...))
-        a_R = pyro.sample('a_R', dist.Normal(...))
-        a_z = pyro.sample('a_z', dist.Normal(...))
-        return pyro.sample('obs', MyDist(FeHBinEdges, logA, a_R, a_z, validate_args=True), obs=sums)
+    #with pyro.plate('bins', len(FeHBinEdges-1): # needs new bin definition: do something like with plate as 
+    #    logA = pyro.sample('logA', dist.Normal(...))
+    #    a_R = pyro.sample('a_R', dist.Normal(...))
+    #    a_z = pyro.sample('a_z', dist.Normal(...))
+    #    return pyro.sample('obs', MyDist(FeHBinEdges, logA, a_R, a_z, validate_args=True), obs=sums)
+
+    logA = pyro.sample('logA', dist.Normal(20, 10)) # tune these
+    a_R = pyro.sample('a_R', dist.Normal(5, 3))
+    a_z = pyro.sample('a_z', dist.Normal(1, 0.5))
+    return pyro.sample('obs', FeHBinnedDoubleExpPPP(FeHBinEdges, logA, a_R, a_z), obs=sums)
 
 # def guide or autoguide
 
-
+mvn_guide = pyro.infer.autoguide.AutoMultivariateNormal(model)
 
 
 ### main ###
 
+if __name__ == "__main__":
+    FeHBinEdges = torch.tensor([-0.5,0])
+    distro = FeHBinnedDoubleExpPPP(FeHBinEdges, 0, 1, 1)
+    
+    effVol = distro.effectiveVolume
+    log_p = distro.log_prob(1,1,1)
+    
+    print(effVol)
+    print(log_p)
+    print(distro.R.size())
+    print(distro.z.size())
+    print(distro.effSelFunct.size())
+    
+    optimiser = Adam({"lr": 0.02}) # tune, and look at other parameters
+    svi = SVI(model, mvn_guide, optimiser, loss=Trace_ELBO())
+    
 
+    mock_sums = (10**10)*torch.tensor([1,5,0.3])
+
+    losses = []
+    for step in range(1000):
+        loss = svi.step(FeHBinEdges, mock_sums)
+        losses.append(loss)
+        if step%100==0:
+            print(f'Loss = {loss}')
     
-    
-    
-    
-    
-    
-    
-    #optimiser = Adam() #look at parameters
-    #svi = SVI(model, guide, optimiser, loss=Trace_ELBO())
-    
-    #losses = []
-    #for step in range(1000):
-    #    loss = svi.step(FeHBinEdges, sums)
-    #    losses.append(loss)
-    #    if step%100==0:
-    #        print(f'Loss = {loss}')
-    #extract data
+with pyro.plate("samples",500,dim=-1):
+    samples = mvn_guide(FeHBinEdges) #samples latent space, accessed with samples["logA"] etc
+
+fig = corner.corner(samples)
+
+fig.savefig("/data/phys-galactic-isos/sjoh4701/APOGEE/mock_latents.png")
