@@ -1,6 +1,7 @@
 from numbers import Number
 import pickle
 import os
+import multiprocessing
 
 assert os.getenv('RESULTS_VERS')=='l33' # apogee should automatically use dr16 as long as this is correct
 
@@ -148,7 +149,7 @@ class FeHBinnedDoubleExpPPP(TorchDistribution):
         # check these are right values and shape - write tests!
         return mu, D, R, modz, solidAngles
 
-    def makeEffSelFunct(self):
+    def makeEffSelFunct(self, rewrite=False):
         """UNTESTED - ASSUMES ONE BIN ONLY
         if EffSelFunct tensor exists for bin, loads it. If not, it calculates it
         in future may Return S[bin_index, loc_index, mu_index]
@@ -159,28 +160,43 @@ class FeHBinnedDoubleExpPPP(TorchDistribution):
                     '_'.join([str(self.FeHBinEdges[0]), str(self.FeHBinEdges[1]), str(self.mu[0]),
                               str(self.mu[-1]), str(len(self.mu))])
                     + ".dat")
-        if os.path.exists(filePath):
+        if os.path.exists(filePath) and (not rewrite):
             with open(filePath, 'rb') as f:
                 effSelFunct = pickle.load(f)
         else:
             locations = self.apo.list_fields(cohort='all')
             effSelFunct = torch.zeros(len(locations),len(self.mu))
 
-            Neffsamp = 600 #tune this, or change to sampling entire isochrone
+            #Neffsamp = 600 #tune this, or change to sampling entire isochrone
             isogrid = iso.newgrid()
+            # newgrid ensures means it uses new isochrones. I should either rewrite isochrones.py, maybe with MIST isochrones, or at least fully understand it
             mask = ((isogrid['logg'] > 1) & (isogrid['logg'] < 3)
                     & (isogrid['MH'] >  self.FeHBinEdges[0].item())
                     & (isogrid['MH'] <= self.FeHBinEdges[1].item()))
-            effsel_samples = iso.sampleiso(Neffsamp, isogrid[mask], newgrid=True) #why new grid?
+            #effsel_samples = iso.sampleiso(Neffsamp, isogrid[mask], newgrid=True)
+            # newgrid ensures means it uses new isochrones. I should either rewrite isochrones.py, maybe with MIST isochrones, or at least fully understand it
 
             dmap = mwdust.Combined19(filter='2MASS H')
             # see Ted's code for how to include full grid
             #apof = apsel.apogeeEffectiveSelect(self.apo, dmap3d=dmap, MH=effsel_samples['Hmag'], JK0=effsel_samples['Jmag']-effsel_samples['Ksmag'])
             #this giving me an error caused by a sample apparently with JK0 less than minimum colour bin limit
-            apof = apsel.apogeeEffectiveSelect(self.apo, dmap3d=dmap, MH=, JK0=, weights=)
+            apof = apsel.apogeeEffectiveSelect(self.apo, dmap3d=dmap,
+                                               MH=isogrid[mask]['Hmag'],
+                                               JK0=isogrid[mask]['Jmag']-isogrid[mask]['Ksmag'],
+                                               weights=isogrid[mask]['weights'])
 
-            for loc_index, loc in enumerate(locations):
-                effSelFunct[loc_index,:] = apof(loc, np.array(self.D))
+            #for loc_index, loc in enumerate(locations):
+            #    effSelFunct[loc_index,:] = apof(loc, np.array(self.D))
+
+            def funct(i):
+                return apof(locations[i], np.array(self.D)
+            with multiprocessing.Pool() as p:
+                effSelFunct = torch.tensor(np.array(list(tqdm.tqdm(p.map(funct, range(len(locations))), total=len(locations)))))
+            # this arcane series of tensors, arrays, lists and maps is because 
+            # a list is because tensors are best constructed out of a single
+            # array rather than a list of arrays, and neither np.array nor
+            # torch.tensor know how to deal directly with a map object
+
 
             with open(filePath) as f:
                 pickle.dump(effSelFunct, f)
@@ -272,9 +288,9 @@ if __name__ == "__main__":
         if step%100==0:
             print(f'Loss = {loss}')
     
-with pyro.plate("samples",500,dim=-1):
-    samples = mvn_guide(FeHBinEdges) #samples latent space, accessed with samples["logA"] etc
+    with pyro.plate("samples",500,dim=-1):
+        samples = mvn_guide(FeHBinEdges) #samples latent space, accessed with samples["logA"] etc
 
-fig = corner.corner(samples)
+    fig = corner.corner(samples)
 
-fig.savefig("/data/phys-galactic-isos/sjoh4701/APOGEE/mock_latents.png")
+    fig.savefig("/data/phys-galactic-isos/sjoh4701/APOGEE/mock_latents.png")
