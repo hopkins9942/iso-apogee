@@ -211,29 +211,24 @@ class FeHBinnedDoubleExpPPP(TorchDistribution):
             # torch.tensor know how to deal directly with a map object
 
 
-#            effSelFunct = effSelFunct_calculate(self)
+            effSelFunct = effSelFunct_calculate(self)
 
-#            with open(filePath, 'wb') as f:
- #               pickle.dump(effSelFunct, f)
+            with open(filePath, 'wb') as f:
+                pickle.dump(effSelFunct, f)
 
-  #      return effSelFunct
+        return effSelFunct
 
         #TESTING MP
-        def indexed_doubler(to_double, i):
-            return 2*to_double[i]
 
-        to_double = 3*np.arange(100)
-        map_i_d = partial(indexed_doubler, to_double)
-
-        def direct_doubler(i):
-           return 2*i
-
-        with multiprocessing.Pool(4) as p:
-            indexed = list(tqdm.tqdm(p.map(indexed_doubler, range(len(to_double))), total=len(to_double))
-        print(indexed)
-        with multiprocessing.Pools(4) as p:
-             direct = list(tqdm.tqdm(p.map(direct_doubler, to_double), total=len(to_double))
-        print(direct)
+#            to_double = 3*np.arange(100)
+#            map_i_d = partial(indexed_doubler, to_double)
+#
+#            with multiprocessing.Pool() as p:
+#                indexed = list(tqdm.tqdm(p.map(map_i_d, range(len(to_double))), total=len(to_double)))
+#            print(indexed)
+#            with multiprocessing.Pool() as p:
+#               direct = list(tqdm.tqdm(p.map(direct_doubler, to_double), total=len(to_double)))
+#           print(direct)
 
 
     @property
@@ -243,7 +238,7 @@ class FeHBinnedDoubleExpPPP(TorchDistribution):
         Just multiple density, jacobian and effsel grids, then sum
         Assumes grid uniform in mu and one bin
         """
-        return ((self.a_R**2)*self.a_z*(self.FeHBinEdges[1]-self.FeHBinEdges[0])*torch.log(10)
+        return ((self.a_R**2)*self.a_z*(self.FeHBinEdges[1]-self.FeHBinEdges[0])*torch.log(torch.tensor([10]))
                 *(self.mu[1]-self.mu[0])*self.solidAngles*(self.D**3)*self.effSelFunct
                 *torch.exp(self.logA-self.a_R*self.R-self.a_z*self.modz)/(20*torch.pi)).sum()
 
@@ -269,6 +264,12 @@ class FeHBinnedDoubleExpPPP(TorchDistribution):
         """
         pass
 
+def indexed_doubler(to_double, i):
+    return 2*to_double[i]
+
+
+def direct_doubler(i):
+    return 2*i
 
 
 def effSelFunct_helper(apof, D, locations, i):
@@ -308,7 +309,7 @@ def effSelFunct_calculate(distro):
     effSelFunct_mapper = partial(effSelFunct_helper, apof, distro.D, locations)
     with multiprocessing.Pool(2) as p:
         print("starting multiprocessing")
-        effSelFunct_temp = list(tqdm.tqdm(p.map(effSelFunct_mapper, range(len(locations))), total=len(locations)))
+        effSelFunct_temp = list(p.map(effSelFunct_mapper, range(len(locations))))
     effSelFunct = torch.tensor(np.array(effSelFunct_temp))
     #p = multiprocessing.Pool(2)
     #print("trying to mp")
