@@ -1,7 +1,7 @@
 from numbers import Number
 import pickle
 import os
-import multiprocessing
+from functools import partial
 
 assert os.getenv('RESULTS_VERS')=='l33' # apogee should automatically use dr16 as long as this is correct
 
@@ -9,10 +9,12 @@ import apogee.select as apsel
 import apogee.tools.read as apread
 import isochrones as iso
 import mwdust
+import tqdm
 
 import numpy as np
 import torch
-import pyro.distributions as dist
+import pyro
+import pyro.distributions as distributions
 import pyro.distributions.constraints as constraints
 from pyro.distributions.util import broadcast_all
 from pyro.distributions.torch_distribution import TorchDistribution
@@ -24,9 +26,13 @@ import astropy.units as u
 
 import corner
 
+import multiprocessing
+import schwimmbad
+
+
 _DEGTORAD = torch.pi/180
 _ROOTDIR = "/home/sjoh4701/APOGEE/iso-apogee/"
-
+_NCORES = 24 # needs to be set explicitly, otherwise multiprocessing tries to use 48 - I think
 
 class FeHBinnedDoubleExpPPP(TorchDistribution):
     """
@@ -165,6 +171,7 @@ class FeHBinnedDoubleExpPPP(TorchDistribution):
                 effSelFunct = pickle.load(f)
         else:
             locations = self.apo.list_fields(cohort='all')
+
             effSelFunct = torch.zeros(len(locations),len(self.mu))
 
             #Neffsamp = 600 #tune this, or change to sampling entire isochrone
@@ -188,17 +195,23 @@ class FeHBinnedDoubleExpPPP(TorchDistribution):
             #for loc_index, loc in enumerate(locations):
             #    effSelFunct[loc_index,:] = apof(loc, np.array(self.D))
 
-            def funct(i):
-                return apof(locations[i], np.array(self.D)
-            with multiprocessing.Pool() as p:
-                effSelFunct = torch.tensor(np.array(list(tqdm.tqdm(p.map(funct, range(len(locations))), total=len(locations)))))
+            effSelFunct_mapper = partial(effSelFunct_helper, apof, self.D, locations)
+#            with multiprocessing.Pool(2) as p:
+#                print("starting multiprocessing")
+#                effSelFunct = torch.tensor(np.array(list(tqdm.tqdm(p.map(effSelFunct_mapper, range(len(locations))), total=len(locations)))))
+
+            p = multiprocessing.Pool(2)
+            print("trying to mp")
+            effSelFunct = torch.tensor(np.array(list(tqdm.tqdm(p.map(effSelFunct_mapper, range(len(locations))), total=len(locations)))))
+            p.close()
+
             # this arcane series of tensors, arrays, lists and maps is because 
             # a list is because tensors are best constructed out of a single
             # array rather than a list of arrays, and neither np.array nor
             # torch.tensor know how to deal directly with a map object
 
 
-            with open(filePath) as f:
+            with open(filePath, 'wb') as f:
                 pickle.dump(effSelFunct, f)
 
         return effSelFunct
@@ -237,6 +250,15 @@ class FeHBinnedDoubleExpPPP(TorchDistribution):
         pass
 
 
+
+def effSelFunct_helper(apof, D, locations, i):
+    """
+    Needed as multiprocessed functions need to be defined at top level
+    """
+    print(i)
+    return apof(locations[i], D)
+
+
 def model(FeHBinEdges, sums=None):
     """
     FeHBinEdges mark edges of metallicity bins being used, in form of 2*nbins tensor with [lowerEdge, upperEdge] for each bin
@@ -250,9 +272,9 @@ def model(FeHBinEdges, sums=None):
     #    a_z = pyro.sample('a_z', dist.Normal(...))
     #    return pyro.sample('obs', MyDist(FeHBinEdges, logA, a_R, a_z, validate_args=True), obs=sums)
 
-    logA = pyro.sample('logA', dist.Normal(20, 10)) # tune these
-    a_R = pyro.sample('a_R', dist.Normal(5, 3))
-    a_z = pyro.sample('a_z', dist.Normal(1, 0.5))
+    logA = pyro.sample('logA', distributions.Normal(20, 10)) # tune these
+    a_R = pyro.sample('a_R', distributions.Normal(5, 3))
+    a_z = pyro.sample('a_z', distributions.Normal(1, 0.5))
     return pyro.sample('obs', FeHBinnedDoubleExpPPP(FeHBinEdges, logA, a_R, a_z), obs=sums)
 
 # def guide or autoguide
@@ -263,12 +285,19 @@ mvn_guide = pyro.infer.autoguide.AutoMultivariateNormal(model)
 ### main ###
 
 if __name__ == "__main__":
+    print(os.cpu_count())
+    with multiprocessing.Pool(24) as p:
+        print(p._processes)
+    with schwimmbad.MultiPool(24) as p:
+        print(p._processes)
+
+
     FeHBinEdges = torch.tensor([-0.5,0])
     distro = FeHBinnedDoubleExpPPP(FeHBinEdges, 0, 1, 1)
-    
+    ESF = distro.effSelFunct
     effVol = distro.effectiveVolume
     log_p = distro.log_prob(1,1,1)
-    
+    print(ESF)
     print(effVol)
     print(log_p)
     print(distro.R.size())
