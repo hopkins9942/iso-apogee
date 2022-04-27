@@ -1,7 +1,6 @@
 from numbers import Number
 import pickle
 import os
-from functools import partial
 
 assert os.getenv('RESULTS_VERS')=='l33' # apogee should automatically use dr16 as long as this is correct
 
@@ -26,8 +25,6 @@ import astropy.units as u
 
 import corner
 
-import multiprocessing
-import schwimmbad
 
 
 _DEGTORAD = torch.pi/180
@@ -46,6 +43,9 @@ class FeHBinnedDoubleExpPPP(TorchDistribution):
 
     since definition of log_p, a batch size of one is assumed in this code in the hope that
     plate sorts batching automatically
+
+    Currently only doing things which have to be tensors as tensors eg inputs and outputs to distro
+    Others are done as np arrays
     """
 
     arg_constraints = {
@@ -78,6 +78,7 @@ class FeHBinnedDoubleExpPPP(TorchDistribution):
             self._apo = apsel.apogeeCombinedSelect()
             with open(_ROOTDIR+'sav/apodr16_csf.dat', 'wb') as f:
                 pickle.dump(self.apo, f)
+        # maybe add delete line here if I have memory problems
 
         muMin = 0.0
         muMax = 15 # CHECK THIS against allStar - better to exclude fringe datapoints than have all data in nearest three bins - plot mu distribution
@@ -136,11 +137,11 @@ class FeHBinnedDoubleExpPPP(TorchDistribution):
         # default value of cohort is "short", which only includes fields with completed short cohort, which tbh probably will always be first cohort to be completed
         Nfields = len(locations)
 
-        mu = torch.linspace(*muGridParams)
+        mu = np.linspace(*muGridParams)
         D = 10**(-2+0.2*mu) #kpc
-        gLon = torch.zeros((Nfields, 1))
-        gLat = torch.zeros((Nfields, 1))
-        solidAngles = torch.zeros((Nfields, 1))
+        gLon = np.zeros((Nfields, 1))
+        gLat = np.zeros((Nfields, 1))
+        solidAngles = np.zeros((Nfields, 1))
         for loc_index, loc in enumerate(locations):
             #gLon[loc_index,1], gLat[loc_index,1] = self.apo.glonGlat(loc)
             solidAngles[loc_index,0] = self.apo.area(loc)*_DEGTORAD**2
@@ -150,8 +151,8 @@ class FeHBinnedDoubleExpPPP(TorchDistribution):
         # check this has right layout
         gCentricCoords = gCoords.transform_to(coord.Galactocentric)
         # check this looks right
-        R = torch.tensor(np.sqrt(gCentricCoords.x**2 + gCentricCoords.y**2))
-        modz = torch.tensor(np.abs(gCentricCoords.z))
+        R = np.sqrt(gCentricCoords.x**2 + gCentricCoords.y**2)
+        modz = np.abs(gCentricCoords.z)
         # check these are right values and shape - write tests!
         return mu, D, R, modz, solidAngles
 
@@ -170,65 +171,12 @@ class FeHBinnedDoubleExpPPP(TorchDistribution):
             with open(filePath, 'rb') as f:
                 effSelFunct = pickle.load(f)
         else:
-            #locations = self.apo.list_fields(cohort='all')
-
-            #effSelFunct = torch.zeros(len(locations),len(self.mu))
-
-            #Neffsamp = 600 #tune this, or change to sampling entire isochrone
-            #isogrid = iso.newgrid()
-            # newgrid ensures means it uses new isochrones. I should either rewrite isochrones.py, maybe with MIST isochrones, or at least fully understand it
-            #mask = ((isogrid['logg'] > 1) & (isogrid['logg'] < 3)
-            #        & (isogrid['MH'] >  self.FeHBinEdges[0].item())
-            #        & (isogrid['MH'] <= self.FeHBinEdges[1].item()))
-            #effsel_samples = iso.sampleiso(Neffsamp, isogrid[mask], newgrid=True)
-            # newgrid ensures means it uses new isochrones. I should either rewrite isochrones.py, maybe with MIST isochrones, or at least fully understand it
-
-            #dmap = mwdust.Combined19(filter='2MASS H')
-            # see Ted's code for how to include full grid
-            #apof = apsel.apogeeEffectiveSelect(self.apo, dmap3d=dmap, MH=effsel_samples['Hmag'], JK0=effsel_samples['Jmag']-effsel_samples['Ksmag'])
-            #this giving me an error caused by a sample apparently with JK0 less than minimum colour bin limit
-            #apof = apsel.apogeeEffectiveSelect(self.apo, dmap3d=dmap,
-            #                                   MH=isogrid[mask]['Hmag'],
-            #                                   JK0=isogrid[mask]['Jmag']-isogrid[mask]['Ksmag'],
-            #                                   weights=isogrid[mask]['weights'])
-
-            #for loc_index, loc in enumerate(locations):
-            #    effSelFunct[loc_index,:] = apof(loc, np.array(self.D))
-
-            #effSelFunct_mapper = partial(effSelFunct_helper, apof, self.D, locations)
-#            with multiprocessing.Pool(2) as p:
-#                print("starting multiprocessing")
-#                effSelFunct = torch.tensor(np.array(list(tqdm.tqdm(p.map(effSelFunct_mapper, range(len(locations))), total=len(locations)))))
-
-            #p = multiprocessing.Pool(2)
-            #print("trying to mp")
-            #effSelFunct = torch.tensor(np.array(list(tqdm.tqdm(p.map(effSelFunct_mapper, range(len(locations))), total=len(locations)))))
-            #p.close()
-
-            # this arcane series of tensors, arrays, lists and maps is because 
-            # a list is because tensors are best constructed out of a single
-            # array rather than a list of arrays, and neither np.array nor
-            # torch.tensor know how to deal directly with a map object
-
-
-            effSelFunct = effSelFunct_calculate(self)
-
-            with open(filePath, 'wb') as f:
-                pickle.dump(effSelFunct, f)
+            raise NotImplementedError("Currently effSelFunct must be calculated seperately")
+            #effSelFunct = effSelFunct_calculate(self)
+            #with open(filePath, 'wb') as f:
+            #    pickle.dump(effSelFunct, f)
 
         return effSelFunct
-
-        #TESTING MP
-
-#            to_double = 3*np.arange(100)
-#            map_i_d = partial(indexed_doubler, to_double)
-#
-#            with multiprocessing.Pool() as p:
-#                indexed = list(tqdm.tqdm(p.map(map_i_d, range(len(to_double))), total=len(to_double)))
-#            print(indexed)
-#            with multiprocessing.Pool() as p:
-#               direct = list(tqdm.tqdm(p.map(direct_doubler, to_double), total=len(to_double)))
-#           print(direct)
 
 
     @property
@@ -237,10 +185,10 @@ class FeHBinnedDoubleExpPPP(TorchDistribution):
         UNTESTED - UNFINISHED - ASSUMES ONE BIN
         Just multiple density, jacobian and effsel grids, then sum
         Assumes grid uniform in mu and one bin
-        """
-        return ((self.a_R**2)*self.a_z*(self.FeHBinEdges[1]-self.FeHBinEdges[0])*torch.log(torch.tensor([10]))
+        """ #may need .item on tensors here
+        return ((self.a_R**2)*self.a_z*(self.FeHBinEdges[1]-self.FeHBinEdges[0])*np.log(10)
                 *(self.mu[1]-self.mu[0])*self.solidAngles*(self.D**3)*self.effSelFunct
-                *torch.exp(self.logA-self.a_R*self.R-self.a_z*self.modz)/(20*torch.pi)).sum()
+                *np.exp(self.logA-self.a_R*self.R-self.a_z*self.modz)/(20*np.pi)).sum()
 
     def log_prob(self, value):
         """
@@ -263,65 +211,6 @@ class FeHBinnedDoubleExpPPP(TorchDistribution):
         Should sample event (N, SumR, SumModz) in whatever sample shape requested
         """
         pass
-
-def indexed_doubler(to_double, i):
-    return 2*to_double[i]
-
-
-def direct_doubler(i):
-    return 2*i
-
-
-def effSelFunct_helper(apof, D, locations, i):
-    """
-    Needed as multiprocessed functions need to be defined at top level
-    """
-    print(i)
-    return apof(locations[i], D)
-
-def effSelFunct_calculate(distro):
-    """
-    """
-    locations = distro.apo.list_fields(cohort='all')
-    effSelFunct = torch.zeros(len(locations),len(distro.mu))
-
-    #Neffsamp = 600 #tune this, or change to sampling entire isochrone
-    isogrid = iso.newgrid()
-    # newgrid ensures means it uses new isochrones. I should either rewrite isochrones.py, maybe with MIST isochrones, or at least fully understand it
-    mask = ((isogrid['logg'] > 1) & (isogrid['logg'] < 3)
-            & (isogrid['MH'] >  distro.FeHBinEdges[0].item())
-            & (isogrid['MH'] <= distro.FeHBinEdges[1].item()))
-    #effsel_samples = iso.sampleiso(Neffsamp, isogrid[mask], newgrid=True)
-    # newgrid ensures means it uses new isochrones. I should either rewrite isochrones.py, maybe with MIST isochrones, or at least fully understand it
-
-    dmap = mwdust.Combined19(filter='2MASS H')
-    # see Ted's code for how to include full grid
-    #apof = apsel.apogeeEffectiveSelect(self.apo, dmap3d=dmap, MH=effsel_samples['Hmag'], JK0=effsel_samples['Jmag']-effsel_samples['Ksmag'])
-    #this giving me an error caused by a sample apparently with JK0 less than minimum colour bin limit
-    apof = apsel.apogeeEffectiveSelect(distro.apo, dmap3d=dmap,
-                                       MH=isogrid[mask]['Hmag'],
-                                       JK0=isogrid[mask]['Jmag']-isogrid[mask]['Ksmag'],
-                                       weights=isogrid[mask]['weights'])
-
-    #for loc_index, loc in enumerate(locations):
-    #    effSelFunct[loc_index,:] = apof(loc, np.array(self.D))
-
-    effSelFunct_mapper = partial(effSelFunct_helper, apof, distro.D, locations)
-    with multiprocessing.Pool(2) as p:
-        print("starting multiprocessing")
-        effSelFunct_temp = list(p.map(effSelFunct_mapper, range(len(locations))))
-    effSelFunct = torch.tensor(np.array(effSelFunct_temp))
-    #p = multiprocessing.Pool(2)
-    #print("trying to mp")
-    #effSelFunct = torch.tensor(np.array(list(tqdm.tqdm(p.map(effSelFunct_mapper, range(len(locations))), total=len(locations)))))
-    #p.close()
-
-    return effSelFunct
-
-        # this arcane series of tensors, arrays, lists and maps is because 
-        # a list is because tensors are best constructed out of a single
-        # array rather than a list of arrays, and neither np.array nor
-        # torch.tensor know how to deal directly with a map object
 
 
 
@@ -353,11 +242,6 @@ mvn_guide = pyro.infer.autoguide.AutoMultivariateNormal(model)
 
 if __name__ == "__main__":
     print(os.cpu_count())
-    with multiprocessing.Pool(24) as p:
-        print(p._processes)
-    with schwimmbad.MultiPool(24) as p:
-        print(p._processes)
-
 
     FeHBinEdges = torch.tensor([-0.5,0])
     distro = FeHBinnedDoubleExpPPP(FeHBinEdges, 0, 1, 1)
@@ -367,9 +251,9 @@ if __name__ == "__main__":
     print(ESF)
     print(effVol)
     print(log_p)
-    print(distro.R.size())
-    print(distro.z.size())
-    print(distro.effSelFunct.size())
+    print(distro.R.shape())
+    print(distro.z.shape())
+    print(distro.effSelFunct.shape())
     
     optimiser = Adam({"lr": 0.02}) # tune, and look at other parameters
     svi = SVI(model, mvn_guide, optimiser, loss=Trace_ELBO())

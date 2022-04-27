@@ -14,7 +14,7 @@ import tqdm
 import isochrones as iso
 
 _ROOTDIR = "/home/sjoh4701/APOGEE/iso-apogee/"
-
+_NCPUS = int(sys.argv[3])
 
 
 if os.path.exists(_ROOTDIR+'sav/apodr16_csf.dat'):
@@ -24,6 +24,7 @@ else:
     apo = apsel.apogeeCombinedSelect()
     with open(_ROOTDIR+'sav/apodr16_csf.dat', 'wb') as f:
         pickle.dump(apo, f)
+del apo._specdata, apo._photdata, apo.apo1sel._specdata, apo.apo1sel._photdata, apo.apo2Nsel._specdata, apo.apo2Nsel._photdata, apo.apo2Ssel._specdata, apo.apo2Ssel._photdata
 
 
 FeHBinEdges = [float(sys.argv[1]), float(sys.argv[2])]
@@ -36,7 +37,7 @@ mu = np.linspace(*muGridParams)
 D = 10**(-2+0.2*mu) #kpc
 
 locations = apo.list_fields(cohort='all')
-
+print(len(locations))
 isogrid = iso.newgrid()
 # newgrid ensures means it uses new isochrones. I should either rewrite isochrones.py, maybe with MIST isochrones, or at least fully understand it
 mask = ((isogrid['logg'] > 1) & (isogrid['logg'] < 3)
@@ -59,9 +60,10 @@ def effSelFunct_helper(apof, D, locations, i):
 
 
 effSelFunct_mapper = partial(effSelFunct_helper, apof, D, locations)
-with multiprocessing.Pool(6) as p:
-    print("starting multiprocessing")
-    temp_effSelFunct = list(p.map(effSelFunct_mapper, range(len(locations))))
+print("about to start multiprocessing")
+with multiprocessing.Pool(_NCPUS) as p:
+    print(f"parent: {os.getppid()}, child: {os.getpid()}")
+    temp_effSelFunct = list(tqdm.tqdm(p.map(effSelFunct_mapper, range(len(locations)), chunksize=int(len(locations)/(4*_NCPUS))), total=len(locations)))
 effSelFunct = np.array(temp_effSelFunct)
 
             # this arcane series of tensors, arrays, lists and maps is because 
