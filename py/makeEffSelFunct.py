@@ -55,7 +55,6 @@ def effSelFunct_helper(apof, D, locations, i):
     """
     Needed as multiprocessed functions need to be defined at top level
     """
-    print(i)
     return apof(locations[i], D)
 
 
@@ -66,12 +65,14 @@ with multiprocessing.Pool(_NCPUS) as p:
     temp_effSelFunct = list(tqdm.tqdm(p.map(effSelFunct_mapper, range(len(locations)), chunksize=int(len(locations)/(4*_NCPUS))), total=len(locations)))
 effSelFunct = np.array(temp_effSelFunct)
 
+print("Finished multiprocessing")
+
             # this arcane series of tensors, arrays, lists and maps is because 
             # a list is because tensors are best constructed out of a single
             # array rather than a list of arrays, and neither np.array nor
             # torch.tensor know how to deal directly with a map object
 
-filePath = (_ROOTDIR + "sav/EffSelGrids/" +
+filePath = (_ROOTDIR + "sav/EffSelFunctGrids/" +
                     '_'.join([str(FeHBinEdges[0]), str(FeHBinEdges[1]), str(mu[0]),
                               str(mu[-1]), str(len(mu))])
                     + ".dat")
