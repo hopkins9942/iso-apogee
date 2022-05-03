@@ -7,4 +7,5 @@
 /jobs/*.job
 /jobs/*.out
 /sav/*.dat
+/sav/EffSelFunctGrids/*.dat
 /tests/__pycache__/

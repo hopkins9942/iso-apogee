@@ -1,6 +1,7 @@
 from numbers import Number
 import pickle
 import os
+import datetime
 
 assert os.getenv('RESULTS_VERS')=='l33' # apogee should automatically use dr16 as long as this is correct
 
@@ -29,7 +30,7 @@ import corner
 
 _DEGTORAD = torch.pi/180
 _ROOTDIR = "/home/sjoh4701/APOGEE/iso-apogee/"
-_NCORES = 12 # needs to be set explicitly, otherwise multiprocessing tries to use 48 - I think
+#_NCORES = 12 # needs to be set explicitly, otherwise multiprocessing tries to use 48 - I think
 
 class FeHBinnedDoubleExpPPP(TorchDistribution):
     """
@@ -64,11 +65,12 @@ class FeHBinnedDoubleExpPPP(TorchDistribution):
         to check parameters and sample values match constraints. True/False means check/don't check,
         None means default behavior.
         """
+        print("PPP has been initialised!")
         for value, name in [(FeHBinEdges,"FeHBinEdges"),(logA,"logA"),(a_R,"a_R"),(a_z,"a_z")]:
             if not (isinstance(value,torch.Tensor) or isinstance(value,Number)):
                 raise ValueError(name+" must be either a Number or a torch.Tensor")
         lowerEdges, upperEdges, self.logA, self.a_R, self.a_z = broadcast_all(FeHBinEdges[...,0], FeHBinEdges[...,1], logA, a_R, a_z)
-        self._FeHBinEdges = torch.stack((lowerEdges,upperEdges), lowerEdges.dim())
+        self._FeHBinEdges = torch.stack((lowerEdges,upperEdges), lowerEdges.dim()) #this gives wrong shape when others areentered as 1-element tensors
         super().__init__(batch_shape=self.logA.shape, event_shape=torch.Size([3]), validate_args=validate_args)
 
         if os.path.exists(_ROOTDIR+'sav/apodr16_csf.dat'):
@@ -143,16 +145,16 @@ class FeHBinnedDoubleExpPPP(TorchDistribution):
         gLat = np.zeros((Nfields, 1))
         solidAngles = np.zeros((Nfields, 1))
         for loc_index, loc in enumerate(locations):
-            #gLon[loc_index,1], gLat[loc_index,1] = self.apo.glonGlat(loc)
+            gLon[loc_index,0], gLat[loc_index,0] = self.apo.glonGlat(loc)
             solidAngles[loc_index,0] = self.apo.area(loc)*_DEGTORAD**2
-        gLon, gLat = np.split(np.array([self.apo.glonGlat(loc) for loc in locations]),2,1)
+        # gLon, gLat = np.split(np.array([self.apo.glonGlat(loc) for loc in locations]),2,1)
         # makes gLon and gLat as (Nfield,1) arrays
         gCoords = coord.SkyCoord(l=gLon*u.deg, b=gLat*u.deg, distance=D*u.kpc, frame='galactic')
         # check this has right layout
         gCentricCoords = gCoords.transform_to(coord.Galactocentric)
         # check this looks right
-        R = np.sqrt(gCentricCoords.x**2 + gCentricCoords.y**2)
-        modz = np.abs(gCentricCoords.z)
+        R = np.sqrt(gCentricCoords.x.value**2 + gCentricCoords.y.value**2)
+        modz = np.abs(gCentricCoords.z.value) # mixing astropy units and torch.tensors casues problems
         # check these are right values and shape - write tests!
         return mu, D, R, modz, solidAngles
 
@@ -163,8 +165,8 @@ class FeHBinnedDoubleExpPPP(TorchDistribution):
         for now assumes one bin
         Currently uses samples - chat to Ted and change to using whole isochrone (currently can't see any code on github that can take 'weights' argument)
         """
-        filePath = (_ROOTDIR+"sav/EffSelGrids/" +
-                    '_'.join([str(self.FeHBinEdges[0]), str(self.FeHBinEdges[1]), str(self.mu[0]),
+        filePath = (_ROOTDIR+"sav/EffSelFunctGrids/" +
+                    '_'.join([str(self.FeHBinEdges[0].item()), str(self.FeHBinEdges[1].item()), str(self.mu[0]),
                               str(self.mu[-1]), str(len(self.mu))])
                     + ".dat")
         if os.path.exists(filePath) and (not rewrite):
@@ -186,9 +188,9 @@ class FeHBinnedDoubleExpPPP(TorchDistribution):
         Just multiple density, jacobian and effsel grids, then sum
         Assumes grid uniform in mu and one bin
         """ #may need .item on tensors here
-        return ((self.a_R**2)*self.a_z*(self.FeHBinEdges[1]-self.FeHBinEdges[0])*np.log(10)
-                *(self.mu[1]-self.mu[0])*self.solidAngles*(self.D**3)*self.effSelFunct
-                *np.exp(self.logA-self.a_R*self.R-self.a_z*self.modz)/(20*np.pi)).sum()
+        trueDens = self.a_R.item()**2 * self.a_z.item() * np.exp(self.logA.item()-self.a_R.item()*self.R-self.a_z.item()*self.modz)/(4*np.pi)
+        jac = self.D**3 *np.log(10)*self.solidAngles*(self.FeHBinEdges[1].item()-self.FeHBinEdges[0].item())/5
+        return ((self.mu[1]-self.mu[0])*trueDens*jac*self.effSelFunct).sum()
 
     def log_prob(self, value):
         """
@@ -241,19 +243,21 @@ mvn_guide = pyro.infer.autoguide.AutoMultivariateNormal(model)
 ### main ###
 
 if __name__ == "__main__":
+    print(f"Starting! {datetime.datetime.now()}")
+
     print(os.cpu_count())
 
     FeHBinEdges = torch.tensor([-0.5,0])
-    distro = FeHBinnedDoubleExpPPP(FeHBinEdges, 0, 1, 1)
+    distro = FeHBinnedDoubleExpPPP(FeHBinEdges, 0, 1,1)
     ESF = distro.effSelFunct
     effVol = distro.effectiveVolume
-    log_p = distro.log_prob(1,1,1)
-    print(ESF)
+    log_p = distro.log_prob(torch.tensor([1,1,1]))
+    #print(ESF)
     print(effVol)
     print(log_p)
-    print(distro.R.shape())
-    print(distro.z.shape())
-    print(distro.effSelFunct.shape())
+    print(distro.R.shape)
+    print(distro.modz.shape)
+    print(distro.effSelFunct.shape)
     
     optimiser = Adam({"lr": 0.02}) # tune, and look at other parameters
     svi = SVI(model, mvn_guide, optimiser, loss=Trace_ELBO())
@@ -261,16 +265,22 @@ if __name__ == "__main__":
 
     mock_sums = (10**10)*torch.tensor([1,5,0.3])
 
+    print(f"Beginning fitting {datetime.datetime.now()}")
     losses = []
     for step in range(1000):
         loss = svi.step(FeHBinEdges, mock_sums)
         losses.append(loss)
         if step%100==0:
             print(f'Loss = {loss}')
-    
+    print(f"finished fitting {datetime.datetime.now()}")
+    print(losses)
+
     with pyro.plate("samples",500,dim=-1):
         samples = mvn_guide(FeHBinEdges) #samples latent space, accessed with samples["logA"] etc
+# as outputted as disctionary of tensors
+    labels = ["logA","a_R","a_z"]
+    samples_for_plot = np.stack([samples[label].detach().cpu().numpy() for label in labels],axis=-1)
 
-    fig = corner.corner(samples)
+    fig = corner.corner(samples_for_plot, labels=labels) #takes input as np array with rows as samples
 
     fig.savefig("/data/phys-galactic-isos/sjoh4701/APOGEE/mock_latents.png")
