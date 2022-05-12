@@ -30,7 +30,7 @@ del apo._specdata, apo._photdata, apo.apo1sel._specdata, apo.apo1sel._photdata, 
 FeHBinEdges = [float(sys.argv[1]), float(sys.argv[2])]
 print(FeHBinEdges)
 muMin = 0.0
-muMax = 15 # CHECK THIS against allStar - better to exclude fringe datapoints than have all data in nearest three bins - plot mu distribution
+muMax = 12 # CHECK THIS against allStar - better to exclude fringe datapoints than have all data in nearest three bins - plot mu distribution
 muDiff = 0.1
 muGridParams = (muMin, muMax, int((muMax-muMin)//muDiff)) # (start,stop,size)
 mu = np.linspace(*muGridParams)

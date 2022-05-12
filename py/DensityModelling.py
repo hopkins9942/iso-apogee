@@ -23,17 +23,321 @@ from pyro.optim import Adam
 
 import astropy.coordinates as coord
 import astropy.units as u
-
 import corner
-
+import matplotlib.pyplot as plt
 
 
 _DEGTORAD = torch.pi/180
 _ROOTDIR = "/home/sjoh4701/APOGEE/iso-apogee/"
 #_NCORES = 12 # needs to be set explicitly, otherwise multiprocessing tries to use 48 - I think
 
+
+class oneBinDoubleExpPPP(TorchDistribution):
+    """
+    """
+
+    arg_constraints = {
+        'logA': constraints.real,
+        'a_R': constraints.real,
+        'a_z':  constraints.real,
+    }
+    support = constraints.real_vector
+    has_rsample = False
+
+    def __init__(self, logA, a_R, a_z, FeHBinEdges, R, modz, multiplier,
+                 validate_args=None):
+        """
+        Distribution for (N,SumR,Summodz) for double exponential PPP model
+        with APOGEE fields.
+        Allows batching of parameters, but only one bin at a time.
+        logA, a_R, a_z are Numbers or Tensors, FeHBinEdges, R, z, jac are
+        arrays
+        multiplier is the array the true density is multiplied by before
+        summing to get effective volume, equal to
+        ln(10)*solidAngle*D**3*binWidth*effSelFunct*muSpacing/5
+        arrays 0th index corresponding to field, 1st corresponding to
+        mu grid points
+        """
+
+        self._logA, self._a_R, self._a_z = broadcast_all(logA, a_R, a_z)
+        #makes parameters tensors and broadcasts them to same shape
+        super().__init__(batch_shape=self.logA.shape,
+                         event_shape=torch.Size([3]),
+                         validate_args=validate_args)
+
+        trueDens = (self.a_R.item()**2 * self.a_z.item()
+                    *np.exp(self.logA.item()
+                            -self.a_R.item()*R
+                            -self.a_z.item()*modz)/(4*np.pi))
+        self._effVol = (trueDens*multiplier).sum()
+#        print(f"Instantiating oneBin with: {logA}, {a_R}, {a_z}, {self.effVol}")
+
+    @property
+    def logA(self):
+        """logA"""
+        return self._logA
+
+    @property
+    def a_R(self):
+        """a_R"""
+        return self._a_R
+
+    @property
+    def a_z(self):
+        """a_z"""
+        return self._a_z
+
+    @property
+    def effVol(self):
+        """effVol"""
+        return self._effVol
+
+    def log_prob(self, value):
+        """
+        UNTESTED
+        not designed to work with batches and samples
+        value is[N,sumR,summodz]
+        IMPORTANT: this is only log_p up to constant not dependent on latents
+        """
+        if self._validate_args:
+            self._validate_sample(value)
+        # all values in value need to be same type, so technically
+        # tests N is a float, not int
+        return (value[0]*(self.logA+2*torch.log(self.a_R)+torch.log(self.a_z))
+                - value[1]*self.a_R - value[2]*self.a_z - self.effVol)
+
+    def sample(self, sample_shape=torch.Size()):
+        raise NotImplementedError("Sample should not be required")
+
+
+def makeCoords(muGridParams, apo):
+    """makes mu, D, R, modz tensors, for ease of use
+    units are kpc, and R and modz is for central angle of field"""
+    locations = apo.list_fields(cohort='all')
+    Nfields = len(locations)
+    # locations is list of ids of fields with at least completed cohort of
+    #  any type, therefore some stars in statistical sample
+
+    mu = np.linspace(*muGridParams)
+    D = 10**(-2+0.2*mu) #kpc
+    gLon = np.zeros((Nfields, 1))
+    gLat = np.zeros((Nfields, 1))
+    solidAngles = np.zeros((Nfields, 1))
+    # This shape allows clever broadcasting in coord.SkyCoord
+    for loc_index, loc in enumerate(locations):
+        gLon[loc_index,0], gLat[loc_index,0] = apo.glonGlat(loc)
+        solidAngles[loc_index,0] = apo.area(loc)*_DEGTORAD**2
+    gCoords = coord.SkyCoord(l=gLon*u.deg, b=gLat*u.deg, distance=D*u.kpc, frame='galactic')
+    gCentricCoords = gCoords.transform_to(coord.Galactocentric)
+    # check this looks right
+    R = np.sqrt(gCentricCoords.x.value**2 + gCentricCoords.y.value**2)
+    modz = np.abs(gCentricCoords.z.value)
+    # check these are right values and shape - write tests!
+    return mu, D, R, modz, solidAngles
+
+
+def load_apo():
+    """
+    """
+    if os.path.exists(_ROOTDIR+'sav/apodr16_csf.dat'):
+        with open(_ROOTDIR+'sav/apodr16_csf.dat', 'rb') as f:
+            apo = pickle.load(f)
+    else:
+        apo = apsel.apogeeCombinedSelect()
+        with open(_ROOTDIR+'sav/apodr16_csf.dat', 'wb') as f:
+            pickle.dump(apo, f)
+    # maybe add del line here or later if I have memory problems
+    return apo
+
+def calculate_R_modz_multiplier(FeHBinEdges, muGridParams):
+    """
+    returns tuple (R, modz, multiplier) for unpacking and inputting to
+    oneBinDoubleExpPPP
+    """
+    apo = load_apo()
+
+#    muMin = 0.0
+#    muMax = 15 # CHECK THIS against allStar
+#    # better to exclude fringe datapoints than have all data in nearest three
+#    # bins - plot mu distribution
+#    muDiff = 0.1
+#    muGridParams = (muMin, muMax, int((muMax-muMin)//muDiff))
+    # (start,stop,size)
+    mu, D, R, modz, solidAngles = makeCoords(muGridParams, apo)
+
+    ESFpath = (_ROOTDIR+"sav/EffSelFunctGrids/" +
+                '_'.join([str(float(FeHBinEdges[0])),
+                          str(float(FeHBinEdges[1])),
+                          str(float(mu[0])),
+                          str(float(mu[-1])),
+                          str(len(mu))])
+                + ".dat")
+    if os.path.exists(ESFpath):
+        with open(ESFpath, 'rb') as f:
+            effSelFunct = pickle.load(f)
+    else:
+        raise FileNotFoundError("Currently effSelFunct must be calculated seperately")
+
+    multiplier = (solidAngles*D**3*(FeHBinEdges[1]-FeHBinEdges[0])
+                  *(mu[1]-mu[0])*effSelFunct*np.log(10)/5)
+    return (R, modz, multiplier)
+
+
+def model(FeHBinEdges, R_modz_multiplier, sums=None):
+    """
+    FeHBinEdges mark edges of metallicity bins being used, in form of 2*nbins tensor with [lowerEdge, upperEdge] for each bin
+    sums is 3*nbins tensor with [N,sumR,summodz] for each bin
+
+    FOR NOW ASSUMES ONE BIN
+    """
+    #with pyro.plate('bins', len(FeHBinEdges-1): # needs new bin definition: do something like with plate as 
+    #    logA = pyro.sample('logA', dist.Normal(...))
+    #    a_R = pyro.sample('a_R', dist.Normal(...))
+    #    a_z = pyro.sample('a_z', dist.Normal(...))
+    #    return pyro.sample('obs', MyDist(FeHBinEdges, logA, a_R, a_z, validate_args=True), obs=sums)
+
+    logA = pyro.sample('logA', distributions.Normal(18, 1)) # tune these
+    a_R = pyro.sample('a_R', distributions.Normal(0.25, 0.09))
+    a_z = pyro.sample('a_z', distributions.Normal(10, 1))
+    return pyro.sample('obs', oneBinDoubleExpPPP(logA, a_R, a_z, FeHBinEdges, *R_modz_multiplier), obs=sums)
+
+mvn_guide = pyro.infer.autoguide.AutoMultivariateNormal(model)
+delta_guide = pyro.infer.autoguide.AutoDelta(model)
+
+
+### main ###
+
+if __name__ == "__main__":
+    print(f"Starting! {datetime.datetime.now()}")
+
+    FeHBinEdges = [-0.5,0]
+
+    muMin = 0.0
+    muMax = 12 #15 # CHECK THIS against allStar
+    # better to exclude fringe datapoints than have all data in nearest three
+    # bins - plot mu distribution
+    muDiff = 0.1
+    muGridParams = (muMin, muMax, int((muMax-muMin)//muDiff))
+
+    R_modz_multiplier = calculate_R_modz_multiplier(FeHBinEdges, muGridParams)
+
+    mock_sums = (10**5)*torch.tensor([1,8,0.1])
+    #mock_a_R = 2*mock_sums[0]/mock_sums[1]
+    #mock_a_z = mock_sums[0]/mock_sums[2]
+    #mock_B = oneBinDoubleExpPPP(0, mock_a_R, mock_a_z,FeHBinEdges,*R_modz_multiplier).effVol
+    #mock_distro = oneBinDoubleExpPPP(np.log(mock_sums[0]/mock_B), mock_a_R, mock_a_z,FeHBinEdges,*R_modz_multiplier)
+
+    #effVol = distro.effVol
+    #log_p = distro.log_prob(mock_sums)
+    #print(effVol)
+    #print(log_p)
+
+    MAP = True
+    if MAP:
+        guide = delta_guide
+    else:
+        guide = mvn_guide
+
+    n_latents = 3
+
+    lr = 0.005
+    print(lr)
+    optimiser = Adam({"lr": lr}) # tune, and look at other parameters
+    svi = SVI(model, guide, optimiser, loss=Trace_ELBO(num_particles=4))
+
+    print(f"Beginning fitting {datetime.datetime.now()}")
+    maxSteps = 100000
+    lossArray = np.zeros(maxSteps)
+    latent_medians = np.zeros((maxSteps,n_latents))
+    for step in range(maxSteps):
+        loss = svi.step(FeHBinEdges, R_modz_multiplier, mock_sums)
+        lossArray[step] = loss
+
+        #parameter_means[step] = mvn_guide._loc_scale()[0].detach().numpy()
+        latent_medians[step] = [v.item() for v in  guide.median(FeHBinEdges, R_modz_multiplier).values()]
+        incDetectLag = 200
+        if loss>10**6: #step>incDetectLag and (lossArray[step]>lossArray[step-incDetectLag]):
+            lossArray = lossArray[:step]
+            latent_medians = latent_medians[:step]
+            break
+
+        if step%100==0:
+            print(f'Loss = {loss}, median logA = {latent_medians[step][0]}')
+    print(f"finished fitting at step {step} {datetime.datetime.now()}")
+
+    n_latents = len(guide.median(FeHBinEdges, R_modz_multiplier))
+    #guide.median only works after guide instantiated in SVI
+    latent_names = list(guide.median(FeHBinEdges, R_modz_multiplier).keys())
+    print(latent_names)
+    for name, value in pyro.get_param_store().items():
+        print(name, pyro.param(name).data.cpu().numpy())
+
+    for name, value in guide.median(FeHBinEdges, R_modz_multiplier).items():
+        print(name, value.item())
+
+
+    savePath = "/data/phys-galactic-isos/sjoh4701/APOGEE/outputs/"
+
+    fig, ax = plt.subplots()
+    ax.plot(lossArray)
+    ax.set_xlabel("step number")
+    ax.set_ylabel("loss")
+    ax.set_title(f"lr: {lr}")
+    fig.savefig(savePath+str(lr)+("-MAP-" if MAP else "-MVN-")+"loss.png")
+
+    for i, name in enumerate(latent_names):
+        fig, ax = plt.subplots()
+        ax.plot(latent_medians[:,i])
+        ax.set_xlabel("step number")
+        ax.set_ylabel(name)
+        ax.set_title(("MAP" if MAP else "MVN") +f", lr: {lr}")
+        fig.savefig(savePath+str(lr)+("-MAP-" if MAP else "-MVN-")+name+".png")
+
+    if not MAP:
+        with pyro.plate("samples",5000,dim=-1):
+            samples = guide(FeHBinEdges, R_modz_multiplier, mock_sums) #samples latent space, accessed with samples["logA"] etc
+        # as outputted as disctionary of tensors
+        #labels = ["logA","a_R","a_z"]
+        labels=latent_names
+        samples_for_plot = np.stack([samples[label].detach().cpu().numpy() for label in labels],axis=-1)
+
+        fig = corner.corner(samples_for_plot, labels=labels) #takes input as np array with rows as samples
+        fig.suptitle(("MAP" if MAP else "MVN")+f", lr: {lr}, step: {step}")
+        fig.savefig(savePath+str(lr)+("-MAP-" if MAP else "-MVN-")+"latents.png")
+
+    a_R=(2*mock_sums[0]/mock_sums[1]).item()
+    a_z=(mock_sums[0]/mock_sums[2]).item()
+    B=oneBinDoubleExpPPP(0, a_R, a_z, FeHBinEdges, *R_modz_multiplier).effVol #logA=0 makes effVol=B
+    logp = lambda logA: mock_sums[0].item()*(logA + 2*np.log(a_R) + np.log(a_z)) - mock_sums[1].item()*a_R - mock_sums[2].item()*a_z - B*np.exp(logA)
+    logAArray = np.linspace(16,24)
+    fig, ax = plt.subplots()
+    ax.set_xlabel("logA")
+    #ax.set_ylabel("-logp, loss")
+    ax.plot(logAArray,-logp(logAArray),'|',label="-logp")
+    #sparselogAArray = np.linspace(20,24,5)
+    #ax.plot(sparselogAArray, [-oneBinDoubleExpPPP(lgA,a_R,a_z,FeHBinEdges,*R_modz_multiplier).log_prob(mock_sums) for lgA in sparselogAArray])
+    #this was to test logp
+    ax.plot(latent_medians[:,0],lossArray,label="loss")
+    ax.legend()
+    fig.savefig(savePath+"logp.png")
+    print(f"B = {B}")
+
+    fig, ax = plt.subplots()
+    ax.set_xlabel("logA")
+    #ax.set_ylabel("effVol, N")
+    ax.plot(logAArray[::5], [oneBinDoubleExpPPP(lgA,a_R,a_z,FeHBinEdges,*R_modz_multiplier).effVol for lgA in logAArray[::5]], label="effVol")
+    ax.plot(logAArray[::5], mock_sums[0]*np.ones(len(logAArray[::5])), label="N")
+    ax.legend()
+    fig.savefig(savePath+"effVol.png")
+
+
+
+### DEPRECIATED CODE ###
+
 class FeHBinnedDoubleExpPPP(TorchDistribution):
     """
+    DEPRECIATED - contains far too much to be useful for fitting, replaced by oneBinDoubleExpPPP
+
     This is the distribution for [N, sumR, summodz] for an exponential disk PPP of stars uniform in
     metallicity in bins, which are the
     only data quantities which appear in the likelihood function.
@@ -69,7 +373,7 @@ class FeHBinnedDoubleExpPPP(TorchDistribution):
         for value, name in [(FeHBinEdges,"FeHBinEdges"),(logA,"logA"),(a_R,"a_R"),(a_z,"a_z")]:
             if not (isinstance(value,torch.Tensor) or isinstance(value,Number)):
                 raise ValueError(name+" must be either a Number or a torch.Tensor")
-        lowerEdges, upperEdges, self.logA, self.a_R, self.a_z = broadcast_all(FeHBinEdges[...,0], FeHBinEdges[...,1], logA, a_R, a_z)
+        lowerEdges, upperEdges, self._logA, self._a_R, self._a_z = broadcast_all(FeHBinEdges[...,0], FeHBinEdges[...,1], logA, a_R, a_z)
         self._FeHBinEdges = torch.stack((lowerEdges,upperEdges), lowerEdges.dim()) #this gives wrong shape when others areentered as 1-element tensors
         super().__init__(batch_shape=self.logA.shape, event_shape=torch.Size([3]), validate_args=validate_args)
 
@@ -89,6 +393,21 @@ class FeHBinnedDoubleExpPPP(TorchDistribution):
         self._mu, self._D, self._R, self._modz, self._solidAngles = self.makeCoords(muGridParams)
         self._effSelFunct = self.makeEffSelFunct()
 
+
+    @property
+    def logA(self):
+        """A """
+        return self._logA
+
+    @property
+    def a_R(self):
+        """ d"""
+        return self._a_R
+
+    @property
+    def a_z(self):
+        """t """
+        return self._a_z
 
     @property
     def FeHBinEdges(self):
@@ -214,73 +533,3 @@ class FeHBinnedDoubleExpPPP(TorchDistribution):
         """
         pass
 
-
-
-
-def model(FeHBinEdges, sums=None):
-    """
-    FeHBinEdges mark edges of metallicity bins being used, in form of 2*nbins tensor with [lowerEdge, upperEdge] for each bin
-    sums is 3*nbins tensor with [N,sumR,summodz] for each bin
-
-    FOR NOW ASSUMES ONE BIN
-    """
-    #with pyro.plate('bins', len(FeHBinEdges-1): # needs new bin definition: do something like with plate as 
-    #    logA = pyro.sample('logA', dist.Normal(...))
-    #    a_R = pyro.sample('a_R', dist.Normal(...))
-    #    a_z = pyro.sample('a_z', dist.Normal(...))
-    #    return pyro.sample('obs', MyDist(FeHBinEdges, logA, a_R, a_z, validate_args=True), obs=sums)
-
-    logA = pyro.sample('logA', distributions.Normal(20, 10)) # tune these
-    a_R = pyro.sample('a_R', distributions.Normal(5, 3))
-    a_z = pyro.sample('a_z', distributions.Normal(1, 0.5))
-    return pyro.sample('obs', FeHBinnedDoubleExpPPP(FeHBinEdges, logA, a_R, a_z), obs=sums)
-
-# def guide or autoguide
-
-mvn_guide = pyro.infer.autoguide.AutoMultivariateNormal(model)
-
-
-### main ###
-
-if __name__ == "__main__":
-    print(f"Starting! {datetime.datetime.now()}")
-
-    print(os.cpu_count())
-
-    FeHBinEdges = torch.tensor([-0.5,0])
-    distro = FeHBinnedDoubleExpPPP(FeHBinEdges, 0, 1,1)
-    ESF = distro.effSelFunct
-    effVol = distro.effectiveVolume
-    log_p = distro.log_prob(torch.tensor([1,1,1]))
-    #print(ESF)
-    print(effVol)
-    print(log_p)
-    print(distro.R.shape)
-    print(distro.modz.shape)
-    print(distro.effSelFunct.shape)
-    
-    optimiser = Adam({"lr": 0.02}) # tune, and look at other parameters
-    svi = SVI(model, mvn_guide, optimiser, loss=Trace_ELBO())
-    
-
-    mock_sums = (10**10)*torch.tensor([1,5,0.3])
-
-    print(f"Beginning fitting {datetime.datetime.now()}")
-    losses = []
-    for step in range(1000):
-        loss = svi.step(FeHBinEdges, mock_sums)
-        losses.append(loss)
-        if step%100==0:
-            print(f'Loss = {loss}')
-    print(f"finished fitting {datetime.datetime.now()}")
-    print(losses)
-
-    with pyro.plate("samples",500,dim=-1):
-        samples = mvn_guide(FeHBinEdges) #samples latent space, accessed with samples["logA"] etc
-# as outputted as disctionary of tensors
-    labels = ["logA","a_R","a_z"]
-    samples_for_plot = np.stack([samples[label].detach().cpu().numpy() for label in labels],axis=-1)
-
-    fig = corner.corner(samples_for_plot, labels=labels) #takes input as np array with rows as samples
-
-    fig.savefig("/data/phys-galactic-isos/sjoh4701/APOGEE/mock_latents.png")
