@@ -1,4 +1,4 @@
-import DensityModelling as dm
+import DensityModelling_defs as dm
 
 import datetime
 
@@ -9,7 +9,11 @@ import torch
 from pyro.infer import SVI, Trace_ELBO
 from pyro.optim import Adam
 
+import matplotlib as mpl
 import matplotlib.pyplot as plt
+from matplotlib import cm
+from matplotlib.collections import LineCollection
+#from matplotlib.colors import ListedColormap, BoundaryNorm
 import corner
 
 
@@ -47,9 +51,12 @@ muMax = 12 #15 # CHECK THIS against allStar
 # bins - plot mu distribution
 muDiff = 0.1
 muGridParams = (muMin, muMax, int((muMax-muMin)//muDiff))
+apo = dm.load_apo()
+
+mu, D, R, modz, solidAngles, gLon, gLat, x, y, z = dm.makeCoords(muGridParams, apo)
 
 R_modz_multiplier = dm.calculate_R_modz_multiplier(FeHBinEdges, muGridParams)
-
+*_, multiplier = R_modz_multiplier #R, modz comes from makeCoords
 mock_sums = (10**5)*torch.tensor([1,8,0.1])
 
 MAP = True
@@ -105,24 +112,22 @@ ax.set_title(f"lr: {lr}")
 fig.savefig(savePath+str(lr)+("-MAP-" if MAP else "-MVN-")+"loss.png")
 
 for i, name in enumerate(latent_names):
-fig, ax = plt.subplots()
-ax.plot(latent_medians[:,i])
-ax.set_xlabel("step number")
-ax.set_ylabel(name)
-ax.set_title(("MAP" if MAP else "MVN") +f", lr: {lr}")
-fig.savefig(savePath+str(lr)+("-MAP-" if MAP else "-MVN-")+name+".png")
+    fig, ax = plt.subplots()
+    ax.plot(latent_medians[:,i])
+    ax.set_xlabel("step number")
+    ax.set_ylabel(name)
+    ax.set_title(("MAP" if MAP else "MVN") +f", lr: {lr}")
+    fig.savefig(savePath+str(lr)+("-MAP-" if MAP else "-MVN-")+name+".png")
 
 if not MAP:
-with pyro.plate("samples",5000,dim=-1):
-    samples = guide(FeHBinEdges, R_modz_multiplier, mock_sums) #samples latent space, accessed with samples["logA"] etc
-# as outputted as disctionary of tensors
-#labels = ["logA","a_R","a_z"]
-labels=latent_names
-samples_for_plot = np.stack([samples[label].detach().cpu().numpy() for label in labels],axis=-1)
-
-fig = corner.corner(samples_for_plot, labels=labels) #takes input as np array with rows as samples
-fig.suptitle(("MAP" if MAP else "MVN")+f", lr: {lr}, step: {step}")
-fig.savefig(savePath+str(lr)+("-MAP-" if MAP else "-MVN-")+"latents.png")
+    with pyro.plate("samples",5000,dim=-1):
+        samples = guide(FeHBinEdges, R_modz_multiplier, mock_sums) #samples latent space, accessed with samples["logA"] etc
+        # as outputted as disctionary of tensors
+    labels=latent_names
+    samples_for_plot = np.stack([samples[label].detach().cpu().numpy() for label in labels],axis=-1)
+    fig = corner.corner(samples_for_plot, labels=labels) #takes input as np array with rows as samples
+    fig.suptitle(("MAP" if MAP else "MVN")+f", lr: {lr}, step: {step}")
+    fig.savefig(savePath+str(lr)+("-MAP-" if MAP else "-MVN-")+"latents.png")
 
 a_R=(2*mock_sums[0]/mock_sums[1]).item()
 a_z=(mock_sums[0]/mock_sums[2]).item()
@@ -145,10 +150,80 @@ print(f"B = {B}")
 fig, ax = plt.subplots()
 ax.set_xlabel("logA")
 #ax.set_ylabel("effVol, N")
-ax.plot(logAArray[::5], [oneBinDoubleExpPPP(lgA,a_R,a_z,FeHBinEdges,*R_modz_multiplier).effVol for lgA in logAArray[::5]], label="effVol")
+ax.plot(logAArray[::5], [dm.oneBinDoubleExpPPP(lgA,a_R,a_z,FeHBinEdges,*R_modz_multiplier).effVol for lgA in logAArray[::5]], label="effVol")
 ax.plot(logAArray[::5], mock_sums[0]*np.ones(len(logAArray[::5])), label="N")
 ax.legend()
-fig.savefig(savePath+"effVol.png")
+fig.savefig(savePath+"effVol_N.png")
 
 
-#ADD EFFVOL PLOT HERE
+nu = dm.oneBinDoubleExpPPP(0,a_R,a_z,FeHBinEdges,*R_modz_multiplier).norm_nu_array(R,modz)
+x_flat = x.flatten()
+y_flat = y.flatten()
+z_flat = z.flatten()
+nu_flat = nu.flatten()
+multiplier_flat = multiplier.flatten()
+point_density = (5/np.log(10))*D**-3
+point_density_flat = (point_density*np.ones_like(x)).flatten()
+x_bins = np.linspace(-12,-4,20)
+y_bins = np.linspace(-4,4,20)
+z_bins = np.linspace(-1,1,5)
+
+fig, ax = plt.subplots()
+ax.set_xlabel("x /kpc")
+ax.set_ylabel("y /kpc")
+ax.set_aspect("equal")
+ax.hist2d(x_flat, y_flat, bins=[x_bins,y_bins], weights=nu_flat/point_density_flat)
+fig.colorbar(cm.ScalarMappable())
+fig.savefig(savePath+"norm_nu_xy.png")
+
+fig, ax = plt.subplots()
+ax.set_xlabel("x /kpc")
+ax.set_ylabel("z /kpc")
+ax.set_aspect("equal")
+ax.hist2d(x_flat, z_flat, bins=[x_bins,z_bins], weights=nu_flat/point_density_flat)
+fig.colorbar(cm.ScalarMappable())
+fig.savefig(savePath+"norm_nu_xz.png")
+
+fig, ax = plt.subplots()
+ax.set_xlabel("x /kpc")
+ax.set_ylabel("y /kpc")
+ax.set_aspect("equal")
+ax.hist2d(x_flat, y_flat, bins=[x_bins,y_bins], weights=nu_flat*multiplier.flatten()/point_density_flat)
+fig.colorbar(cm.ScalarMappable())
+fig.savefig(savePath+"effVol_xy.png")
+
+fig, ax = plt.subplots()
+ax.set_xlabel("x /kpc")
+ax.set_ylabel("z /kpc")
+ax.set_aspect("equal")
+ax.hist2d(x_flat, z_flat, bins=[x_bins,z_bins], weights=nu_flat*multiplier.flatten()/point_density_flat)
+fig.colorbar(cm.ScalarMappable())
+fig.savefig(savePath+"effVol_xz.png")
+
+
+#Unfinished attempt at plotting each field as line in 3D:
+#norm = plt.Normalize(nu_flat.min(), nu_flat.max())
+#lc = LineCollection(segments, cmap='viridis', norm=norm)
+## Set the values used for colormapping
+#lc.set_array(dydx)
+#lc.set_linewidth(2)
+#line = axs[0].add_collection(lc)
+#fig.colorbar(line, ax=axs[0])
+#
+#fig, ax = plt.subplots()
+#ax.set_xlabel("x /kpc")
+#ax.set_ylabel("z /kpc")
+#ax.plot3d(x_flat, y_flat, z_flat, weights=nu_flat)
+#fig.colorbar()
+#fig.savefig(savePath+"norm_nu_xyz.png")
+#
+#fig, ax = plt.subplots()
+#ax.set_xlabel("x /kpc")
+#ax.set_ylabel("y /kpc")
+#ax.plot3d(x_flat, y_flat, z_flat, weights=nu_flat*multiplier.flatten())
+#fig.colorbar()
+#fig.savefig(savePath+"effVol_xyz.png")
+
+
+
+

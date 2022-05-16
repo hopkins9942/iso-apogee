@@ -65,10 +65,7 @@ class oneBinDoubleExpPPP(TorchDistribution):
                          event_shape=torch.Size([3]),
                          validate_args=validate_args)
 
-        trueDens = (self.a_R.item()**2 * self.a_z.item()
-                    *np.exp(self.logA.item()
-                            -self.a_R.item()*R
-                            -self.a_z.item()*modz)/(4*np.pi))
+        trueDens = np.exp(self.logA.item())*self.norm_nu_array(R,modz)
         self._effVol = (trueDens*multiplier).sum()
 #        print(f"Instantiating oneBin with: {logA}, {a_R}, {a_z}, {self.effVol}")
 
@@ -92,6 +89,16 @@ class oneBinDoubleExpPPP(TorchDistribution):
         """effVol"""
         return self._effVol
 
+    def norm_nu_array(self, R, modz):
+        """
+        Normalised density array.
+        The contribution to effVol from point i is nu_norm_i*exp(logA)*M_i
+        Done as function because I don't want ot store big array, but don't want many copies of same code
+        """
+        return (self.a_R.item()**2 * self.a_z.item()
+                    *np.exp(-self.a_R.item()*R
+                            -self.a_z.item()*modz)/(4*np.pi))
+
     def log_prob(self, value):
         """
         UNTESTED
@@ -111,8 +118,10 @@ class oneBinDoubleExpPPP(TorchDistribution):
 
 
 def makeCoords(muGridParams, apo):
-    """makes mu, D, R, modz tensors, for ease of use
-    units are kpc, and R and modz is for central angle of field"""
+    """makes mu, D, R, modz, solidAngles, gLon gLat, and galacticentric
+    x, y, and z arrays, for ease of use
+    units are kpc, and R and modz is for central angle of field.
+    rows are for fields, columns are for mu values"""
     locations = apo.list_fields(cohort='all')
     Nfields = len(locations)
     # locations is list of ids of fields with at least completed cohort of
@@ -129,11 +138,13 @@ def makeCoords(muGridParams, apo):
         solidAngles[loc_index,0] = apo.area(loc)*_DEGTORAD**2
     gCoords = coord.SkyCoord(l=gLon*u.deg, b=gLat*u.deg, distance=D*u.kpc, frame='galactic')
     gCentricCoords = gCoords.transform_to(coord.Galactocentric)
-    # check this looks right
-    R = np.sqrt(gCentricCoords.x.value**2 + gCentricCoords.y.value**2)
-    modz = np.abs(gCentricCoords.z.value)
+    x = gCentricCoords.x.value
+    y = gCentricCoords.y.value
+    z = gCentricCoords.z.value
+    R = np.sqrt(x**2 + y**2)
+    modz = np.abs(z)
     # check these are right values and shape - write tests!
-    return mu, D, R, modz, solidAngles
+    return mu, D, R, modz, solidAngles, gLon, gLat, x, y, z
 
 
 def load_apo():
@@ -163,7 +174,7 @@ def calculate_R_modz_multiplier(FeHBinEdges, muGridParams):
 #    muDiff = 0.1
 #    muGridParams = (muMin, muMax, int((muMax-muMin)//muDiff))
     # (start,stop,size)
-    mu, D, R, modz, solidAngles = makeCoords(muGridParams, apo)
+    mu, D, R, modz, solidAngles, *_ = makeCoords(muGridParams, apo)
 
     ESFpath = (_ROOTDIR+"sav/EffSelFunctGrids/" +
                 '_'.join([str(float(FeHBinEdges[0])),
