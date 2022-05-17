@@ -19,7 +19,7 @@ import corner
 
 ### defs ###
 
-def model(FeHBinEdges, R_modz_multiplier, sums=None):
+def model(R_modz_multiplier, sums=None):
     """
     FeHBinEdges mark edges of metallicity bins being used, in form of 2*nbins tensor with [lowerEdge, upperEdge] for each bin
     sums is 3*nbins tensor with [N,sumR,summodz] for each bin
@@ -35,7 +35,7 @@ def model(FeHBinEdges, R_modz_multiplier, sums=None):
     logA = pyro.sample('logA', distributions.Normal(18, 1)) # tune these
     a_R = pyro.sample('a_R', distributions.Normal(0.25, 0.09))
     a_z = pyro.sample('a_z', distributions.Normal(10, 1))
-    return pyro.sample('obs', dm.oneBinDoubleExpPPP(logA, a_R, a_z, FeHBinEdges, *R_modz_multiplier), obs=sums)
+    return pyro.sample('obs', dm.oneBinDoubleExpPPP(logA, a_R, a_z, *R_modz_multiplier), obs=sums)
 
 mvn_guide = pyro.infer.autoguide.AutoMultivariateNormal(model)
 delta_guide = pyro.infer.autoguide.AutoDelta(model)
@@ -59,7 +59,7 @@ R_modz_multiplier = dm.calculate_R_modz_multiplier(FeHBinEdges, muGridParams)
 *_, multiplier = R_modz_multiplier #R, modz comes from makeCoords
 mock_sums = (10**5)*torch.tensor([1,8,0.1])
 
-MAP = True
+MAP = False
 if MAP:
     guide = delta_guide
 else:
@@ -69,18 +69,18 @@ n_latents = 3
 
 lr = 0.005
 optimiser = Adam({"lr": lr}) # tune, and look at other parameters
-svi = SVI(model, guide, optimiser, loss=Trace_ELBO(num_particles=1))
+svi = SVI(model, guide, optimiser, loss=Trace_ELBO(num_particles=4))
 
 print(f"Beginning fitting {datetime.datetime.now()}")
-maxSteps = 10000
+maxSteps = 20000 # let settle significantly longer than visual loss decrease and median change stops - shape of guide is adjusting too
 lossArray = np.zeros(maxSteps)
 latent_medians = np.zeros((maxSteps,n_latents))
 for step in range(maxSteps):
-    loss = svi.step(FeHBinEdges, R_modz_multiplier, mock_sums)
+    loss = svi.step(R_modz_multiplier, mock_sums)
     lossArray[step] = loss
 
     #parameter_means[step] = mvn_guide._loc_scale()[0].detach().numpy()
-    latent_medians[step] = [v.item() for v in  guide.median(FeHBinEdges, R_modz_multiplier).values()]
+    latent_medians[step] = [v.item() for v in  guide.median(R_modz_multiplier).values()]
     incDetectLag = 200
     if loss>10**6: #step>incDetectLag and (lossArray[step]>lossArray[step-incDetectLag]):
         lossArray = lossArray[:step]
@@ -91,14 +91,14 @@ for step in range(maxSteps):
         print(f'Loss = {loss}, median logA = {latent_medians[step][0]}')
 print(f"finished fitting at step {step} {datetime.datetime.now()}")
 
-#n_latents = len(guide.median(FeHBinEdges, R_modz_multiplier))
+#n_latents = len(guide.median(R_modz_multiplier))
 #guide.median only works after guide instantiated in SVI
-latent_names = list(guide.median(FeHBinEdges, R_modz_multiplier).keys())
+latent_names = list(guide.median(R_modz_multiplier).keys())
 print(latent_names)
 for name, value in pyro.get_param_store().items():
     print(name, pyro.param(name).data.cpu().numpy())
 
-for name, value in guide.median(FeHBinEdges, R_modz_multiplier).items():
+for name, value in guide.median(R_modz_multiplier).items():
     print(name, value.item())
 
 
@@ -121,7 +121,7 @@ for i, name in enumerate(latent_names):
 
 if not MAP:
     with pyro.plate("samples",5000,dim=-1):
-        samples = guide(FeHBinEdges, R_modz_multiplier, mock_sums) #samples latent space, accessed with samples["logA"] etc
+        samples = guide(R_modz_multiplier) #samples latent space, accessed with samples["logA"] etc
         # as outputted as disctionary of tensors
     labels=latent_names
     samples_for_plot = np.stack([samples[label].detach().cpu().numpy() for label in labels],axis=-1)
@@ -129,18 +129,19 @@ if not MAP:
     fig.suptitle(("MAP" if MAP else "MVN")+f", lr: {lr}, step: {step}")
     fig.savefig(savePath+str(lr)+("-MAP-" if MAP else "-MVN-")+"latents.png")
 
-a_R=(2*mock_sums[0]/mock_sums[1]).item()
-a_z=(mock_sums[0]/mock_sums[2]).item()
-B = dm.oneBinDoubleExpPPP(0, a_R, a_z, FeHBinEdges, *R_modz_multiplier).effVol #logA=0 makes effVol=B
+medians_dict = guide.median(R_modz_multiplier)
+a_R = medians_dict["a_R"].item() #(2*mock_sums[0]/mock_sums[1]).item()
+a_z = medians_dict["a_z"].item() #(mock_sums[0]/mock_sums[2]).item()
+B = dm.oneBinDoubleExpPPP(0, a_R, a_z, *R_modz_multiplier).effVol().item() #logA=0 makes effVol=B
 logp = lambda logA: mock_sums[0].item()*(logA + 2*np.log(a_R) + np.log(a_z)) - mock_sums[1].item()*a_R - mock_sums[2].item()*a_z - B*np.exp(logA)
 logAArray = np.linspace(16,24)
 
 fig, ax = plt.subplots()
 ax.set_xlabel("logA")
 #ax.set_ylabel("-logp, loss")
-ax.plot(logAArray,-logp(logAArray),'|',label="-logp")
+ax.plot(logAArray,-logp(logAArray),'|',label="-logp") #could estimate posterior here
 #sparselogAArray = np.linspace(20,24,5)
-#ax.plot(sparselogAArray, [-oneBinDoubleExpPPP(lgA,a_R,a_z,FeHBinEdges,*R_modz_multiplier).log_prob(mock_sums) for lgA in sparselogAArray])
+#ax.plot(sparselogAArray, [-oneBinDoubleExpPPP(lgA,a_R,a_z,*R_modz_multiplier).log_prob(mock_sums) for lgA in sparselogAArray])
 #this was to test logp
 ax.plot(latent_medians[:,0],lossArray,label="loss")
 ax.legend()
@@ -150,13 +151,13 @@ print(f"B = {B}")
 fig, ax = plt.subplots()
 ax.set_xlabel("logA")
 #ax.set_ylabel("effVol, N")
-ax.plot(logAArray[::5], [dm.oneBinDoubleExpPPP(lgA,a_R,a_z,FeHBinEdges,*R_modz_multiplier).effVol for lgA in logAArray[::5]], label="effVol")
+ax.plot(logAArray[::5], [dm.oneBinDoubleExpPPP(lgA,a_R,a_z,*R_modz_multiplier).effVol().item() for lgA in logAArray[::5]], label="effVol")
 ax.plot(logAArray[::5], mock_sums[0]*np.ones(len(logAArray[::5])), label="N")
 ax.legend()
 fig.savefig(savePath+"effVol_N.png")
 
 
-nu = dm.oneBinDoubleExpPPP(0,a_R,a_z,FeHBinEdges,*R_modz_multiplier).norm_nu_array(R,modz)
+nu = dm.oneBinDoubleExpPPP(0,a_R,a_z,*R_modz_multiplier).norm_nu().detach().cpu().numpy() # I think cpu unneccessary for me, as I am not using GPU for now
 x_flat = x.flatten()
 y_flat = y.flatten()
 z_flat = z.flatten()

@@ -1,36 +1,36 @@
-from numbers import Number
+#from numbers import Number
 import pickle
 import os
-import datetime
+#import datetime
 import warnings
 
 assert os.getenv('RESULTS_VERS')=='l33' # apogee should automatically use dr16 as long as this is correct
 
 import apogee.select as apsel
-import apogee.tools.read as apread
-import isochrones as iso
-import mwdust
-import tqdm
+#import apogee.tools.read as apread
+#import isochrones as iso
+#import mwdust
+#import tqdm
 
 import numpy as np
 import torch
-import pyro
-import pyro.distributions as distributions
+#import pyro
+#import pyro.distributions as distributions
 import pyro.distributions.constraints as constraints
 from pyro.distributions.util import broadcast_all
 from pyro.distributions.torch_distribution import TorchDistribution
-from pyro.infer import SVI, Trace_ELBO
-from pyro.optim import Adam
+#from pyro.infer import SVI, Trace_ELBO
+#from pyro.optim import Adam
 
 import astropy.coordinates as coord
 import astropy.units as u
-import corner
-import matplotlib.pyplot as plt
+#import corner
+#import matplotlib.pyplot as plt
 
 
 _DEGTORAD = torch.pi/180
 _ROOTDIR = "/home/sjoh4701/APOGEE/iso-apogee/"
-#_NCORES = 12 # needs to be set explicitly, otherwise multiprocessing tries to use 48 - I think
+
 
 
 class oneBinDoubleExpPPP(TorchDistribution):
@@ -45,7 +45,7 @@ class oneBinDoubleExpPPP(TorchDistribution):
     support = constraints.real_vector
     has_rsample = False
 
-    def __init__(self, logA, a_R, a_z, FeHBinEdges, R, modz, multiplier,
+    def __init__(self, logA, a_R, a_z, R, modz, multiplier,
                  validate_args=None):
         """
         Distribution for (N,SumR,Summodz) for double exponential PPP model
@@ -69,39 +69,26 @@ class oneBinDoubleExpPPP(TorchDistribution):
 #        trueDens = np.exp(self.logA.item())*self.norm_nu_array(R,modz)
 #        self._effVol = (trueDens*multiplier).sum()
 #        print(f"Instantiating oneBin with: {logA}, {a_R}, {a_z}, {self.effVol}")
-#        print(f"Type of logA: {type(logA)}")
 
-# Keeping things simple, not interfering with pyro.samples
-#    @property
-#    def logA(self):
-#        """logA"""
-#        return self._logA
 
-#    @property
-#    def a_R(self):
-#        """a_R"""
-#        return self._a_R
+# Keeping things simple, not interfering with anything related to gradient by making them properties
 
-#    @property
-#    def a_z(self):
-#        """a_z"""
-#        return self._a_z
-
-#    @property
-#    def effVol(self):
-#        """effVol"""
-#        return self._effVol
-
-    def norm_nu_array(self, R, modz):
+    def norm_nu(self):
         """
         Normalised density array.
-        The contribution to effVol from point i is nu_norm_i*exp(logA)*M_i
-        Done as function because I don't want ot store big array, but don't want many copies of same code
+        The contribution to effVol from point i is nu_norm_i*exp(self.logA)*self.M_i
+        Done to avoid many copies of same code, but needed as function as must change with latents
+        Anything affecting log_prob containing latensts must be kept as tensors for derivative
         """
-        warnings.warn("DEPRECIATED: norm_nu_array")
-        return (self.a_R.item()**2 * self.a_z.item()
-                    *np.exp(-self.a_R.item()*R
-                            -self.a_z.item()*modz)/(4*np.pi))
+        return (self.a_R**2 * self.a_z
+                    *torch.exp(-self.a_R*self.R
+                               -self.a_z*self.modz)/(4*torch.pi))
+
+    def effVol(self):
+        """
+        Convenience method. Anything affecting log_prob containing latensts must be kept as tensors for derivative
+        """
+        return (self.multiplier*torch.exp(self.logA)*self.norm_nu()).sum()
 
     def log_prob(self, value):
         """
@@ -117,26 +104,10 @@ class oneBinDoubleExpPPP(TorchDistribution):
         # tests N is a float, not int
         return (value[0]*(self.logA+2*torch.log(self.a_R)+torch.log(self.a_z))
                 - value[1]*self.a_R - value[2]*self.a_z
-                - (self.a_R**2*self.a_z/(4*torch.pi))
-                  *(self.multiplier*torch.exp(self.logA
-                                             -self.a_R*self.R
-                                             -self.a_z*self.modz)).sum())
+                - self.effVol())
 
     def sample(self, sample_shape=torch.Size()):
         raise NotImplementedError("Sample should not be required")
-
-
-#def fixedAmp_oneBinDoubleExpPPP(oneBinDoubleExpPPP):
-#    def log_prob(self, value):
-#        """
-#        logA fixed to log(N/B)
-#        """
-#        if self._validate_args:
-#            self._validate_sample(value)
-#        # all values in value need to be same type, so technically
-#        # tests N is a float, not int
-#        return (value[0]*(self.logA+2*torch.log(self.a_R)+torch.log(self.a_z))
-#                - value[1]*self.a_R - value[2]*self.a_z - self.effVol)
 
 
 def makeCoords(muGridParams, apo):
@@ -186,16 +157,10 @@ def calculate_R_modz_multiplier(FeHBinEdges, muGridParams):
     """
     returns tuple (R, modz, multiplier) for unpacking and inputting to
     oneBinDoubleExpPPP
+    Strange looking structure (since R, modz is returned by makeCoords) for easy fitting
     """
     apo = load_apo()
 
-#    muMin = 0.0
-#    muMax = 15 # CHECK THIS against allStar
-#    # better to exclude fringe datapoints than have all data in nearest three
-#    # bins - plot mu distribution
-#    muDiff = 0.1
-#    muGridParams = (muMin, muMax, int((muMax-muMin)//muDiff))
-    # (start,stop,size)
     mu, D, R, modz, solidAngles, *_ = makeCoords(muGridParams, apo)
 
     ESFpath = (_ROOTDIR+"sav/EffSelFunctGrids/" +
@@ -256,6 +221,7 @@ class FeHBinnedDoubleExpPPP(TorchDistribution):
         to check parameters and sample values match constraints. True/False means check/don't check,
         None means default behavior.
         """
+        warnings.warn("DEPRECIATED: FeHBinnedDoubleExpPPP")
         print("PPP has been initialised!")
         for value, name in [(FeHBinEdges,"FeHBinEdges"),(logA,"logA"),(a_R,"a_R"),(a_z,"a_z")]:
             if not (isinstance(value,torch.Tensor) or isinstance(value,Number)):
