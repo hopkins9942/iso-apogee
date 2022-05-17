@@ -69,10 +69,10 @@ n_latents = 3
 
 lr = 0.005
 optimiser = Adam({"lr": lr}) # tune, and look at other parameters
-svi = SVI(model, guide, optimiser, loss=Trace_ELBO(num_particles=4))
+svi = SVI(model, guide, optimiser, loss=Trace_ELBO(num_particles=1))
 
 print(f"Beginning fitting {datetime.datetime.now()}")
-maxSteps = 100000
+maxSteps = 10000
 lossArray = np.zeros(maxSteps)
 latent_medians = np.zeros((maxSteps,n_latents))
 for step in range(maxSteps):

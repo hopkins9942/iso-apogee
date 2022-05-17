@@ -2,6 +2,7 @@ from numbers import Number
 import pickle
 import os
 import datetime
+import warnings
 
 assert os.getenv('RESULTS_VERS')=='l33' # apogee should automatically use dr16 as long as this is correct
 
@@ -57,37 +58,39 @@ class oneBinDoubleExpPPP(TorchDistribution):
         ln(10)*solidAngle*D**3*binWidth*effSelFunct*muSpacing/5
         arrays 0th index corresponding to field, 1st corresponding to
         mu grid points
+        FeHBinEdges doesn't appear to be used
         """
-
-        self._logA, self._a_R, self._a_z = broadcast_all(logA, a_R, a_z)
+        self.logA, self.a_R, self.a_z = broadcast_all(logA, a_R, a_z)
         #makes parameters tensors and broadcasts them to same shape
         super().__init__(batch_shape=self.logA.shape,
                          event_shape=torch.Size([3]),
                          validate_args=validate_args)
-
-        trueDens = np.exp(self.logA.item())*self.norm_nu_array(R,modz)
-        self._effVol = (trueDens*multiplier).sum()
+        self.R, self.modz, self.multiplier = torch.tensor(R), torch.tensor(modz), torch.tensor(multiplier)
+#        trueDens = np.exp(self.logA.item())*self.norm_nu_array(R,modz)
+#        self._effVol = (trueDens*multiplier).sum()
 #        print(f"Instantiating oneBin with: {logA}, {a_R}, {a_z}, {self.effVol}")
+#        print(f"Type of logA: {type(logA)}")
 
-    @property
-    def logA(self):
-        """logA"""
-        return self._logA
+# Keeping things simple, not interfering with pyro.samples
+#    @property
+#    def logA(self):
+#        """logA"""
+#        return self._logA
 
-    @property
-    def a_R(self):
-        """a_R"""
-        return self._a_R
+#    @property
+#    def a_R(self):
+#        """a_R"""
+#        return self._a_R
 
-    @property
-    def a_z(self):
-        """a_z"""
-        return self._a_z
+#    @property
+#    def a_z(self):
+#        """a_z"""
+#        return self._a_z
 
-    @property
-    def effVol(self):
-        """effVol"""
-        return self._effVol
+#    @property
+#    def effVol(self):
+#        """effVol"""
+#        return self._effVol
 
     def norm_nu_array(self, R, modz):
         """
@@ -95,6 +98,7 @@ class oneBinDoubleExpPPP(TorchDistribution):
         The contribution to effVol from point i is nu_norm_i*exp(logA)*M_i
         Done as function because I don't want ot store big array, but don't want many copies of same code
         """
+        warnings.warn("DEPRECIATED: norm_nu_array")
         return (self.a_R.item()**2 * self.a_z.item()
                     *np.exp(-self.a_R.item()*R
                             -self.a_z.item()*modz)/(4*np.pi))
@@ -105,16 +109,34 @@ class oneBinDoubleExpPPP(TorchDistribution):
         not designed to work with batches and samples
         value is[N,sumR,summodz]
         IMPORTANT: this is only log_p up to constant not dependent on latents
+        For now explicit to be safe, may move effvol calc elsewhere to avoid defining twice
         """
         if self._validate_args:
             self._validate_sample(value)
         # all values in value need to be same type, so technically
         # tests N is a float, not int
         return (value[0]*(self.logA+2*torch.log(self.a_R)+torch.log(self.a_z))
-                - value[1]*self.a_R - value[2]*self.a_z - self.effVol)
+                - value[1]*self.a_R - value[2]*self.a_z
+                - (self.a_R**2*self.a_z/(4*torch.pi))
+                  *(self.multiplier*torch.exp(self.logA
+                                             -self.a_R*self.R
+                                             -self.a_z*self.modz)).sum())
 
     def sample(self, sample_shape=torch.Size()):
         raise NotImplementedError("Sample should not be required")
+
+
+#def fixedAmp_oneBinDoubleExpPPP(oneBinDoubleExpPPP):
+#    def log_prob(self, value):
+#        """
+#        logA fixed to log(N/B)
+#        """
+#        if self._validate_args:
+#            self._validate_sample(value)
+#        # all values in value need to be same type, so technically
+#        # tests N is a float, not int
+#        return (value[0]*(self.logA+2*torch.log(self.a_R)+torch.log(self.a_z))
+#                - value[1]*self.a_R - value[2]*self.a_z - self.effVol)
 
 
 def makeCoords(muGridParams, apo):
