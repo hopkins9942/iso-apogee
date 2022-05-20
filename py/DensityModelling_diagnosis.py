@@ -16,6 +16,8 @@ from matplotlib.collections import LineCollection
 #from matplotlib.colors import ListedColormap, BoundaryNorm
 import corner
 
+import warnings
+warnings.warn("DEPRECIATED: written before change to logNSun: multiplier no longer contains bin width, other possible error")
 
 ### defs ###
 

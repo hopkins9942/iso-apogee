@@ -7,7 +7,7 @@ import warnings
 assert os.getenv('RESULTS_VERS')=='l33' # apogee should automatically use dr16 as long as this is correct
 
 import apogee.select as apsel
-#import apogee.tools.read as apread
+import apogee.tools.read as apread
 #import isochrones as iso
 #import mwdust
 #import tqdm
@@ -31,7 +31,200 @@ import astropy.units as u
 _DEGTORAD = torch.pi/180
 _ROOTDIR = "/home/sjoh4701/APOGEE/iso-apogee/"
 
+GC_frame = coord.Galactocentric() #adjust parameters here if needed
+z_Sun = GC_frame.z_sun
+R_Sun = np.sqrt(GC_frame.galcen_distance**2 - z_Sun**2)
 
+class logNuSunDoubleExpPPP(TorchDistribution):
+    """
+    Note changes: Multiplier now doesnt't include bin width as true density is just density in space, not space and metalicity
+    log_prob now calculated with N, meanR,meanmodz
+    """
+
+    arg_constraints = {
+        'logNuSun': constraints.real,
+        'a_R': constraints.real,
+        'a_z':  constraints.real,
+    }
+    support = constraints.real_vector
+    has_rsample = False
+
+    def __init__(self, logNuSun, a_R, a_z, R, modz, multiplier,
+                 validate_args=None):
+        """
+        Distribution for (N,SumR,Summodz) for double exponential PPP model
+        with APOGEE fields.
+        logNuSun, a_R, a_z are Numbers or Tensors, R, z, multiplier are
+        arrays
+        multiplier is the array the true density is multiplied by before
+        summing to get effective volume, equal to
+        ln(10)*solidAngle*D**3*effSelFunct*muSpacing/5 -- now not containing binWidth
+        arrays 0th index corresponding to field, 1st corresponding to
+        mu grid points
+        If I wanted to add batching, could it be done with multiplier etc?
+        """
+        self.logNuSun, self.a_R, self.a_z = broadcast_all(logNuSun, a_R, a_z)
+        #makes parameters tensors and broadcasts them to same shape
+        super().__init__(batch_shape=self.logNuSun.shape,
+                         event_shape=torch.Size([3]),
+                         validate_args=validate_args)
+        self.R, self.modz, self.multiplier = torch.tensor(R), torch.tensor(modz), torch.tensor(multiplier)
+
+    # Keeping things simple, not interfering with anything related to gradient by making them properties
+
+    def nu(self):
+        """
+        Density array.
+        The contribution to effVol from point i is nu_norm_i*exp(self.logA)*self.M_i
+        Done to avoid many copies of same code, but needed as function as must change with latents
+        Anything affecting log_prob containing latensts must be kept as tensors for derivative
+        """
+        return torch.exp(self.logNuSun-self.a_R*(self.R - R_Sun)-self.a_z*self.modz)
+
+    def effVol(self):
+        """
+        Convenience method. Anything affecting log_prob containing latensts must be kept as tensors for derivative
+        """
+        return (self.multiplier*self.nu()).sum()
+
+    def log_prob(self, value):
+        """
+        UNTESTED
+        not designed to work with batches and samples
+        value is[N,meanR,meanmodz]
+        IMPORTANT: this is only log_p up to constant not dependent on latents
+        """
+        if self._validate_args:
+            self._validate_sample(value)
+        # all values in value need to be same type, so technically
+        # tests N is a float, not int
+        return (value[0]*(self.logNuSun - (value[1]-R_Sun)*self.a_R - value[2]*self.a_z)
+                - self.effVol())
+
+    def sample(self, sample_shape=torch.Size()):
+        raise NotImplementedError("Sample should not be required")
+
+
+def makeCoords(muGridParams, apo):
+    """makes mu, D, R, modz, solidAngles, gLon gLat, and galacticentric
+    x, y, and z arrays, for ease of use
+    units are kpc, and R and modz is for central angle of field.
+    rows are for fields, columns are for mu values"""
+    locations = apo.list_fields(cohort='all')
+    Nfields = len(locations)
+    # locations is list of ids of fields with at least completed cohort of
+    #  any type, therefore some stars in statistical sample
+
+    mu = np.linspace(*muGridParams)
+    D = 10**(-2+0.2*mu) #kpc
+    gLon = np.zeros((Nfields, 1))
+    gLat = np.zeros((Nfields, 1))
+    solidAngles = np.zeros((Nfields, 1))
+    # This shape allows clever broadcasting in coord.SkyCoord
+    for loc_index, loc in enumerate(locations):
+        gLon[loc_index,0], gLat[loc_index,0] = apo.glonGlat(loc)
+        solidAngles[loc_index,0] = apo.area(loc)*_DEGTORAD**2
+    gCoords = coord.SkyCoord(l=gLon*u.deg, b=gLat*u.deg, distance=D*u.kpc, frame='galactic')
+    gCentricCoords = gCoords.transform_to(GC_frame)
+    x = gCentricCoords.x.value
+    y = gCentricCoords.y.value
+    z = gCentricCoords.z.value
+    R = np.sqrt(x**2 + y**2)
+    modz = np.abs(z)
+    # check these are right values and shape - write tests!
+    return mu, D, R, modz, solidAngles, gLon, gLat, x, y, z
+
+
+def load_apo():
+    """
+    """
+    if os.path.exists(_ROOTDIR+'sav/apodr16_csf.dat'):
+        with open(_ROOTDIR+'sav/apodr16_csf.dat', 'rb') as f:
+            apo = pickle.load(f)
+    else:
+        apo = apsel.apogeeCombinedSelect()
+        with open(_ROOTDIR+'sav/apodr16_csf.dat', 'wb') as f:
+            pickle.dump(apo, f)
+    # maybe add del line here or later if I have memory problems
+    return apo
+
+def calculate_R_modz_multiplier(FeHBinEdges, muGridParams):
+    """
+    returns tuple (R, modz, multiplier) for unpacking and inputting to
+    oneBinDoubleExpPPP
+    Strange looking structure (since R, modz is returned by makeCoords) for easy fitting
+    """
+    apo = load_apo()
+
+    mu, D, R, modz, solidAngles, *_ = makeCoords(muGridParams, apo)
+
+    ESFpath = (_ROOTDIR+"sav/EffSelFunctGrids/" +
+                '_'.join([str(float(FeHBinEdges[0])),
+                          str(float(FeHBinEdges[1])),
+                          str(float(mu[0])),
+                          str(float(mu[-1])),
+                          str(len(mu))])
+                + ".dat")
+    if os.path.exists(ESFpath):
+        with open(ESFpath, 'rb') as f:
+            effSelFunct = pickle.load(f)
+    else:
+        raise FileNotFoundError("Currently effSelFunct must be calculated seperately")
+
+    multiplier = (solidAngles*D**3
+                  *(mu[1]-mu[0])*effSelFunct*np.log(10)/5)
+    return (R, modz, multiplier)
+
+def load_allStar():
+    """
+    uses a pickle with options:
+        rmcommissioning=True,
+        main=True,
+        exclude_star_bad=True,
+        exclude_star_warn=True,
+        use_astroNN_distances=True,
+        use_astroNN_ages=True,
+        rmdups=True
+    """
+    name = "dr16allStar.dat"
+    path = _ROOTDIR+'sav/'+name
+    if os.path.exists(path):
+        with open(path, 'rb') as f:
+            allStar = pickle.load(f)
+    else:
+        allStar = apread.allStar(
+            rmcommissioning=True,
+            main=True,
+            exclude_star_bad=True,
+            exclude_star_warn=True,
+            use_astroNN_distances=True,
+            use_astroNN_ages=True,
+            rmdups=True)
+        with open(path, 'wb') as f:
+            pickle.dump(allStar, f)
+    assert len(allStar) == 211051
+    return allStar
+
+
+def load_statIndx():
+    """
+    uses a pickle of load_allStar
+    """
+    name = "dr16statIndx.dat"
+    path = _ROOTDIR+'sav/'+name
+    if os.path.exists(path):
+        with open(path, 'rb') as f:
+            statIndx = pickle.load(f)
+    else:
+        apo = load_apo()
+        allStar = load_allStar()
+        statIndx = apo.determine_statistical(allStar)
+        with open(path, 'wb') as f:
+            pickle.dump(statIndx, f)
+    assert np.count_nonzero(statIndx)==165768
+    return statIndx
+
+### DEPRECIATED CODE ###
 
 class oneBinDoubleExpPPP(TorchDistribution):
     """
@@ -60,6 +253,7 @@ class oneBinDoubleExpPPP(TorchDistribution):
         mu grid points
         FeHBinEdges doesn't appear to be used
         """
+        warnings.warn("DEPRECIATED: oneBinDoubleExpPPP")
         self.logA, self.a_R, self.a_z = broadcast_all(logA, a_R, a_z)
         #makes parameters tensors and broadcasts them to same shape
         super().__init__(batch_shape=self.logA.shape,
@@ -110,81 +304,6 @@ class oneBinDoubleExpPPP(TorchDistribution):
         raise NotImplementedError("Sample should not be required")
 
 
-def makeCoords(muGridParams, apo):
-    """makes mu, D, R, modz, solidAngles, gLon gLat, and galacticentric
-    x, y, and z arrays, for ease of use
-    units are kpc, and R and modz is for central angle of field.
-    rows are for fields, columns are for mu values"""
-    locations = apo.list_fields(cohort='all')
-    Nfields = len(locations)
-    # locations is list of ids of fields with at least completed cohort of
-    #  any type, therefore some stars in statistical sample
-
-    mu = np.linspace(*muGridParams)
-    D = 10**(-2+0.2*mu) #kpc
-    gLon = np.zeros((Nfields, 1))
-    gLat = np.zeros((Nfields, 1))
-    solidAngles = np.zeros((Nfields, 1))
-    # This shape allows clever broadcasting in coord.SkyCoord
-    for loc_index, loc in enumerate(locations):
-        gLon[loc_index,0], gLat[loc_index,0] = apo.glonGlat(loc)
-        solidAngles[loc_index,0] = apo.area(loc)*_DEGTORAD**2
-    gCoords = coord.SkyCoord(l=gLon*u.deg, b=gLat*u.deg, distance=D*u.kpc, frame='galactic')
-    gCentricCoords = gCoords.transform_to(coord.Galactocentric)
-    x = gCentricCoords.x.value
-    y = gCentricCoords.y.value
-    z = gCentricCoords.z.value
-    R = np.sqrt(x**2 + y**2)
-    modz = np.abs(z)
-    # check these are right values and shape - write tests!
-    return mu, D, R, modz, solidAngles, gLon, gLat, x, y, z
-
-
-def load_apo():
-    """
-    """
-    if os.path.exists(_ROOTDIR+'sav/apodr16_csf.dat'):
-        with open(_ROOTDIR+'sav/apodr16_csf.dat', 'rb') as f:
-            apo = pickle.load(f)
-    else:
-        apo = apsel.apogeeCombinedSelect()
-        with open(_ROOTDIR+'sav/apodr16_csf.dat', 'wb') as f:
-            pickle.dump(apo, f)
-    # maybe add del line here or later if I have memory problems
-    return apo
-
-def calculate_R_modz_multiplier(FeHBinEdges, muGridParams):
-    """
-    returns tuple (R, modz, multiplier) for unpacking and inputting to
-    oneBinDoubleExpPPP
-    Strange looking structure (since R, modz is returned by makeCoords) for easy fitting
-    """
-    apo = load_apo()
-
-    mu, D, R, modz, solidAngles, *_ = makeCoords(muGridParams, apo)
-
-    ESFpath = (_ROOTDIR+"sav/EffSelFunctGrids/" +
-                '_'.join([str(float(FeHBinEdges[0])),
-                          str(float(FeHBinEdges[1])),
-                          str(float(mu[0])),
-                          str(float(mu[-1])),
-                          str(len(mu))])
-                + ".dat")
-    if os.path.exists(ESFpath):
-        with open(ESFpath, 'rb') as f:
-            effSelFunct = pickle.load(f)
-    else:
-        raise FileNotFoundError("Currently effSelFunct must be calculated seperately")
-
-    multiplier = (solidAngles*D**3*(FeHBinEdges[1]-FeHBinEdges[0])
-                  *(mu[1]-mu[0])*effSelFunct*np.log(10)/5)
-    return (R, modz, multiplier)
-
-
-
-
-
-### DEPRECIATED CODE ###
 
 class FeHBinnedDoubleExpPPP(TorchDistribution):
     """
