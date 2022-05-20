@@ -17,7 +17,7 @@ from matplotlib.collections import LineCollection
 import corner
 
 import warnings
-warnings.warn("DEPRECIATED: written before change to logNSun: multiplier no longer contains bin width, other possible error")
+warnings.warn("DEPRECIATED: written before change to logNSun: multiplier no longer contains bin width, log_prob calculated with means not sums, other possible error")
 
 ### defs ###
 
