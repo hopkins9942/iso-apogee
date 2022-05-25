@@ -26,10 +26,11 @@ def model(R_modz_multiplier, data=None):
     #    a_z = pyro.sample('a_z', dist.Normal(...))
     #    return pyro.sample('obs', MyDist(FeHBinEdges, logA, a_R, a_z, validate_args=True), obs=sums)
 
-    logNuSun = pyro.sample('logNuSun', distributions.Normal(20, 4)) # tune these
+    logNuSun = pyro.sample('logNuSun', distributions.Normal(13, 1)) # tune these
     a_R = pyro.sample('a_R', distributions.Normal(0.25, 1))
     a_z = pyro.sample('a_z', distributions.Normal(10, 1))
     return pyro.sample('obs', dm.logNuSunDoubleExpPPP(logNuSun, a_R, a_z, *R_modz_multiplier), obs=data)
+
 
 mvn_guide = pyro.infer.autoguide.AutoMultivariateNormal(model)
 delta_guide = pyro.infer.autoguide.AutoDelta(model)
@@ -60,7 +61,7 @@ print(R.mean())
 print(modz.mean())
 print(multiplier.mean())
 
-data_array = [[],[],[],[10**5,8, 0.1],[],[]] #fill with values from _data
+data_array = [[],[],[],[10**5,8, 0.1],[],[]] #fill with values from _data - AS MEANS
 data = torch.tensor(data_array[BinNum])
 print(f"Data: {data}")
 
@@ -71,12 +72,12 @@ else:
     guide = mvn_guide
 n_latents=3
 
-lr = 0.005
+lr = 0.05
 optimiser = Adam({"lr": lr}) # tune, and look at other parameters
 svi = SVI(model, guide, optimiser, loss=Trace_ELBO(num_particles=4))
 
 print(f"Beginning fitting {datetime.datetime.now()}")
-maxSteps = 20000 # let settle significantly longer than visual loss decrease and median change stops - shape of guide is adjusting too
+maxSteps = 10000 # let settle significantly longer than visual loss decrease and median change stops - shape of guide is adjusting too
 lossArray = np.zeros(maxSteps)
 latent_medians = np.zeros((maxSteps,n_latents))
 for step in range(maxSteps):
