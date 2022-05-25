@@ -38,12 +38,12 @@ def extract(S):
     R = np.sqrt(x**2 + y**2)
     modz = np.abs(z)
 
-    FeH = S['M_H'] #Check with Ted
-    alphaFe = S['ALPHA_M'] #check
+    FeH = S['FE_H'] #Check with Ted
+    MgFe = S['MG_M'] #check
     age = S['age_lowess_correct'] #check
 
-    return mu, D, R, modz, gLon, gLat, x, y, z, FeH, alphaFe, age
-mu, D, R, modz, gLon, gLat, x, y, z, FeH, alphaFe, age = extract(statSample)
+    return mu, D, R, modz, gLon, gLat, x, y, z, FeH, MgFe, age
+mu, D, R, modz, gLon, gLat, x, y, z, FeH, MgFe, age = extract(statSample)
 
 savePath = "/data/phys-galactic-isos/sjoh4701/APOGEE/outputs/DM_data/"
 
@@ -63,7 +63,7 @@ mu_bins = np.linspace(-5,25,80)
 R_bins = np.linspace(0,20,80)
 logR_bins = np.logspace(np.log10(0.1), np.log10(20),80)
 FeH_bins = np.linspace(-2,1,50)
-alphaFe_bins = np.linspace(-0.2,0.4,50)
+MgFe_bins = np.linspace(-0.2,0.4,50)
 age_bins = np.linspace(-1,14,50)
 
 fig, ax = plt.subplots()
@@ -122,16 +122,16 @@ ax.set_xlabel("[Fe/H]")
 fig.savefig(savePath+"FeH.png")
 
 fig, ax = plt.subplots()
-ax.hist(alphaFe, bins=alphaFe_bins)
-ax.set_xlabel(r"[$\alpha/$Fe]")
-fig.savefig(savePath+"alphaFe.png")
+ax.hist(MgFe, bins=MgFe_bins)
+ax.set_xlabel("[Mg/Fe]")
+fig.savefig(savePath+"MgFe.png")
 
 fig, ax = plt.subplots()
-ax.hist2d(FeH,alphaFe,bins=[FeH_bins,alphaFe_bins]) # ,norm=mpl.colors.LogNorm())
+ax.hist2d(FeH,MgFe,bins=[FeH_bins,MgFe_bins]) # ,norm=mpl.colors.LogNorm())
 ax.set_aspect("equal")
 ax.set_xlabel("[Fe/H]")
-ax.set_ylabel(r"[$\alpha /$Fe]")
-fig.savefig(savePath+"alphaFeFeH.png")
+ax.set_ylabel("[MgFe]")
+fig.savefig(savePath+"MgFeFeH.png")
 
 fig, ax = plt.subplots()
 ax.hist(age, bins=age_bins)

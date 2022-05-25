@@ -11,8 +11,9 @@ from pyro.optim import Adam
 import torch
 
 import matplotlib.pyplot as plt
+import corner
 
-def model(R_modz_multiplier, sums=None):
+def model(R_modz_multiplier, data=None):
     """
     FeHBinEdges mark edges of metallicity bins being used, in form of 2*nbins tensor with [lowerEdge, upperEdge] for each bin
     sums is 3*nbins tensor with [N,sumR,summodz] for each bin
@@ -28,7 +29,7 @@ def model(R_modz_multiplier, sums=None):
     logNuSun = pyro.sample('logNuSun', distributions.Normal(20, 4)) # tune these
     a_R = pyro.sample('a_R', distributions.Normal(0.25, 1))
     a_z = pyro.sample('a_z', distributions.Normal(10, 1))
-    return pyro.sample('obs', dm.logNuSunDoubleExpPPP(logNuSun, a_R, a_z, *R_modz_multiplier), obs=sums)
+    return pyro.sample('obs', dm.logNuSunDoubleExpPPP(logNuSun, a_R, a_z, *R_modz_multiplier), obs=data)
 
 mvn_guide = pyro.infer.autoguide.AutoMultivariateNormal(model)
 delta_guide = pyro.infer.autoguide.AutoDelta(model)
@@ -59,9 +60,9 @@ print(R.mean())
 print(modz.mean())
 print(multiplier.mean())
 
-sums_array = [[],[],[],[10**5,8*10**5, 0.1*10**5],[],[]] #fill with values from _data
-sums = torch.tensor(sums_array[BinNum])
-print(f"Data: {sums}")
+data_array = [[],[],[],[10**5,8, 0.1],[],[]] #fill with values from _data
+data = torch.tensor(data_array[BinNum])
+print(f"Data: {data}")
 
 MAP = False
 if MAP:
@@ -79,20 +80,19 @@ maxSteps = 20000 # let settle significantly longer than visual loss decrease and
 lossArray = np.zeros(maxSteps)
 latent_medians = np.zeros((maxSteps,n_latents))
 for step in range(maxSteps):
-    loss = svi.step(R_modz_multiplier, sums)
+    loss = svi.step(R_modz_multiplier, data)
     lossArray[step] = loss
-
 
     #parameter_means[step] = mvn_guide._loc_scale()[0].detach().numpy()
     latent_medians[step] = [v.item() for v in  guide.median(R_modz_multiplier).values()]
     incDetectLag = 200
-    if loss>10**6: #step>incDetectLag and (lossArray[step]>lossArray[step-incDetectLag]):
-        lossArray = lossArray[:step]
-        latent_medians = latent_medians[:step]
+    if loss>10**11: #step>incDetectLag and (lossArray[step]>lossArray[step-incDetectLag]):
+        lossArray = lossArray[:step+1]
+        latent_medians = latent_medians[:step+1]
         break
 
-    if step%1==0:
-        print(f'Loss = {loss}, median logA = {latent_medians[step][0]}')
+    if step%100==0:
+        print(f'Loss = {loss}, median logNuSun = {latent_medians[step][0]}')
 print(f"finished fitting at step {step} {datetime.datetime.now()}")
 
 latent_names = list(guide.median(R_modz_multiplier).keys())
@@ -103,6 +103,12 @@ for name, value in pyro.get_param_store().items():
 for name, value in guide.median(R_modz_multiplier).items():
     print(name, value.item())
 
+logNuSun, a_R, a_z = guide.median(R_modz_multiplier).values()
+print(logNuSun, a_R, a_z)
+distro = dm.logNuSunDoubleExpPPP(logNuSun, a_R, a_z, *R_modz_multiplier)
+print(f"does {data[0]} equal {distro.effVol()}?")
+print(f"does {data[1]} equal {(distro.nu()*multiplier*R).sum()/distro.effVol()}?")
+print(f"does {data[2]} equal {(distro.nu()*multiplier*modz).sum()/distro.effVol()}?")
 
 savePath = "/data/phys-galactic-isos/sjoh4701/APOGEE/outputs/DM_fit/"
 

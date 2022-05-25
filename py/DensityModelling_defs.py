@@ -32,8 +32,8 @@ _DEGTORAD = torch.pi/180
 _ROOTDIR = "/home/sjoh4701/APOGEE/iso-apogee/"
 
 GC_frame = coord.Galactocentric() #adjust parameters here if needed
-z_Sun = GC_frame.z_sun.value # .value removes unit, which causes problems with pytorch
-R_Sun = np.sqrt(GC_frame.galcen_distance.value**2 - z_Sun**2)
+z_Sun = GC_frame.z_sun.to(u.kpc).value # .value removes unit, which causes problems with pytorch
+R_Sun = np.sqrt(GC_frame.galcen_distance.to(u.kpc).value**2 - z_Sun**2)
 
 class logNuSunDoubleExpPPP(TorchDistribution):
     """
@@ -75,7 +75,7 @@ class logNuSunDoubleExpPPP(TorchDistribution):
     def nu(self):
         """
         Density array.
-        The contribution to effVol from point i is nu_norm_i*exp(self.logA)*self.M_i
+        The contribution to effVol from point i is nu_i*self.M_i
         Done to avoid many copies of same code, but needed as function as must change with latents
         Anything affecting log_prob containing latensts must be kept as tensors for derivative
         """
