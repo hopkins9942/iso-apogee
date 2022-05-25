@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 import astropy.coordinates as coord
 import astropy.units as u
 
-#Plot distributions in colour, magnitude, amttelcity, alpha and age
+#Plot distributions in colour, magnitude, metallicity, alpha and age
 # Compare obs distribution to distributions of effVol
 # Compare my own distributions - does hole in xz match up to gap in b for mod(l)<90?
 # do a test fit with logNuSun to check it works
@@ -38,8 +38,12 @@ def extract(S):
     R = np.sqrt(x**2 + y**2)
     modz = np.abs(z)
 
-    return mu, D, R, modz, gLon, gLat, x, y, z
-mu, D, R, modz, gLon, gLat, x, y, z = extract(statSample)
+    FeH = S['M_H'] #Check with Ted
+    alphaFe = S['ALPHA_M'] #check
+    age = S['age_lowess_correct'] #check
+
+    return mu, D, R, modz, gLon, gLat, x, y, z, FeH, alphaFe, age
+mu, D, R, modz, gLon, gLat, x, y, z, FeH, alphaFe, age = extract(statSample)
 
 savePath = "/data/phys-galactic-isos/sjoh4701/APOGEE/outputs/DM_data/"
 
@@ -58,9 +62,12 @@ logD_bins = np.logspace(np.log10(0.0001), np.log10(20),80)
 mu_bins = np.linspace(-5,25,80)
 R_bins = np.linspace(0,20,80)
 logR_bins = np.logspace(np.log10(0.1), np.log10(20),80)
+FeH_bins = np.linspace(-2,1,50)
+alphaFe_bins = np.linspace(-0.2,0.4,50)
+age_bins = np.linspace(-1,14,50)
 
 fig, ax = plt.subplots()
-ax.hist2d(x,y,bins=[x_bins,y_bins],norm=mpl.colors.LogNorm()) #mpl.colors.PowerNorm(gamma=0.5)
+ax.hist2d(x,y,bins=[x_bins,y_bins],norm=mpl.colors.LogNorm())
 ax.set_aspect("equal")
 ax.set_xlabel("x/kpc")
 ax.set_ylabel("y/kpc")
@@ -97,16 +104,46 @@ ax.hist(R, bins=R_bins)
 ax.set_xlabel("R/kpc")
 fig.savefig(savePath+"R.png")
 
-
 fig, ax = plt.subplots()
 ax.hist(R, bins=logR_bins)
 ax.set_xlabel("R/kpc")
 ax.set_xscale('log')
 fig.savefig(savePath+"logR.png")
 
-
 fig, ax = plt.subplots()
 ax.hist(z, bins=z_bins)
 ax.set_xlabel("z/kpc")
 fig.savefig(savePath+"z.png")
 
+
+fig, ax = plt.subplots()
+ax.hist(FeH, bins=FeH_bins)
+ax.set_xlabel("[Fe/H]")
+fig.savefig(savePath+"FeH.png")
+
+fig, ax = plt.subplots()
+ax.hist(alphaFe, bins=alphaFe_bins)
+ax.set_xlabel(r"[$\alpha/$Fe]")
+fig.savefig(savePath+"alphaFe.png")
+
+fig, ax = plt.subplots()
+ax.hist2d(FeH,alphaFe,bins=[FeH_bins,alphaFe_bins]) # ,norm=mpl.colors.LogNorm())
+ax.set_aspect("equal")
+ax.set_xlabel("[Fe/H]")
+ax.set_ylabel(r"[$\alpha /$Fe]")
+fig.savefig(savePath+"alphaFeFeH.png")
+
+fig, ax = plt.subplots()
+ax.hist(age, bins=age_bins)
+ax.set_xlabel("age/Gyr")
+fig.savefig(savePath+"age.png")
+
+
+# Cuts:
+
+FeHBinEdges_array = [[-1.0,-0.75], [-0.75,-0.5], [-0.5,-0.25], [-0.25,0.0], [0.0,0.25], [0.25,0.5]]
+sums_array = np.zeros([len(FeHBinEdges_array), 3])
+for i in range(len(FeHBinEdges_array)):
+    indices = (FeHBinEdges_array[i][0]<=FeH)and(FeH<FeHBinEdges_array[i][1])and(4.0<=mu)and(mu<17)
+    sums_array[i][0] = np.count_nonzeros(indices)
+    sums_array[i][1]

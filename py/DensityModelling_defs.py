@@ -32,8 +32,8 @@ _DEGTORAD = torch.pi/180
 _ROOTDIR = "/home/sjoh4701/APOGEE/iso-apogee/"
 
 GC_frame = coord.Galactocentric() #adjust parameters here if needed
-z_Sun = GC_frame.z_sun
-R_Sun = np.sqrt(GC_frame.galcen_distance**2 - z_Sun**2)
+z_Sun = GC_frame.z_sun.value # .value removes unit, which causes problems with pytorch
+R_Sun = np.sqrt(GC_frame.galcen_distance.value**2 - z_Sun**2)
 
 class logNuSunDoubleExpPPP(TorchDistribution):
     """
