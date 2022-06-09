@@ -1,5 +1,7 @@
 import DensityModelling_defs as dm
 
+import sys
+
 import numpy as np
 
 import datetime
@@ -12,6 +14,8 @@ import torch
 
 import matplotlib.pyplot as plt
 import corner
+
+BinNum = int(sys.argv[1])
 
 def model(R_modz_multiplier, data=None):
     """
@@ -26,9 +30,9 @@ def model(R_modz_multiplier, data=None):
     #    a_z = pyro.sample('a_z', dist.Normal(...))
     #    return pyro.sample('obs', MyDist(FeHBinEdges, logA, a_R, a_z, validate_args=True), obs=sums)
 
-    logNuSun = pyro.sample('logNuSun', distributions.Normal(13, 1)) # tune these
-    a_R = pyro.sample('a_R', distributions.Normal(0.25, 1))
-    a_z = pyro.sample('a_z', distributions.Normal(10, 1))
+    logNuSun = pyro.sample('logNuSun', distributions.Normal(10, 1)) # tune these
+    a_R = pyro.sample('a_R', distributions.Normal(0.25, 0.01))
+    a_z = pyro.sample('a_z', distributions.Normal(2, 1))
     return pyro.sample('obs', dm.logNuSunDoubleExpPPP(logNuSun, a_R, a_z, *R_modz_multiplier), obs=data)
 
 
@@ -38,19 +42,15 @@ delta_guide = pyro.infer.autoguide.AutoDelta(model)
 ### main ###
 print(f"Starting! {datetime.datetime.now()}")
 
-BinNum = 3
-
-FeHBinEdges_array = [[-1.0,-0.75], [-0.75,-0.5], [-0.5,-0.25], [-0.25,0.0], [0.0,0.25], [0.25,0.5]]
-FeHBinEdges = FeHBinEdges_array[BinNum]
-
 muMin = 4.0
-muMax = 17
+muMax = 17.0
 muDiff = 0.1
 muGridParams = (muMin, muMax, int((muMax-muMin)//muDiff))
 apo = dm.load_apo()
 
 mu, D, R, modz, solidAngles, gLon, gLat, x, y, z = dm.makeCoords(muGridParams, apo)
 
+FeHBinEdges = dm.FeHBinEdges_array[BinNum]
 R_modz_multiplier = dm.calculate_R_modz_multiplier(FeHBinEdges, muGridParams)
 *_, multiplier = R_modz_multiplier #R, modz comes from makeCoords
 
@@ -61,9 +61,18 @@ print(R.mean())
 print(modz.mean())
 print(multiplier.mean())
 
-data_array = [[],[],[],[10**5,8, 0.1],[],[]] #fill with values from _data - AS MEANS
+#data_array = [[],[],[],[10**5,8, 0.1],[],[]] #fill with values from _data - AS MEANS
+#data = torch.tensor(data_array[BinNum])
+
+data_array = [[2.35200000e+03, 7.34630784e+00, 1.62761062e+00],
+              [1.45120000e+04, 9.24297959e+00, 1.01059230e+00],
+              [4.31350000e+04, 9.50945083e+00, 5.80609531e-01],
+              [5.48160000e+04, 8.87167417e+00, 3.69494077e-01],
+              [3.59720000e+04, 8.06852236e+00, 3.07138239e-01],
+              [6.55000000e+03, 6.88423645e+00, 3.26783708e-01]]
 data = torch.tensor(data_array[BinNum])
 print(f"Data: {data}")
+print(f"BinNum: {BinNum}")
 
 MAP = False
 if MAP:
@@ -111,7 +120,7 @@ print(f"does {data[0]} equal {distro.effVol()}?")
 print(f"does {data[1]} equal {(distro.nu()*multiplier*R).sum()/distro.effVol()}?")
 print(f"does {data[2]} equal {(distro.nu()*multiplier*modz).sum()/distro.effVol()}?")
 
-savePath = "/data/phys-galactic-isos/sjoh4701/APOGEE/outputs/DM_fit/"
+savePath = "/data/phys-galactic-isos/sjoh4701/APOGEE/outputs/DM_fit/"+str(BinNum)+"-"
 
 fig, ax = plt.subplots()
 ax.plot(lossArray)

@@ -19,7 +19,7 @@ allStar = dm.load_allStar()
 statIndx = dm.load_statIndx()
 
 print(len(allStar))
-print(np.count_nonzero(statIndx))
+print("Stat sample size: ", np.count_nonzero(statIndx))
 
 statSample = allStar[statIndx]
 
@@ -29,17 +29,18 @@ def extract(S):
     gLon = S['GLON']
     gLat = S['GLAT']
     D = S['weighted_dist']/1000 # kpc
+    #D_err = 
     mu = 10 + 5*np.log10(D)
     gCoords = coord.SkyCoord(l=gLon*u.deg, b=gLat*u.deg, distance=D*u.kpc, frame='galactic')
     gCentricCoords = gCoords.transform_to(dm.GC_frame)
-    x = gCentricCoords.x.value
-    y = gCentricCoords.y.value
-    z = gCentricCoords.z.value
+    x = gCentricCoords.x.to(u.kpc).value
+    y = gCentricCoords.y.to(u.kpc).value
+    z = gCentricCoords.z.to(u.kpc).value
     R = np.sqrt(x**2 + y**2)
     modz = np.abs(z)
 
     FeH = S['FE_H'] #Check with Ted
-    MgFe = S['MG_M'] #check
+    MgFe = S['MG_FE'] #check
     age = S['age_lowess_correct'] #check
 
     return mu, D, R, modz, gLon, gLat, x, y, z, FeH, MgFe, age
@@ -140,10 +141,51 @@ fig.savefig(savePath+"age.png")
 
 
 # Cuts:
+# If D=nan, true dist is probably outside wanted range, therefore can ignore completely as won't be counted in EffSelFunct
+# If FeH<-9999 but D!=nan, label as bad because proabably would affect EffSelFunct (sim for MgFe)
+# If age outside range 0-14, make either 0 or 14, this is due to dr16 rescaling and this fix is fine as long as I use large age bins.
+# Make fit with good stars, then, correct galaxywide numbers in each bin by distributing bad stars proportional to raw numbers and nuSun.
+# Then distribute stars over bins, then fit to this. I think all of these should be the same or similar.
+# Assumes D is either accurate or nan, rate at which bad abundances are measured is independant of abundance or distance, and any age measured to be outside range 0-14 is actually in nearest bin
 
-FeHBinEdges_array = [[-1.0,-0.75], [-0.75,-0.5], [-0.5,-0.25], [-0.25,0.0], [0.0,0.25], [0.25,0.5]]
-sums_array = np.zeros([len(FeHBinEdges_array), 3])
-for i in range(len(FeHBinEdges_array)):
-    indices = (FeHBinEdges_array[i][0]<=FeH)and(FeH<FeHBinEdges_array[i][1])and(4.0<=mu)and(mu<17)
-    sums_array[i][0] = np.count_nonzeros(indices)
-    sums_array[i][1]
+mu_min = 4.0
+mu_max = 17.0
+
+data_array = np.zeros([len(dm.FeHBinEdges_array), 3])
+for i in range(len(dm.FeHBinEdges_array)):
+    good_indices = np.logical_and.reduce([(dm.FeHBinEdges_array[i][0]<=FeH),
+                              (FeH<dm.FeHBinEdges_array[i][1]),
+                              (mu_min<=mu), (mu<mu_max)])
+    # jth value is True when jth star lies in mu range and ith bin
+    data_array[i][0] = np.count_nonzero(good_indices)
+    data_array[i][1] = R[good_indices].mean()
+    data_array[i][2] = modz[good_indices].mean() #double check this
+print("Unadjusted data: ", data_array)
+
+bad_indices = np.logical_and.reduce([(FeH<-9999),
+                              (mu_min<=mu), (mu<mu_max)])
+# jth value is True, when star should be in my sample, but FeH measurement failed
+
+print("Number of bad stars: ", np.count_nonzero(bad_indices))
+
+print(FeH[FeH<-3]) # lots, all -9999.99
+print(FeH[FeH>3]) # none
+print(np.argwhere(np.isnan(FeH))) # none
+print(D[D<0]) # none
+print(D[D>100]) # a couple over 100 kpc
+print(np.argwhere(np.isnan(D))) # several, need to cut on these
+print(np.count_nonzero(np.isnan(D)))
+print(np.argwhere(np.isnan(mu))) #several
+print(np.count_nonzero(np.isnan(mu))) #same as D as no D<0
+print(MgFe[MgFe<-3]) # lots
+print(MgFe[MgFe>3]) # none
+print(np.argwhere(np.isnan(MgFe))) # none
+print(age[age<0]) # lots
+print(age[age>50]) # none
+print(np.argwhere(np.isnan(age))) #none
+
+
+
+#print("Bad stars in Stat sample: ", np.count_nonzero((FeH<-9999)))
+
+# put cut on errors on dist and others

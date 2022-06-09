@@ -35,6 +35,22 @@ GC_frame = coord.Galactocentric() #adjust parameters here if needed
 z_Sun = GC_frame.z_sun.to(u.kpc).value # .value removes unit, which causes problems with pytorch
 R_Sun = np.sqrt(GC_frame.galcen_distance.to(u.kpc).value**2 - z_Sun**2)
 
+FeHBinEdges_array = [[-1.0,-0.75], [-0.75,-0.5], [-0.5,-0.25], [-0.25,0.0], [0.0,0.25], [0.25,0.5]]
+
+unadjusted_data = [[2.35200000e+03, 7.34630784e+00, 1.62761062e+00],
+ [1.45120000e+04, 9.24297959e+00, 1.01059230e+00],
+ [4.31350000e+04, 9.50945083e+00, 5.80609531e-01],
+ [5.48160000e+04, 8.87167417e+00, 3.69494077e-01],
+ [3.59720000e+04, 8.06852236e+00, 3.07138239e-01],
+ [6.55000000e+03, 6.88423645e+00, 3.26783708e-01]]
+Nbad = 787
+fits = [[6.710781574249268, 0.33299723267555237, 0.8103033900260925],
+ [8.96414852142334, 0.26698002219200134, 1.2854876518249512],
+ [10.64326000213623, 0.2955845296382904, 2.1618664264678955],
+ [11.43671703338623, 0.38112685084342957, 3.333465099334717],
+ [11.177633285522461, 0.45318296551704407, 4.000054359436035],
+ [9.412787437438965, 0.5277802348136902, 4.067354202270508]]
+
 class logNuSunDoubleExpPPP(TorchDistribution):
     """
     Note changes: Multiplier now doesnt't include bin width as true density is just density in space, not space and metalicity
