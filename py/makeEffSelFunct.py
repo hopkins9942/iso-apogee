@@ -14,8 +14,9 @@ import tqdm
 import isochrones as iso
 
 _ROOTDIR = "/home/sjoh4701/APOGEE/iso-apogee/"
-_NCPUS = int(sys.argv[3])
+_NCPUS = int(sys.argv[2])
 
+JOB_INDEX = int(sys.argv[1])
 
 if os.path.exists(_ROOTDIR+'sav/apodr16_csf.dat'):
     with open(_ROOTDIR+'sav/apodr16_csf.dat', 'rb') as f:
@@ -26,14 +27,19 @@ else:
         pickle.dump(apo, f)
 del apo._specdata, apo._photdata, apo.apo1sel._specdata, apo.apo1sel._photdata, apo.apo2Nsel._specdata, apo.apo2Nsel._photdata, apo.apo2Ssel._specdata, apo.apo2Ssel._photdata
 
-
-FeHBinEdges = [float(sys.argv[1]), float(sys.argv[2])]
+start = -1.025
+stop = 0.475
+binsize=0.1
+edgesArray = np.linspace(start,stop,15)
+print(edgesArray)
+FeHBinEdges = [edgesArray[JOB_INDEX], edgesArray[JOB_INDEX+1]]
 print(FeHBinEdges)
 muMin = 4.0
 muMax = 17.0 # allStar statistical sample mu distribution is approximately between 3.3-17.3
 muDiff = 0.1
 muGridParams = (muMin, muMax, int((muMax-muMin)//muDiff)) # (start,stop,size)
 mu = np.linspace(*muGridParams)
+print(mu)
 D = 10**(-2+0.2*mu) #kpc
 
 locations = apo.list_fields(cohort='all')

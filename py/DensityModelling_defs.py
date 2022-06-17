@@ -27,6 +27,7 @@ import astropy.units as u
 #import corner
 #import matplotlib.pyplot as plt
 
+#import isochrones
 
 _DEGTORAD = torch.pi/180
 _ROOTDIR = "/home/sjoh4701/APOGEE/iso-apogee/"
@@ -36,7 +37,9 @@ z_Sun = GC_frame.z_sun.to(u.kpc).value # .value removes unit, which causes probl
 R_Sun = np.sqrt(GC_frame.galcen_distance.to(u.kpc).value**2 - z_Sun**2)
 
 FeHBinEdges_array = [[-1.0,-0.75], [-0.75,-0.5], [-0.5,-0.25], [-0.25,0.0], [0.0,0.25], [0.25,0.5]]
+Nbins = len(FeHBinEdges_array)
 
+Nstars = 160205
 unadjusted_data = [[2.35200000e+03, 7.34630784e+00, 1.62761062e+00],
  [1.45120000e+04, 9.24297959e+00, 1.01059230e+00],
  [4.31350000e+04, 9.50945083e+00, 5.80609531e-01],
@@ -44,12 +47,22 @@ unadjusted_data = [[2.35200000e+03, 7.34630784e+00, 1.62761062e+00],
  [3.59720000e+04, 8.06852236e+00, 3.07138239e-01],
  [6.55000000e+03, 6.88423645e+00, 3.26783708e-01]]
 Nbad = 787
-fits = [[6.710781574249268, 0.33299723267555237, 0.8103033900260925],
+unadjusted_results = [[6.710781574249268, 0.33299723267555237, 0.8103033900260925],
  [8.96414852142334, 0.26698002219200134, 1.2854876518249512],
  [10.64326000213623, 0.2955845296382904, 2.1618664264678955],
  [11.43671703338623, 0.38112685084342957, 3.333465099334717],
  [11.177633285522461, 0.45318296551704407, 4.000054359436035],
  [9.412787437438965, 0.5277802348136902, 4.067354202270508]]
+adjustment_factor = 1/(1-(Nbad/Nstars))
+adjusted_results = unadjusted_results * np.array([adjustment_factor,1,1])
+
+ = [202.16782012, 204.26083429, 208.70700329, 216.78030342, 232.05002116, 243.72646311]
+
+#mask_array = [((isogrid['logg'] > 1) & (isogrid['logg'] < 3)
+#              & (isogrid['MH'] >  FeHBinEdges[0])
+#              & (isogrid['MH'] <= FeHBinEdges[1]))
+#              for FeHBinEdges in FeHBinEdges_array]
+
 
 class logNuSunDoubleExpPPP(TorchDistribution):
     """
