@@ -27,26 +27,7 @@ statSample = allStar[statIndx]
 
 # print(statSample.dtype.names)
 
-def extract(S):
-    gLon = S['GLON']
-    gLat = S['GLAT']
-    D = S['weighted_dist']/1000 # kpc
-    #D_err = 
-    mu = 10 + 5*np.log10(D)
-    gCoords = coord.SkyCoord(l=gLon*u.deg, b=gLat*u.deg, distance=D*u.kpc, frame='galactic')
-    gCentricCoords = gCoords.transform_to(dm.GC_frame)
-    x = gCentricCoords.x.to(u.kpc).value
-    y = gCentricCoords.y.to(u.kpc).value
-    z = gCentricCoords.z.to(u.kpc).value
-    R = np.sqrt(x**2 + y**2)
-    modz = np.abs(z)
-
-    FeH = S['FE_H'] #Check with Ted
-    MgFe = S['MG_FE'] #check
-    age = S['age_lowess_correct'] #check
-
-    return mu, D, R, modz, gLon, gLat, x, y, z, FeH, MgFe, age
-mu, D, R, modz, gLon, gLat, x, y, z, FeH, MgFe, age = extract(statSample)
+mu, D, R, modz, gLon, gLat, x, y, z, FeH, MgFe, age = dm.extract(statSample)
 
 savePath = "/data/phys-galactic-isos/sjoh4701/APOGEE/outputs/DM_data/"
 
@@ -150,8 +131,8 @@ if False:
 # Then distribute stars over bins, then fit to this. I think all of these should be the same or similar.
 # Assumes D is either accurate or nan, rate at which bad abundances are measured is independant of abundance or distance, and any age measured to be outside range 0-14 is actually in nearest bin
 
-mu_min = 4.0
-mu_max = 17.0
+mu_min = dm.muMin #4.0
+mu_max = dm.muMax #17.0
 
 in_mu_range = np.logical_and.reduce([(mu_min<=mu), (mu<mu_max)])
 print("Num in mu range: ", np.count_nonzero(in_mu_range))

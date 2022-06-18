@@ -3,6 +3,7 @@ import pickle
 import os
 #import datetime
 import warnings
+from math import isclose
 
 assert os.getenv('RESULTS_VERS')=='l33' # apogee should automatically use dr16 as long as this is correct
 
@@ -31,38 +32,83 @@ import astropy.units as u
 
 _DEGTORAD = torch.pi/180
 _ROOTDIR = "/home/sjoh4701/APOGEE/iso-apogee/"
+_OUTPUTDIR = "/data/phys-galactic-isos/sjoh4701/APOGEE/outputs/"
 
 GC_frame = coord.Galactocentric() #adjust parameters here if needed
 z_Sun = GC_frame.z_sun.to(u.kpc).value # .value removes unit, which causes problems with pytorch
 R_Sun = np.sqrt(GC_frame.galcen_distance.to(u.kpc).value**2 - z_Sun**2)
 
-FeHBinEdges_array = [[-1.0,-0.75], [-0.75,-0.5], [-0.5,-0.25], [-0.25,0.0], [0.0,0.25], [0.25,0.5]]
-Nbins = len(FeHBinEdges_array)
+def arr(gridParams):
+    start, stop, step = gridParams
+    arr = np.arange(round((stop-start)/step)+1)*step+start
+    assert isclose(arr[-1],stop) # will highlight both bugs and when stop-start is not multiple of diff
+    return arr
 
-Nstars = 160205
-unadjusted_data = [[2.35200000e+03, 7.34630784e+00, 1.62761062e+00],
- [1.45120000e+04, 9.24297959e+00, 1.01059230e+00],
- [4.31350000e+04, 9.50945083e+00, 5.80609531e-01],
- [5.48160000e+04, 8.87167417e+00, 3.69494077e-01],
- [3.59720000e+04, 8.06852236e+00, 3.07138239e-01],
- [6.55000000e+03, 6.88423645e+00, 3.26783708e-01]]
-Nbad = 787
-unadjusted_results = [[6.710781574249268, 0.33299723267555237, 0.8103033900260925],
- [8.96414852142334, 0.26698002219200134, 1.2854876518249512],
- [10.64326000213623, 0.2955845296382904, 2.1618664264678955],
- [11.43671703338623, 0.38112685084342957, 3.333465099334717],
- [11.177633285522461, 0.45318296551704407, 4.000054359436035],
- [9.412787437438965, 0.5277802348136902, 4.067354202270508]]
-adjustment_factor = 1/(1-(Nbad/Nstars))
-adjusted_results = unadjusted_results * np.array([adjustment_factor,1,1])
+muMax = 4.0
+muMin = 17.0
+muStep = 0.1
+muGridParams = (muMin, muMax, muStep)
 
- = [202.16782012, 204.26083429, 208.70700329, 216.78030342, 232.05002116, 243.72646311]
+#FeHBinEdges_array = [[-1.0,-0.75], [-0.75,-0.5], [-0.5,-0.25], [-0.25,0.0], [0.0,0.25], [0.25,0.5]]
+#Nbins = len(FeHBinEdges_array)
+
+#Nstars = 160205
+#unadjusted_data = [[2.35200000e+03, 7.34630784e+00, 1.62761062e+00],
+# [1.45120000e+04, 9.24297959e+00, 1.01059230e+00],
+# [4.31350000e+04, 9.50945083e+00, 5.80609531e-01],
+# [5.48160000e+04, 8.87167417e+00, 3.69494077e-01],
+# [3.59720000e+04, 8.06852236e+00, 3.07138239e-01],
+# [6.55000000e+03, 6.88423645e+00, 3.26783708e-01]]
+#Nbad = 787
+#unadjusted_results = [[6.710781574249268, 0.33299723267555237, 0.8103033900260925],
+# [8.96414852142334, 0.26698002219200134, 1.2854876518249512],
+# [10.64326000213623, 0.2955845296382904, 2.1618664264678955],
+# [11.43671703338623, 0.38112685084342957, 3.333465099334717],
+# [11.177633285522461, 0.45318296551704407, 4.000054359436035],
+# [9.412787437438965, 0.5277802348136902, 4.067354202270508]]
+
+# = [202.16782012, 204.26083429, 208.70700329, 216.78030342, 232.05002116, 243.72646311]
 
 #mask_array = [((isogrid['logg'] > 1) & (isogrid['logg'] < 3)
 #              & (isogrid['MH'] >  FeHBinEdges[0])
 #              & (isogrid['MH'] <= FeHBinEdges[1]))
 #              for FeHBinEdges in FeHBinEdges_array]
 
+def calculateData(FeHBinEdges_array):
+    """
+    Calculates data for fit
+    """
+    allStar = load_allStar()
+    statIndx = load_statIndx() #Inefficient, combine?
+
+    print(len(allStar))
+    print("Stat sample size: ", np.count_nonzero(statIndx))
+
+    statSample = allStar[statIndx]
+    mu, D, R, modz, gLon, gLat, x, y, z, FeH, MgFe, age = dm.extract(statSample)
+    in_mu_range = np.logical_and.reduce([(mu_min<=mu), (mu<mu_max)])
+    Nstars = np.count_nonzero(in_mu_range)
+    print("Num in mu range: ", Nstars)
+    unadjusted_data = np.zeros([len(FeHBinEdges_array), 3])
+    for i in range(len(FeHBinEdges_array)):
+        in_bin = np.logical_and.reduce([(FeHBinEdges_array[i][0] <= FeH),
+                                  (FeH < FeHBinEdges_array[i][1]),
+                                  in_mu_range])
+        # jth value is True when jth star lies in mu range and ith bin
+        unadjusted_data[i][0] = np.count_nonzero(in_bin)
+        unadjusted_data[i][1] = R[in_bin].mean()
+        unadjusted_data[i][2] = modz[in_bin].mean() #double check this
+    print("Unadjusted data: ", unadjusted_data)
+
+    bad_indices = np.logical_and.reduce([(FeH<-9999), in_mu_range])
+    # jth value is True, when star should be in my sample, but FeH measurement failed
+    Nbad = np.count_nonzero(bad_indices)
+    print("Number of bad FeH stars: ", Nbad)
+
+    adjustment_factor = 1/(1-(Nbad/Nstars))
+    adjusted_data = unadjusted_data * np.array([adjustment_factor,1,1])
+    print("Adjusted data: ", adjusted_data)
+    return adjusted_data
 
 class logNuSunDoubleExpPPP(TorchDistribution):
     """
@@ -163,6 +209,25 @@ def makeCoords(muGridParams, apo):
     # check these are right values and shape - write tests!
     return mu, D, R, modz, solidAngles, gLon, gLat, x, y, z
 
+def extract(S):
+    gLon = S['GLON']
+    gLat = S['GLAT']
+    D = S['weighted_dist']/1000 # kpc
+    #D_err =
+    mu = 10 + 5*np.log10(D)
+    gCoords = coord.SkyCoord(l=gLon*u.deg, b=gLat*u.deg, distance=D*u.kpc, frame='galactic')
+    gCentricCoords = gCoords.transform_to(dm.GC_frame)
+    x = gCentricCoords.x.to(u.kpc).value
+    y = gCentricCoords.y.to(u.kpc).value
+    z = gCentricCoords.z.to(u.kpc).value
+    R = np.sqrt(x**2 + y**2)
+    modz = np.abs(z)
+
+    FeH = S['FE_H'] #Check with Ted
+    MgFe = S['MG_FE'] #check
+    age = S['age_lowess_correct'] #check
+
+    return mu, D, R, modz, gLon, gLat, x, y, z, FeH, MgFe, age
 
 def load_apo():
     """

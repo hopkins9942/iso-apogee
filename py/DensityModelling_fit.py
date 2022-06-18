@@ -45,7 +45,7 @@ print(f"Starting! {datetime.datetime.now()}")
 muMin = 4.0
 muMax = 17.0
 muDiff = 0.1
-muGridParams = (muMin, muMax, int((muMax-muMin)//muDiff))
+muGridParams = (muMin, muMax, round((muMax-muMin)//muDiff))
 apo = dm.load_apo()
 
 mu, D, R, modz, solidAngles, gLon, gLat, x, y, z = dm.makeCoords(muGridParams, apo)

@@ -13,6 +13,8 @@ import mwdust
 import tqdm
 import isochrones as iso
 
+import DensityModelling_defs as dm
+
 _ROOTDIR = "/home/sjoh4701/APOGEE/iso-apogee/"
 _NCPUS = int(sys.argv[2])
 
@@ -27,18 +29,17 @@ else:
         pickle.dump(apo, f)
 del apo._specdata, apo._photdata, apo.apo1sel._specdata, apo.apo1sel._photdata, apo.apo2Nsel._specdata, apo.apo2Nsel._photdata, apo.apo2Ssel._specdata, apo.apo2Ssel._photdata
 
-start = -1.025
-stop = 0.475
-binsize=0.1
-edgesArray = np.linspace(start,stop,15)
+FeHBinParams = (-1.025, 0.475, 0.1)
+edgesArray = dm.arr(FeHBinParams)
 print(edgesArray)
+
 FeHBinEdges = [edgesArray[JOB_INDEX], edgesArray[JOB_INDEX+1]]
 print(FeHBinEdges)
-muMin = 4.0
-muMax = 17.0 # allStar statistical sample mu distribution is approximately between 3.3-17.3
-muDiff = 0.1
-muGridParams = (muMin, muMax, int((muMax-muMin)//muDiff)) # (start,stop,size)
-mu = np.linspace(*muGridParams)
+#muMin = 4.0
+#muMax = 17.0 # allStar statistical sample mu distribution is approximately between 3.3-17.3
+#muStep = 0.1
+#muGridParams = (muMin, muMax, muStep) # (start,stop,step)
+mu = dm.arr(dm.muGridParams)
 print(mu)
 D = 10**(-2+0.2*mu) #kpc
 
@@ -46,9 +47,9 @@ locations = apo.list_fields(cohort='all')
 print(len(locations))
 isogrid = iso.newgrid()
 # newgrid ensures means it uses new isochrones. I should either rewrite isochrones.py, maybe with MIST isochrones, or at least fully understand it
-mask = ((isogrid['logg'] > 1) & (isogrid['logg'] < 3)
-        & (isogrid['MH'] >  FeHBinEdges[0])
-        & (isogrid['MH'] <= FeHBinEdges[1]))
+mask = ((1 <= isogrid['logg']) & (isogrid['logg'] < 3)
+        & (FeHBinEdges[0] <= isogrid['MH'])
+        & (isogrid['MH'] < FeHBinEdges[1]))
 
 dmap = mwdust.Combined19(filter='2MASS H')
 # see Ted's code for how to include full grid
@@ -79,8 +80,7 @@ print("Finished multiprocessing")
             # torch.tensor know how to deal directly with a map object
 
 filePath = (_ROOTDIR + "sav/EffSelFunctGrids/" +
-                    '_'.join([str(FeHBinEdges[0]), str(FeHBinEdges[1]), str(mu[0]),
-                              str(mu[-1]), str(len(mu))])
+                    '_'.join(["FeH", f'{FeHBinEdges[0]:.3f}', f'{FeHBinEdges[1]:.3f}'])
                     + ".dat")
 
 with open(filePath, 'wb') as f:
