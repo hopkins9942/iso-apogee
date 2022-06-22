@@ -9,7 +9,7 @@ savePath = "/data/phys-galactic-isos/sjoh4701/APOGEE/outputs/DM_results/"
 
 results = np.array(dm.results)
 # adjust for bad stars here
-nuSun = np.log(results[:,0])
+nuSun = np.log(results[:,0]) #EXP???
 hR = 1/results[:,1]
 hz = 1/results[:,2]
 

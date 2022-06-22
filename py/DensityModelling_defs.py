@@ -4,6 +4,7 @@ import os
 #import datetime
 import warnings
 from math import isclose
+from functools import partial
 
 assert os.getenv('RESULTS_VERS')=='l33' # apogee should automatically use dr16 as long as this is correct
 
@@ -26,9 +27,9 @@ from pyro.distributions.torch_distribution import TorchDistribution
 import astropy.coordinates as coord
 import astropy.units as u
 #import corner
-#import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 
-#import isochrones
+import isochrones
 
 _DEGTORAD = torch.pi/180
 _ROOTDIR = "/home/sjoh4701/APOGEE/iso-apogee/"
@@ -44,8 +45,8 @@ def arr(gridParams):
     assert isclose(arr[-1],stop) # will highlight both bugs and when stop-start is not multiple of diff
     return arr
 
-muMax = 4.0
-muMin = 17.0
+muMin = 4.0
+muMax = 17.0
 muStep = 0.1
 muGridParams = (muMin, muMax, muStep)
 
@@ -85,8 +86,8 @@ def calculateData(FeHBinEdges_array):
     print("Stat sample size: ", np.count_nonzero(statIndx))
 
     statSample = allStar[statIndx]
-    mu, D, R, modz, gLon, gLat, x, y, z, FeH, MgFe, age = dm.extract(statSample)
-    in_mu_range = np.logical_and.reduce([(mu_min<=mu), (mu<mu_max)])
+    mu, D, R, modz, gLon, gLat, x, y, z, FeH, MgFe, age = extract(statSample)
+    in_mu_range = np.logical_and.reduce([(muMin<=mu), (mu<muMax)])
     Nstars = np.count_nonzero(in_mu_range)
     print("Num in mu range: ", Nstars)
     unadjusted_data = np.zeros([len(FeHBinEdges_array), 3])
@@ -109,6 +110,88 @@ def calculateData(FeHBinEdges_array):
     adjusted_data = unadjusted_data * np.array([adjustment_factor,1,1])
     print("Adjusted data: ", adjusted_data)
     return adjusted_data
+
+def postProcessing(FeHBinEdges_array, fitResultsDir):
+    savePath = _OUTPUTDIR + 'DM_results/'
+    FeHBinEdges_array = np.array(FeHBinEdges_array)
+    isogrid = isochrones.newgrid()
+
+    fitResults = np.zeros((15,3))
+    for i in range(15):
+        with open(fitResultsDir+str(i)+'.dat', 'rb') as f:
+            fitResults[i,:] = pickle.load(f)
+    print(fitResults)
+
+    Nbins = FeHBinEdges_array.shape[0]
+    NRG2mass_array = np.zeros(Nbins)
+    for i in range(Nbins):
+        FeHBinEdges = FeHBinEdges_array[i]
+        binMask = ((FeHBinEdges[0] <= isogrid['MH'])
+                  &(isogrid['MH'] < FeHBinEdges[1]))
+        RGbinMask = binMask & (1 <= isogrid['logg']) & (isogrid['logg'] < 3)
+        meanMass = np.average(isogrid[binMask]['Mass'], weights=isogrid[binMask]['weights']) # Check with T$    print(meanMass)
+        RGfraction = isogrid[RGbinMask]['weights'].sum()/isogrid[binMask]['weights'].sum()
+        print(RGfraction)
+        NRG2mass_array[i] = meanMass/RGfraction
+    print(NRG2mass_array)
+    massDensity = np.exp(fitResults[:,0])*NRG2mass_array*np.exp(-fitResults[:,2]*np.abs(z_Sun))/(FeHBinEdges_array[0,1]-FeHBinEdges_array[0,0])
+    #mass density of all stars at solar position - per volume and per mettalicity
+    hR = 1/fitResults[:,1]
+    hz = 1/fitResults[:,2]
+    print(massDensity)
+    # CHeck by checking integrated mass density matches 10^10 galaxy mass
+    left_edges = FeHBinEdges_array[:,0]
+    width = FeHBinEdges_array[0,1]-FeHBinEdges_array[0,0]
+
+    fig, ax = plt.subplots()
+    ax.bar(left_edges,massDensity,width=width, align='edge')
+    ax.set_xlabel('[Fe/H]')
+    ax.set_ylabel(r'Mass density of stars around Sun /$\marthrm{M}_\odot \mathrm{kpc}^{-3}$')
+    fig.savefig(savePath + 'rhoSun.png')
+
+    fig, ax = plt.subplots()
+    ax.bar(left_edges,hR,width=width, align='edge')
+    ax.set_xlabel('[Fe/H]')
+    ax.set_ylabel('Scale length/kpc')
+    fig.savefig(savePath + 'hR.png')
+
+    fig, ax = plt.subplots()
+    ax.bar(left_edges,hz,width=width, align='edge')
+    ax.set_xlabel('[Fe/H]')
+    ax.set_ylabel('Scale hight/kpc')
+    fig.savefig(savePath + 'hz.png')
+
+    #calc composition here
+    FeH_p = [-0.4,-0.3,-0.2,-0.1,0.0,0.1,0.2,0.3,0.4]
+    fH2O_p = [ 0.5098, 0.4905, 0.4468, 0.4129, 0.3563, 0.2918, 0.2173, 0.1532, 0.06516]
+    comp = partial(np.interp, xp=FeH_p, fp=fH2O_p)
+    FeH = np.linspace(FeHBinEdges_array[0,0], FeHBinEdges_array[-1,1], 100)
+    fH2O = comp(FeH)
+#    dfdFeH = (np.diff(fH2O)/(FeH[1]-FeH[0]), )
+
+    fig, ax = plt.subplots()
+    ax.plot(FeH, fH2O)
+    ax.set_xlabel('[Fe/H]')
+    ax.set_ylabel('Water fraction')
+    fig.savefig(savePath + 'BB20.png')
+
+    fH2OBinEdges = np.linspace(0,0.6,13)
+    ISOdensity = np.zeros(len(fH2OBinEdges)-1)
+    FeHBinEdges = np.append(FeHBinEdges_array[:,0], FeHBinEdges_array[-1,1]) #prob should redefine throguhout
+    print(FeHBinEdges)
+    for i in range(len(FeH)-1): #Need to skip last FeH due to fenceposting
+        feh_j = np.where(FeH[i] >= FeHBinEdges)[0].max()
+        iso_j = np.where(comp(FeH[i]) >= fH2OBinEdges)[0].max()
+        #print(i,feh_j,iso_j)
+        # bin index of composition of that point
+        ISOdensity[iso_j] += massDensity[feh_j]*(FeH[1]-FeH[0])
+    print(ISOdensity)
+
+    fig, ax = plt.subplots()
+    ax.bar(fH2OBinEdges[0:-1], ISOdensity/ISOdensity.max(), width=fH2OBinEdges[1]-fH2OBinEdges[0],align='edge')
+    ax.set_xlabel('Water fraction')
+    ax.set_ylabel('Number ISOs around Sun (arbitrary units)')
+    fig.savefig(savePath+'fH2O.pdf')
 
 class logNuSunDoubleExpPPP(TorchDistribution):
     """
@@ -190,7 +273,7 @@ def makeCoords(muGridParams, apo):
     # locations is list of ids of fields with at least completed cohort of
     #  any type, therefore some stars in statistical sample
 
-    mu = np.linspace(*muGridParams)
+    mu = arr(muGridParams)
     D = 10**(-2+0.2*mu) #kpc
     gLon = np.zeros((Nfields, 1))
     gLat = np.zeros((Nfields, 1))
@@ -216,7 +299,7 @@ def extract(S):
     #D_err =
     mu = 10 + 5*np.log10(D)
     gCoords = coord.SkyCoord(l=gLon*u.deg, b=gLat*u.deg, distance=D*u.kpc, frame='galactic')
-    gCentricCoords = gCoords.transform_to(dm.GC_frame)
+    gCentricCoords = gCoords.transform_to(GC_frame)
     x = gCentricCoords.x.to(u.kpc).value
     y = gCentricCoords.y.to(u.kpc).value
     z = gCentricCoords.z.to(u.kpc).value
@@ -252,12 +335,10 @@ def calculate_R_modz_multiplier(FeHBinEdges, muGridParams):
 
     mu, D, R, modz, solidAngles, *_ = makeCoords(muGridParams, apo)
 
-    ESFpath = (_ROOTDIR+"sav/EffSelFunctGrids/" +
-                '_'.join([str(float(FeHBinEdges[0])),
-                          str(float(FeHBinEdges[1])),
-                          str(float(mu[0])),
-                          str(float(mu[-1])),
-                          str(len(mu))])
+    ESFpath = (_ROOTDIR+"sav/EffSelFunctGrids/" + #needs changining once I settle on universal naming
+                '_'.join(['FeH',
+                          f'{FeHBinEdges[0]:.3f}',
+                          f'{FeHBinEdges[1]:.3f}'])
                 + ".dat")
     if os.path.exists(ESFpath):
         with open(ESFpath, 'rb') as f:

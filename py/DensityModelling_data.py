@@ -31,7 +31,7 @@ mu, D, R, modz, gLon, gLat, x, y, z, FeH, MgFe, age = dm.extract(statSample)
 
 savePath = "/data/phys-galactic-isos/sjoh4701/APOGEE/outputs/DM_data/"
 
-if False:
+if True:
 	fig, ax = plt.subplots()
 	ax.hist2d([l if l<180 else l-360 for l in gLon],gLat, bins=[100,50])
 	ax.set_xlabel("l/deg")
@@ -46,7 +46,7 @@ if False:
 	mu_bins = np.linspace(-5,25,80)
 	R_bins = np.linspace(0,20,80)
 	logR_bins = np.logspace(np.log10(0.1), np.log10(20),80)
-	FeH_bins = np.linspace(-2,1,50)
+	FeH_bins = np.linspace(-1,0.5,50)
 	MgFe_bins = np.linspace(-0.2,0.4,50)
 	age_bins = np.linspace(-1,14,50)
 
@@ -114,7 +114,7 @@ if False:
 	ax.hist2d(FeH,MgFe,bins=[FeH_bins,MgFe_bins]) # ,norm=mpl.colors.LogNorm())
 	ax.set_aspect("equal")
 	ax.set_xlabel("[Fe/H]")
-	ax.set_ylabel("[MgFe]")
+	ax.set_ylabel("[Mg/Fe]")
 	fig.savefig(savePath+"MgFeFeH.png")
 
 	fig, ax = plt.subplots()
