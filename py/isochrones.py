@@ -10,7 +10,7 @@ from isodist import imf as mimf
 import tqdm
 from astropy.io import ascii
 
-_ROOTDIR = "/home/sjoh4701/APOGEE/iso-apogee/"
+_DATAFILEPATH = "/data/phys-galactic-isos/sjoh4701/APOGEE/input_data/PARSEC_lognormChab2001_linearagefeh.dat"
 
 def generate_isogrid():
     """
@@ -109,7 +109,7 @@ def generate_isogrid():
     return rec
 
 def newgrid():
-    table = ascii.read(_ROOTDIR+'sav/PARSEC_lognormChab2001_linearagefeh.dat', guess=True)
+    table = ascii.read(_DATAFILEPATH, guess=True)
     return table
 
 

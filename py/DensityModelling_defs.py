@@ -33,17 +33,37 @@ import isochrones
 
 _DEGTORAD = torch.pi/180
 _ROOTDIR = "/home/sjoh4701/APOGEE/iso-apogee/"
-_OUTPUTDIR = "/data/phys-galactic-isos/sjoh4701/APOGEE/outputs/"
+_DATADIR = "/data/phys-galactic-isos/sjoh4701/APOGEE/"
 
 GC_frame = coord.Galactocentric() #adjust parameters here if needed
 z_Sun = GC_frame.z_sun.to(u.kpc).value # .value removes unit, which causes problems with pytorch
 R_Sun = np.sqrt(GC_frame.galcen_distance.to(u.kpc).value**2 - z_Sun**2)
+
+
+def makeBinDirs():
+    for binDict in binsToUse:
+        path = _DATADIR+'bins/'+binName(binDict)
+        if not os.path.exists(path):
+            os.mkdir(path)
 
 def arr(gridParams):
     start, stop, step = gridParams
     arr = np.arange(round((stop-start)/step)+1)*step+start
     assert isclose(arr[-1],stop) # will highlight both bugs and when stop-start is not multiple of diff
     return arr
+
+def binName(binDict):
+    """
+    binDict
+    """
+    binDict = dict(sorted(binDict.items()))
+    # ensures same order independant of construction. I think sorts according to ASCII value of first character of key
+    return '_'.join(['_'.join([key, f'{limits[0]:.3f}', f'{limits[1]:.3f}']) for key,limits in binDict.items()])
+    #Note: python list comprehensions are cool
+
+__FeH_edges = arr((-1.025, 0.475, 0.1))
+binsToUse = [{'FeH': (__FeH_edges[i], __FeH_edges[i+1])} for i in range(len(__FeH_edges)-1)]
+
 
 muMin = 4.0
 muMax = 17.0
@@ -146,7 +166,7 @@ def postProcessing(FeHBinEdges_array, fitResultsDir):
     fig, ax = plt.subplots()
     ax.bar(left_edges,massDensity,width=width, align='edge')
     ax.set_xlabel('[Fe/H]')
-    ax.set_ylabel(r'Mass density of stars around Sun /$\marthrm{M}_\odot \mathrm{kpc}^{-3}$')
+    ax.set_ylabel(r'Mass density of stars around Sun /$\mathrm{M}_\odot \mathrm{kpc}^{-3}$')
     fig.savefig(savePath + 'rhoSun.png')
 
     fig, ax = plt.subplots()
@@ -191,7 +211,7 @@ def postProcessing(FeHBinEdges_array, fitResultsDir):
     ax.bar(fH2OBinEdges[0:-1], ISOdensity/ISOdensity.max(), width=fH2OBinEdges[1]-fH2OBinEdges[0],align='edge')
     ax.set_xlabel('Water fraction')
     ax.set_ylabel('Number ISOs around Sun (arbitrary units)')
-    fig.savefig(savePath+'fH2O.pdf')
+    fig.savefig(savePath+'fH2O.png')
 
 class logNuSunDoubleExpPPP(TorchDistribution):
     """
@@ -262,8 +282,10 @@ class logNuSunDoubleExpPPP(TorchDistribution):
     def sample(self, sample_shape=torch.Size()):
         raise NotImplementedError("Sample should not be required")
 
+def mu2D(mu):
+    return 10**(-2+0.2*mu)
 
-def makeCoords(muGridParams, apo):
+def calc_coords(apo):
     """makes mu, D, R, modz, solidAngles, gLon gLat, and galacticentric
     x, y, and z arrays, for ease of use
     units are kpc, and R and modz is for central angle of field.
@@ -274,7 +296,7 @@ def makeCoords(muGridParams, apo):
     #  any type, therefore some stars in statistical sample
 
     mu = arr(muGridParams)
-    D = 10**(-2+0.2*mu) #kpc
+    D = mu2D(mu)
     gLon = np.zeros((Nfields, 1))
     gLat = np.zeros((Nfields, 1))
     solidAngles = np.zeros((Nfields, 1))
@@ -312,45 +334,60 @@ def extract(S):
 
     return mu, D, R, modz, gLon, gLat, x, y, z, FeH, MgFe, age
 
-def load_apo():
+def get_apo():
     """
     """
-    if os.path.exists(_ROOTDIR+'sav/apodr16_csf.dat'):
-        with open(_ROOTDIR+'sav/apodr16_csf.dat', 'rb') as f:
+    path =_DATADIR+'input_data/apodr16_csf.dat'
+    if os.path.exists(path):
+        with open(path, 'rb') as f:
             apo = pickle.load(f)
     else:
         apo = apsel.apogeeCombinedSelect()
-        with open(_ROOTDIR+'sav/apodr16_csf.dat', 'wb') as f:
+        with open(path, 'wb') as f:
             pickle.dump(apo, f)
     # maybe add del line here or later if I have memory problems
     return apo
 
-def calculate_R_modz_multiplier(FeHBinEdges, muGridParams):
-    """
-    returns tuple (R, modz, multiplier) for unpacking and inputting to
-    oneBinDoubleExpPPP
-    Strange looking structure (since R, modz is returned by makeCoords) for easy fitting
-    """
-    apo = load_apo()
 
-    mu, D, R, modz, solidAngles, *_ = makeCoords(muGridParams, apo)
-
-    ESFpath = (_ROOTDIR+"sav/EffSelFunctGrids/" + #needs changining once I settle on universal naming
-                '_'.join(['FeH',
-                          f'{FeHBinEdges[0]:.3f}',
-                          f'{FeHBinEdges[1]:.3f}'])
-                + ".dat")
-    if os.path.exists(ESFpath):
-        with open(ESFpath, 'rb') as f:
+def get_effSelFunct(binDict):
+    path = (_DATADIR+'bins/'+binName(binDict)+'/effSelFunct.dat')
+    if os.path.exists(path):
+        with open(path, 'rb') as f:
             effSelFunct = pickle.load(f)
     else:
         raise FileNotFoundError("Currently effSelFunct must be calculated seperately")
+    return effSelFunct
 
-    multiplier = (solidAngles*D**3
-                  *(mu[1]-mu[0])*effSelFunct*np.log(10)/5)
-    return (R, modz, multiplier)
+def calc_multiplier(binDict, apo):
+    effSelFunct = get_effSelFunct(binDict)
+    mu, D, R, modz, solidAngles, *_ = calc_coords(apo)
+    return (solidAngles*D**3
+                  *(muStep)*effSelFunct*np.log(10)/5)
 
-def load_allStar():
+def isogridField(label):
+    """returns field in ischrone grids given my label. Add to if needed.
+    if undefined in isochrone grid returns empty string. Beware of age
+    vs logAge"""
+    field = ''
+    match label:
+        case 'FeH': field = 'MH'
+        case 'MgFe': field = ''
+        case 'age': field = 'logAge'
+    return field
+
+def calc_isogrid_mask(binDict, isogrid, RG_only=True):
+    if RG_only:
+        mask = ((1<=isogrid['logg']) & (isogrid['logg']<3))
+    else:
+        mask = np.full(len(isogrid),True)
+
+    for label, limits in binDict.items():
+        field = isogridField(label)
+        mask &= ((limits[0]<=isogrid[field]) & (isogrid[field]<limits[1]))
+
+    return mask
+
+def get_allStar():
     """
     uses a pickle with options:
         rmcommissioning=True,

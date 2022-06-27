@@ -15,14 +15,13 @@ import torch
 import matplotlib.pyplot as plt
 import corner
 
-BinNum = int(sys.argv[1])
 
-edges = dm.arr((-1.025,0.475,0.1))
-FeHBinEdges_array = [[edges[i],edges[i+1]] for i in range(len(edges)-1)]
-print(FeHBinEdges_array)
-with open(dm._ROOTDIR+'sav/data_20220618.dat', 'rb') as f:
-    data_array=pickle.load(f)
-print(data_array)
+#edges = dm.arr((-1.025,0.475,0.1))
+#FeHBinEdges_array = [[edges[i],edges[i+1]] for i in range(len(edges)-1)]
+#print(FeHBinEdges_array)
+#with open(dm._ROOTDIR+'sav/data_20220618.dat', 'rb') as f:
+#    data_array=pickle.load(f)
+#print(data_array)
 
 
 def model(R_modz_multiplier, data=None):
@@ -44,23 +43,30 @@ def model(R_modz_multiplier, data=None):
     return pyro.sample('obs', dm.logNuSunDoubleExpPPP(logNuSun, a_R, a_z, *R_modz_multiplier), obs=data)
 
 
-mvn_guide = pyro.infer.autoguide.AutoMultivariateNormal(model)
-delta_guide = pyro.infer.autoguide.AutoDelta(model)
-
 ### main ###
 print(f"Starting! {datetime.datetime.now()}")
 
 #muMin = 4.0
 #muMax = 17.0
 #muDiff = 0.1
-muGridParams = dm.muGridParams #(muMin, muMax, round((muMax-muMin)//muDiff))
-apo = dm.load_apo()
+#muGridParams = dm.muGridParams #(muMin, muMax, round((muMax-muMin)//muDiff))
+apo = dm.get_apo()
 
-mu, D, R, modz, solidAngles, gLon, gLat, x, y, z = dm.makeCoords(muGridParams, apo)
+binNum = int(sys.argv[1])
 
-FeHBinEdges = FeHBinEdges_array[BinNum]
-R_modz_multiplier = dm.calculate_R_modz_multiplier(FeHBinEdges, muGridParams)
-*_, multiplier = R_modz_multiplier #R, modz comes from makeCoords
+binsToUse = dm.binsToUse #pickle.load() #consider load bins from pickle
+
+binDict = binsToUse[binNum]
+
+
+mu, D, R, modz, solidAngles, gLon, gLat, x, y, z = dm.calc_coords(apo)
+
+#FeHBinEdges = FeHBinEdges_array[BinNum]
+#R_modz_multiplier = dm.calculate_R_modz_multiplier(FeHBinEdges, muGridParams)
+#*_, multiplier = R_modz_multiplier #R, modz comes from makeCoords
+
+multiplier = dm.calc_multiplier(binDict, apo)
+R_modz_multipler = (R, modz, multiplier)
 
 print(R.shape)
 print(modz.shape)
@@ -79,15 +85,15 @@ print(multiplier.mean())
 #              [3.59720000e+04, 8.06852236e+00, 3.07138239e-01],
 #              [6.55000000e+03, 6.88423645e+00, 3.26783708e-01]]
 
-data = torch.tensor(data_array[BinNum,:])
+data = pickle.load(dm._DATADIR + 'bins/' + dm.binName(binDict) + '/data.dat')
 print(f"Data: {data}")
-print(f"BinNum: {BinNum}")
+print(f"BinNum: {binNum}")
 
 MAP = False
 if MAP:
-    guide = delta_guide
+    guide = pyro.infer.autoguide.AutoDelta(model)
 else:
-    guide = mvn_guide
+    guide = pyro.infer.autoguide.AutoMultivariateNormal(model)
 n_latents=3
 
 lr = 0.05
@@ -125,8 +131,7 @@ for name, value in guide.median(R_modz_multiplier).items():
 logNuSun, a_R, a_z = guide.median(R_modz_multiplier).values()
 print(logNuSun, a_R, a_z)
 
-picklePath = (dm._ROOTDIR + "sav/Results20220618/" +str(BinNum)
-                    + ".dat")
+picklePath = (dm._DATADIR + 'bins/' + dm.binName(binDict) + '/results.dat')
 
 with open(picklePath, 'wb') as f:
     pickle.dump([logNuSun, a_R, a_z], f)
@@ -136,7 +141,7 @@ print(f"does {data[0]} equal {distro.effVol()}?")
 print(f"does {data[1]} equal {(distro.nu()*multiplier*R).sum()/distro.effVol()}?")
 print(f"does {data[2]} equal {(distro.nu()*multiplier*modz).sum()/distro.effVol()}?")
 
-savePath = "/data/phys-galactic-isos/sjoh4701/APOGEE/outputs/DM_fit/"+str(BinNum)+"-"
+savePath = dm._DATADIR+"outputs/DM_fit/"+str(BinNum)+"-"
 
 fig, ax = plt.subplots()
 ax.plot(lossArray)
