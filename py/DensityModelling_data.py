@@ -31,7 +31,7 @@ mu, D, R, modz, gLon, gLat, x, y, z, FeH, MgFe, age = dm.extract(statSample)
 
 savePath = "/data/phys-galactic-isos/sjoh4701/APOGEE/outputs/DM_data/"
 
-if True:
+if False:
 	fig, ax = plt.subplots()
 	ax.hist2d([l if l<180 else l-360 for l in gLon],gLat, bins=[100,50])
 	ax.set_xlabel("l/deg")

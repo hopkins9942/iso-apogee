@@ -66,7 +66,7 @@ mu, D, R, modz, solidAngles, gLon, gLat, x, y, z = dm.calc_coords(apo)
 #*_, multiplier = R_modz_multiplier #R, modz comes from makeCoords
 
 multiplier = dm.calc_multiplier(binDict, apo)
-R_modz_multipler = (R, modz, multiplier)
+R_modz_multiplier = (R, modz, multiplier)
 
 print(R.shape)
 print(modz.shape)
@@ -85,7 +85,9 @@ print(multiplier.mean())
 #              [3.59720000e+04, 8.06852236e+00, 3.07138239e-01],
 #              [6.55000000e+03, 6.88423645e+00, 3.26783708e-01]]
 
-data = pickle.load(dm._DATADIR + 'bins/' + dm.binName(binDict) + '/data.dat')
+binPath = dm._DATADIR + 'bins/' + dm.binName(binDict) +'/'
+with open(binPath + 'data.dat', 'rb') as f:
+    data = torch.tensor(pickle.load(f))
 print(f"Data: {data}")
 print(f"BinNum: {binNum}")
 
@@ -131,9 +133,8 @@ for name, value in guide.median(R_modz_multiplier).items():
 logNuSun, a_R, a_z = guide.median(R_modz_multiplier).values()
 print(logNuSun, a_R, a_z)
 
-picklePath = (dm._DATADIR + 'bins/' + dm.binName(binDict) + '/results.dat')
 
-with open(picklePath, 'wb') as f:
+with open(binPath + 'fit_results.dat', 'wb') as f:
     pickle.dump([logNuSun, a_R, a_z], f)
 
 distro = dm.logNuSunDoubleExpPPP(logNuSun, a_R, a_z, *R_modz_multiplier)
@@ -141,7 +142,7 @@ print(f"does {data[0]} equal {distro.effVol()}?")
 print(f"does {data[1]} equal {(distro.nu()*multiplier*R).sum()/distro.effVol()}?")
 print(f"does {data[2]} equal {(distro.nu()*multiplier*modz).sum()/distro.effVol()}?")
 
-savePath = dm._DATADIR+"outputs/DM_fit/"+str(BinNum)+"-"
+savePath = dm._DATADIR+"outputs/DM_fit/"+str(binNum)+"-"
 
 fig, ax = plt.subplots()
 ax.plot(lossArray)

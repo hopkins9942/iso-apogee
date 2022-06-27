@@ -95,12 +95,11 @@ muGridParams = (muMin, muMax, muStep)
 #              & (isogrid['MH'] <= FeHBinEdges[1]))
 #              for FeHBinEdges in FeHBinEdges_array]
 
-def calculateData(FeHBinEdges_array):
+def calculateData(bins):
     """
     Calculates data for fit
     """
-    allStar = load_allStar()
-    statIndx = load_statIndx() #Inefficient, combine?
+    allStar, statIndx = get_allStar_statIndx()
 
     print(len(allStar))
     print("Stat sample size: ", np.count_nonzero(statIndx))
@@ -108,30 +107,30 @@ def calculateData(FeHBinEdges_array):
     statSample = allStar[statIndx]
     mu, D, R, modz, gLon, gLat, x, y, z, FeH, MgFe, age = extract(statSample)
     in_mu_range = np.logical_and.reduce([(muMin<=mu), (mu<muMax)])
+    #could be swapped in for calc_allStarSample_mask(dict(),statSample)
     Nstars = np.count_nonzero(in_mu_range)
-    print("Num in mu range: ", Nstars)
-    unadjusted_data = np.zeros([len(FeHBinEdges_array), 3])
-    for i in range(len(FeHBinEdges_array)):
-        in_bin = np.logical_and.reduce([(FeHBinEdges_array[i][0] <= FeH),
-                                  (FeH < FeHBinEdges_array[i][1]),
-                                  in_mu_range])
-        # jth value is True when jth star lies in mu range and ith bin
-        unadjusted_data[i][0] = np.count_nonzero(in_bin)
-        unadjusted_data[i][1] = R[in_bin].mean()
-        unadjusted_data[i][2] = modz[in_bin].mean() #double check this
-    print("Unadjusted data: ", unadjusted_data)
-
-    bad_indices = np.logical_and.reduce([(FeH<-9999), in_mu_range])
-    # jth value is True, when star should be in my sample, but FeH measurement failed
+    bad_indices = np.logical_and.reduce([(FeH<-9999), (MgFe<-9999), in_mu_range])
+    # jth value is True, when star should be in my sample, but FeH or MgFe measurement failed
+    # CHECK bad FeH and bad MgFe correlate, as if only selecting on FeH, could still use bad MgFe stars
     Nbad = np.count_nonzero(bad_indices)
-    print("Number of bad FeH stars: ", Nbad)
-
+    print("Number of bad stars in mu range: ", Nbad)
+    print("Num of stars in mu range: ", Nstars)
     adjustment_factor = 1/(1-(Nbad/Nstars))
-    adjusted_data = unadjusted_data * np.array([adjustment_factor,1,1])
+    print(adjustment_factor)
+    adjusted_data = np.zeros([len(bins), 3])
+    for i in range(len(bins)):
+        in_bin = calc_allStarSample_mask(bins[i], statSample)
+        # jth value is True when jth star lies in mu range and ith bin
+        adjusted_data[i,0] = np.count_nonzero(in_bin)*adjustment_factor
+        adjusted_data[i,1] = R[in_bin].mean()
+        adjusted_data[i,2] = modz[in_bin].mean() #double check this
+        with open(_DATADIR + 'bins/' + binName(bins[i]) + '/data.dat', 'wb') as f:
+            pickle.dump(adjusted_data[i,:], f)
     print("Adjusted data: ", adjusted_data)
+
     return adjusted_data
 
-def postProcessing(FeHBinEdges_array, fitResultsDir):
+def postProcessing(bins):
     savePath = _OUTPUTDIR + 'DM_results/'
     FeHBinEdges_array = np.array(FeHBinEdges_array)
     isogrid = isochrones.newgrid()
@@ -285,6 +284,9 @@ class logNuSunDoubleExpPPP(TorchDistribution):
 def mu2D(mu):
     return 10**(-2+0.2*mu)
 
+def D2mu(D):
+    return 10 + 5*np.log10(D)
+
 def calc_coords(apo):
     """makes mu, D, R, modz, solidAngles, gLon gLat, and galacticentric
     x, y, and z arrays, for ease of use
@@ -364,16 +366,24 @@ def calc_multiplier(binDict, apo):
     return (solidAngles*D**3
                   *(muStep)*effSelFunct*np.log(10)/5)
 
-def isogridField(label):
+def isogridFieldAndFunct(label):
     """returns field in ischrone grids given my label. Add to if needed.
     if undefined in isochrone grid returns empty string. Beware of age
-    vs logAge"""
-    field = ''
+    vs logAge
+    Thought: could additionally output a function which maps isogrid value to same scale/units as my values
+    """
+    field = 'UNEXPECTED'
+    funct = lambda x: np.nan
     match label:
-        case 'FeH': field = 'MH'
-        case 'MgFe': field = ''
-        case 'age': field = 'logAge'
-    return field
+        case 'FeH':
+            field = 'MH'
+            funct = lambda x: x
+        case 'MgFe':
+            field = 'unused_in_isochrones'
+        case 'age':
+            field = 'logAge'
+            funct = lambda x: 10**(x-9)
+    return field, funct
 
 def calc_isogrid_mask(binDict, isogrid, RG_only=True):
     if RG_only:
@@ -382,10 +392,53 @@ def calc_isogrid_mask(binDict, isogrid, RG_only=True):
         mask = np.full(len(isogrid),True)
 
     for label, limits in binDict.items():
-        field = isogridField(label)
-        mask &= ((limits[0]<=isogrid[field]) & (isogrid[field]<limits[1]))
-
+        field, funct = isogridFieldandFunct(label)
+        if field!='unused_in_isochrones':
+            mask &= ((limits[0]<=funct(isogrid[field])) & (funct(isogrid[field])<limits[1]))
+        else: pass
     return mask
+
+def allStarFieldAndFunct(label):
+    """returns field in allStar given my label. Add to if needed.
+    if undefined returns empty string. Beware of age
+    vs logAge type fields and units"""
+    field = 'UNEXPECTED'
+    funct = lambda x: np.nan
+    match label:
+        case 'D':
+            field = 'weighted_dist'
+            funct = lambda x: x/1000
+        case 'mu':
+            field = 'weighted_dist'
+            funct = lambda x: D2mu(x/1000)
+        case 'FeH':
+            field = 'FE_H'
+            funct = lambda x: x
+        case 'MgFe':
+            field = 'MG_FE'
+            funct = lambda x: x
+        case 'age':
+            field = 'age_lowess_correct'
+            funct = lambda x: max(min(x,13.8),0)
+    return field, funct
+
+def calc_allStarSample_mask(binDict, sample, in_mu_range_only=True):
+    """
+    Any subsample of allStar can be inputted (ie statSample) as long as fields are like allStar
+    """
+    if in_mu_range_only:
+        field, funct = allStarFieldAndFunct('mu')
+        mask = ((muMin<=funct(sample[field])) & (funct(sample[field])<muMax))
+    else:
+        mask = np.full(len(sample),True)
+
+    for label, limits in binDict.items():
+        field, funct = allStarFieldAndFunct(label)
+        if field!='unused_in_allStar':
+            mask &= ((limits[0]<=funct(sample[field])) & (funct(sample[field])<limits[1]))
+        else: pass
+    return mask
+
 
 def get_allStar():
     """
@@ -399,11 +452,12 @@ def get_allStar():
         rmdups=True
     """
     name = "dr16allStar.dat"
-    path = _ROOTDIR+'sav/'+name
+    path = _DATADIR+'input_data/'+name
     if os.path.exists(path):
         with open(path, 'rb') as f:
             allStar = pickle.load(f)
     else:
+        print('WARNING: calculating allStar')
         allStar = apread.allStar(
             rmcommissioning=True,
             main=True,
@@ -418,23 +472,24 @@ def get_allStar():
     return allStar
 
 
-def load_statIndx():
+def get_allStar_statIndx():
     """
-    uses a pickle of load_allStar
+    returns both as whenever statIndx is needed, allStar is too
     """
-    name = "dr16statIndx.dat"
-    path = _ROOTDIR+'sav/'+name
-    if os.path.exists(path):
-        with open(path, 'rb') as f:
+    allStar = get_allStar()
+
+    statIndxPath = _DATADIR+'input_data/dr16statIndx.dat'
+    if os.path.exists(statIndxPath):
+        with open(statIndxPath, 'rb') as f:
             statIndx = pickle.load(f)
     else:
+        print('WARNING: calculating statIndx')
         apo = load_apo()
-        allStar = load_allStar()
         statIndx = apo.determine_statistical(allStar)
         with open(path, 'wb') as f:
             pickle.dump(statIndx, f)
     assert np.count_nonzero(statIndx)==165768
-    return statIndx
+    return (allStar, statIndx)
 
 ### DEPRECIATED CODE ###
 
