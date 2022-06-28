@@ -130,36 +130,60 @@ def calculateData(bins):
 
     return adjusted_data
 
-def postProcessing(bins):
-    savePath = _OUTPUTDIR + 'DM_results/'
-    FeHBinEdges_array = np.array(FeHBinEdges_array)
+def NRG2mass(binDict): # change to a get_ function which either loads or pickles
     isogrid = isochrones.newgrid()
+    whole_bin_mask = calc_isogrid_mask(binDict, isogrid, RG_only=False)
+    RG_bin_mask = calc_isogrid_mask(binDict, isogrid, RG_only=True)
+    meanMass = np.average(isogrid[whole_bin_mask]['Mass'], weights=isogrid[whole_bin_mask]['weights'])
+    RGfraction = isogrid[RG_bin_mask]['weights'].sum()/isogrid[whole_bin_mask]['weights'].sum()
+    return meanMass/RGfraction
 
-    fitResults = np.zeros((15,3))
-    for i in range(15):
-        with open(fitResultsDir+str(i)+'.dat', 'rb') as f:
+def binSize(binDict):
+    """make this better"""
+    size=1
+    for limits in binDict.values():
+        size*=(limits[1]-limits[0])
+    return size
+
+def postProcessing(bins):
+    savePath = _DATADIR + 'outputs/DM_results/'
+    #FeHBinEdges_array = np.array(FeHBinEdges_array)
+    #isogrid = isochrones.newgrid()
+    Nbins = len(bins)
+    fitResults = np.zeros((Nbins,3))
+    for i in range(Nbins):
+        path = _DATADIR + 'bins/' + binName(bins[i]) + '/'
+        with open(path + 'fit_results.dat', 'rb') as f:
             fitResults[i,:] = pickle.load(f)
     print(fitResults)
 
-    Nbins = FeHBinEdges_array.shape[0]
-    NRG2mass_array = np.zeros(Nbins)
-    for i in range(Nbins):
-        FeHBinEdges = FeHBinEdges_array[i]
-        binMask = ((FeHBinEdges[0] <= isogrid['MH'])
-                  &(isogrid['MH'] < FeHBinEdges[1]))
-        RGbinMask = binMask & (1 <= isogrid['logg']) & (isogrid['logg'] < 3)
-        meanMass = np.average(isogrid[binMask]['Mass'], weights=isogrid[binMask]['weights']) # Check with T$    print(meanMass)
-        RGfraction = isogrid[RGbinMask]['weights'].sum()/isogrid[binMask]['weights'].sum()
-        print(RGfraction)
-        NRG2mass_array[i] = meanMass/RGfraction
-    print(NRG2mass_array)
+#    NRG2mass_array = np.zeros(Nbins)
+#    for i in range(Nbins):
+#        FeHBinEdges = FeHBinEdges_array[i]
+#        binMask = ((FeHBinEdges[0] <= isogrid['MH'])
+#                  &(isogrid['MH'] < FeHBinEdges[1]))
+#        RGbinMask = binMask & (1 <= isogrid['logg']) & (isogrid['logg'] < 3)
+#        meanMass = np.average(isogrid[binMask]['Mass'], weights=isogrid[binMask]['weights']) # Check with T$    print(meanMass)
+#        RGfraction = isogrid[RGbinMask]['weights'].sum()/isogrid[binMask]['weights'].sum()
+#        print(RGfraction)
+#        NRG2mass_array[i] = meanMass/RGfraction
+#    print(NRG2mass_array)
+
+    NRG2mass_array = np.array([get_NRG2mass(bins[i]) for i in range(Nbins)])
+    #binSize_array = np.array([binSize(bins[i]) for i in range(bins)]) # use this?
+    left_edges = np.array([bins[i]['FeH'][0] for i in range(Nbins)])
+    FeHBinEdges_array = np.zeros((Nbins,2))
+    FeHBinEdges_array[:,0] = left_edges
+    FeHBinEdges_array[:,1] = left_edges+(left_edges[1]-left_edges[0])
+    #improve this
+
     massDensity = np.exp(fitResults[:,0])*NRG2mass_array*np.exp(-fitResults[:,2]*np.abs(z_Sun))/(FeHBinEdges_array[0,1]-FeHBinEdges_array[0,0])
     #mass density of all stars at solar position - per volume and per mettalicity
     hR = 1/fitResults[:,1]
     hz = 1/fitResults[:,2]
     print(massDensity)
     # CHeck by checking integrated mass density matches 10^10 galaxy mass
-    left_edges = FeHBinEdges_array[:,0]
+    #left_edges = FeHBinEdges_array[:,0]
     width = FeHBinEdges_array[0,1]-FeHBinEdges_array[0,0]
 
     fig, ax = plt.subplots()
@@ -180,7 +204,7 @@ def postProcessing(bins):
     ax.set_ylabel('Scale hight/kpc')
     fig.savefig(savePath + 'hz.png')
 
-    #calc composition here
+    #calc composition here - put as map in seperate function
     FeH_p = [-0.4,-0.3,-0.2,-0.1,0.0,0.1,0.2,0.3,0.4]
     fH2O_p = [ 0.5098, 0.4905, 0.4468, 0.4129, 0.3563, 0.2918, 0.2173, 0.1532, 0.06516]
     comp = partial(np.interp, xp=FeH_p, fp=fH2O_p)
@@ -392,7 +416,7 @@ def calc_isogrid_mask(binDict, isogrid, RG_only=True):
         mask = np.full(len(isogrid),True)
 
     for label, limits in binDict.items():
-        field, funct = isogridFieldandFunct(label)
+        field, funct = isogridFieldAndFunct(label)
         if field!='unused_in_isochrones':
             mask &= ((limits[0]<=funct(isogrid[field])) & (funct(isogrid[field])<limits[1]))
         else: pass
