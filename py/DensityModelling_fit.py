@@ -142,14 +142,14 @@ print(f"does {data[0]} equal {distro.effVol()}?")
 print(f"does {data[1]} equal {(distro.nu()*multiplier*R).sum()/distro.effVol()}?")
 print(f"does {data[2]} equal {(distro.nu()*multiplier*modz).sum()/distro.effVol()}?")
 
-savePath = dm._DATADIR+"outputs/DM_fit/"+str(binNum)+"-"
+#savePath = dm._DATADIR+"outputs/DM_fit/"+str(binNum)+"-"
 
 fig, ax = plt.subplots()
 ax.plot(lossArray)
 ax.set_xlabel("step number")
 ax.set_ylabel("loss")
 ax.set_title(f"lr: {lr}")
-fig.savefig(savePath+str(lr)+("-MAP-" if MAP else "-MVN-")+"loss.png")
+fig.savefig(binPath+str(lr)+("-MAP-" if MAP else "-MVN-")+"loss.png")
 
 for i, name in enumerate(latent_names):
     fig, ax = plt.subplots()
@@ -157,7 +157,7 @@ for i, name in enumerate(latent_names):
     ax.set_xlabel("step number")
     ax.set_ylabel(name)
     ax.set_title(("MAP" if MAP else "MVN") +f", lr: {lr}")
-    fig.savefig(savePath+str(lr)+("-MAP-" if MAP else "-MVN-")+name+".png")
+    fig.savefig(binPath+str(lr)+("-MAP-" if MAP else "-MVN-")+name+".png")
 
 if not MAP:
     with pyro.plate("samples",5000,dim=-1):
@@ -167,5 +167,5 @@ if not MAP:
     samples_for_plot = np.stack([samples[label].detach().cpu().numpy() for label in labels],axis=-1)
     fig = corner.corner(samples_for_plot, labels=labels) #takes input as np array with rows as samples
     fig.suptitle(("MAP" if MAP else "MVN")+f", lr: {lr}, step: {step}")
-    fig.savefig(savePath+str(lr)+("-MAP-" if MAP else "-MVN-")+"latents.png")
+    fig.savefig(binPath+str(lr)+("-MAP-" if MAP else "-MVN-")+"latents.png")
 
