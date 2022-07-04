@@ -61,7 +61,7 @@ def binName(binDict):
     return '_'.join(['_'.join([key, f'{limits[0]:.3f}', f'{limits[1]:.3f}']) for key,limits in binDict.items()])
     #Note: python list comprehensions are cool
 
-__FeH_edges = arr((-1.025, 0.475, 0.1))
+__FeH_edges = arr((-1.075, 0.725, 0.1))  # arr((-1.025, 0.475, 0.1))
 binsToUse = [{'FeH': (__FeH_edges[i], __FeH_edges[i+1])} for i in range(len(__FeH_edges)-1)]
 
 
