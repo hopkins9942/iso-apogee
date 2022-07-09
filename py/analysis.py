@@ -72,7 +72,7 @@ def convert(massModel, compositionModel, fH2O_params=(0,0.6,0.05)):
             point = {key_list[j]: coordinateArrays[j][indices[j]] for j in range(Nkeys)}
             fH2O_index = np.where(compositionModel(**point) >= fH2O_binEdges)[0].max()
             fH2O_binValues[fH2O_index] += alpha * massModel(**point) * paramSpaceVolElement/fH2O_step
-    return fH2O_binEdges, fH2O_binValues
+    return fH2O_binEdges, fH2O_binValues/fH2O_binValues.sum()
 
 
 def edgesValues2Model(edges,values,label):# should just put in convert
@@ -82,7 +82,7 @@ class distributionModel:
     def __init__(self, bins, values):
         self.bins = bins
         #QUICK FIX FOR NAM:
-        values = values/values.sum()
+        #values = values/values.sum()
         self.values = values
     def __call__(self, **kwargs):
         index = binIndex(self.bins, **kwargs)
@@ -153,7 +153,7 @@ def plotResults(bins, results_array):
     ax.set_ylabel('Scale height /kpc')
     fig.savefig(outputDir +'h_z.png')
 
-def plotDistributionModel(model, name, key='FeH'):
+def plotDistributionModel(model, name, key='FeH', xlab='', ylab=''):
     #key = 'FeH'
     bins = model.bins
     Nbins = len(bins)
@@ -162,8 +162,8 @@ def plotDistributionModel(model, name, key='FeH'):
     widths = np.array([(bin[key][1] - bin[key][0]) for bin in bins])
     fig, ax = plt.subplots()
     ax.bar(midpoints_array, [model(**midpoints_dicts[i]) for i in range(Nbins)], width=widths)
-    ax.set_xlabel(key)
-    ax.set_ylabel(name)
+    ax.set_xlabel(xlab)
+    ax.set_ylabel(ylab)
     fig.savefig(outputDir +name+'_'+key+'.png')
 
 def plotTwoDistributionModels(model1, name1, model2, name2, ylab, xlab=r'$[\mathrm{Fe}/\mathrm{H}]$', key='FeH'):
@@ -192,9 +192,9 @@ def plotTwoDistributionModels(model1, name1, model2, name2, ylab, xlab=r'$[\math
 
 
 def plotMassAndISOs_FeH(massModel,name):
-    plotDistributionModel(massModel,name)
+    plotDistributionModel(massModel,name, xlab=r'$[\mathrm{Fe}/\mathrm{H}]$', ylab=r'Stellar Mass Density / $\mathrm{M}_\odot \mathrm{kpc}^{-3} \mathrm{dex}^{-1}$')
     ISO_model = edgesValues2Model(*convert(massModel, fH2O_funct), 'fH2O')
-    plotDistributionModel(ISO_model, name, 'fH2O')
+    plotDistributionModel(ISO_model, name, 'fH2O', xlab=r'$f_{\mathrm{H_2O}}$', ylab='ISO Number Distribution')
 
 
 #__FeH_edges = arr((-1.025, 0.475, 0.1))
@@ -208,7 +208,7 @@ def plotMassAndISOs_FeH(massModel,name):
 
 
 def main():
-    bins=dm.binsToUse
+    bins=dm.binsToUse[5:]
     Nbins = len(bins)
     results_array = np.zeros((Nbins,3))
     NRG2mass_array = np.zeros(Nbins)
