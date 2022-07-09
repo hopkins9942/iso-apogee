@@ -39,6 +39,7 @@ del apo._specdata, apo._photdata, apo.apo1sel._specdata, apo.apo1sel._photdata, 
 #muGridParams = (muMin, muMax, muStep) # (start,stop,step)
 
 binDict = dm.binsToUse[JOB_INDEX]
+print(binDict)
 
 mu = dm.arr(dm.muGridParams)
 print(mu)

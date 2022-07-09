@@ -17,8 +17,7 @@ import isochrones
 # do a test fit with logNuSun to check it works
 # Work out how to deal with cuts and bad stars - think about total mass - then fit real data!
 
-allStar = dm.load_allStar()
-statIndx = dm.load_statIndx()
+allStar, statIndx = dm.get_allStar_statIndx()
 
 print(len(allStar))
 print("Stat sample size: ", np.count_nonzero(statIndx))
@@ -154,7 +153,7 @@ bad_indices = np.logical_and.reduce([(FeH<-9999), in_mu_range])
 print("Number of bad FeH stars: ", np.count_nonzero(bad_indices))
 
 print(FeH[FeH<-3]) # lots, all -9999.99
-print(FeH[FeH>3]) # none
+print("THIS ONE: ",FeH[FeH>0.625]) # none
 print(np.argwhere(np.isnan(FeH))) # none
 print(D[D<0]) # none
 print(D[D>100]) # a couple over 100 kpc

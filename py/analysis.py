@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 #outputDir = '/Users/hopkinsm/FromARC20220628/onMacOutput/'
 
 binsDir = dm._DATADIR+'bins/'
-outputDir = dm._DATADIR+'outputs/DM_results/'
+outputDir = dm._DATADIR+'outputs/DM_analysis/'
 
 
 
@@ -81,6 +81,8 @@ def edgesValues2Model(edges,values,label):# should just put in convert
 class distributionModel:
     def __init__(self, bins, values):
         self.bins = bins
+        #QUICK FIX FOR NAM:
+        values = values/values.sum()
         self.values = values
     def __call__(self, **kwargs):
         index = binIndex(self.bins, **kwargs)
@@ -164,7 +166,7 @@ def plotDistributionModel(model, name, key='FeH'):
     ax.set_ylabel(name)
     fig.savefig(outputDir +name+'_'+key+'.png')
 
-def plotTwoDistributionModels(model1, name1, model2, name2, key='FeH'):
+def plotTwoDistributionModels(model1, name1, model2, name2, ylab, xlab=r'$[\mathrm{Fe}/\mathrm{H}]$', key='FeH'):
     fig, ax = plt.subplots()
     
     # model1
@@ -183,9 +185,10 @@ def plotTwoDistributionModels(model1, name1, model2, name2, key='FeH'):
     widths = np.array([(bin[key][1] - bin[key][0]) for bin in bins])
     ax.bar(midpoints_array, [model2(**midpoints_dicts[i]) for i in range(Nbins)], width=widths, alpha=0.5, label=name2)
     
-    ax.set_xlabel(key)
+    ax.set_xlabel(xlab)
+    ax.set_ylabel(ylab)
     ax.legend()
-    fig.savefig(outputDir+'combined_'+name1+'_'+name2+'_'+key'.png')
+    fig.savefig(outputDir+'combined_'+name1+'_'+name2+'_'+key+'.png')
 
 
 def plotMassAndISOs_FeH(massModel,name):
@@ -244,8 +247,14 @@ def main():
     EAGLE_model = edgesValues2Model(EAGLE_bins, EAGLE_totalMassperParamSpaceVol_array, 'FeH')
     
     plotMassAndISOs_FeH(EAGLE_model, 'EAGLE')
-    plotTwoDistributionModels(EAGLE_model, 'EAGLE', integrated_mass, 'integrated')
-    plotTwoDistributionModels(edgesValues2Model(*convert(EAGLE_model, fH2O_funct), 'fH2O'), 'EAGLE', edgesValues2Model(*convert(integrated_mass, fH2O_funct), 'fH2O'), 'integrated', 'fH2O')
+    plotTwoDistributionModels(EAGLE_model, 'EAGLE', integrated_mass, 'Milky Way', r'Stellar Mass Distribution / $M_\odot \mathrm{dex}^{-1}$')
+    plotTwoDistributionModels(edgesValues2Model(*convert(EAGLE_model, fH2O_funct), 'fH2O'), 'EAGLE', edgesValues2Model(*convert(integrated_mass, fH2O_funct), 'fH2O'), 'Milky Way', 'ISO number distribution', xlab='fH20', key='fH2O')
+
+    plotTwoDistributionModels(local_mass_density, 'Local', integrated_mass, 'Whole Galaxy', r'Stellar Mass Distribution / $\mathrm{dex}^{-1}$')
+    local_ISO_model = edgesValues2Model(*convert(local_mass_density, fH2O_funct), 'fH2O')
+    integrated_ISO_model = edgesValues2Model(*convert(integrated_mass, fH2O_funct), 'fH2O')
+    plotTwoDistributionModels(local_ISO_model, 'Local', integrated_ISO_model, 'Whole Galaxy', r'ISO Number Distribution', xlab=r'$f_{\mathrm{H_20}}$', key='fH2O')
+    # problem: local value much smaller than whole galaxy 
 
 
 def plotDistributions(bins, R=dm.R_Sun, z=dm.z_Sun):

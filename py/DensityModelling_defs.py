@@ -40,7 +40,7 @@ z_Sun = GC_frame.z_sun.to(u.kpc).value # .value removes unit, which causes probl
 R_Sun = np.sqrt(GC_frame.galcen_distance.to(u.kpc).value**2 - z_Sun**2)
 
 
-def makeBinDirs():
+def makeBinDirs(): # a little faulty - when called by multiple scripts in parallel race condition occurs with if statement - could make one bin version for scripts which work on one bin each in parallel
     for binDict in binsToUse:
         path = _DATADIR+'bins/'+binName(binDict)
         if not os.path.exists(path):
@@ -61,9 +61,12 @@ def binName(binDict):
     return '_'.join(['_'.join([key, f'{limits[0]:.3f}', f'{limits[1]:.3f}']) for key,limits in binDict.items()])
     #Note: python list comprehensions are cool
 
-__FeH_edges = arr((-1.075, 0.725, 0.1))  # arr((-1.025, 0.475, 0.1))
+__FeH_edges = arr((-1.575, 0.625, 0.1)) #0.625-09.725 has no APOGEE statsample stars, -1.575--1.475 has about 130
+#__age_edges = np.array([-999.0,4.5,9.0,999.0]) # remember ages only good for FeH>-0.5
+#__FeH_edges_for_age = arr((-0.475, 0.625, 0.1))
 binsToUse = [{'FeH': (__FeH_edges[i], __FeH_edges[i+1])} for i in range(len(__FeH_edges)-1)]
-
+#binsToUse = [{'FeH': (__FeH_edges_for_age[i], __FeH_edges_for_age[i+1]), 'age': (__age_edges[j], __age_edges[j+1])}
+#    for i in range(len(__FeH_edges_for_age)-1) for j in range(len(__age_edges)-1)]
 
 muMin = 4.0
 muMax = 17.0
