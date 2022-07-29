@@ -40,6 +40,7 @@ del apo._specdata, apo._photdata, apo.apo1sel._specdata, apo.apo1sel._photdata, 
 
 binDict = dm.binsToUse[JOB_INDEX]
 print(binDict)
+print(len(dm.binsToUse))
 
 mu = dm.arr(dm.muGridParams)
 print(mu)

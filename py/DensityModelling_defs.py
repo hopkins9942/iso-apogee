@@ -62,11 +62,11 @@ def binName(binDict):
     #Note: python list comprehensions are cool
 
 __FeH_edges = arr((-1.575, 0.625, 0.1)) #0.625-09.725 has no APOGEE statsample stars, -1.575--1.475 has about 130
-#__age_edges = np.array([-999.0,4.5,9.0,999.0]) # remember ages only good for FeH>-0.5
-#__FeH_edges_for_age = arr((-0.475, 0.625, 0.1))
-binsToUse = [{'FeH': (__FeH_edges[i], __FeH_edges[i+1])} for i in range(len(__FeH_edges)-1)]
-#binsToUse = [{'FeH': (__FeH_edges_for_age[i], __FeH_edges_for_age[i+1]), 'age': (__age_edges[j], __age_edges[j+1])}
-#    for i in range(len(__FeH_edges_for_age)-1) for j in range(len(__age_edges)-1)]
+__age_edges = np.array([-999.0,4.5,9.0,999.0]) # remember ages only good for FeH>-0.5
+__FeH_edges_for_age = arr((-0.475, 0.625, 0.1))
+#binsToUse = [{'FeH': (__FeH_edges[i], __FeH_edges[i+1])} for i in range(len(__FeH_edges)-1)]
+binsToUse = [{'FeH': (__FeH_edges_for_age[i], __FeH_edges_for_age[i+1]), 'age': (__age_edges[j], __age_edges[j+1])}
+    for i in range(len(__FeH_edges_for_age)-1) for j in range(len(__age_edges)-1)]
 
 muMin = 4.0
 muMax = 17.0
@@ -429,8 +429,8 @@ def allStarFieldAndFunct(label):
     """returns field in allStar given my label. Add to if needed.
     if undefined returns empty string. Beware of age
     vs logAge type fields and units"""
-    field = 'UNEXPECTED'
-    funct = lambda x: np.nan
+    field = None
+    funct = lambda x: None
     match label:
         case 'D':
             field = 'weighted_dist'
@@ -446,7 +446,7 @@ def allStarFieldAndFunct(label):
             funct = lambda x: x
         case 'age':
             field = 'age_lowess_correct'
-            funct = lambda x: max(min(x,13.8),0)
+            funct = lambda x: np.maximum(np.minimum(x,13.8),0)
     return field, funct
 
 def calc_allStarSample_mask(binDict, sample, in_mu_range_only=True):
@@ -458,10 +458,11 @@ def calc_allStarSample_mask(binDict, sample, in_mu_range_only=True):
         mask = ((muMin<=funct(sample[field])) & (funct(sample[field])<muMax))
     else:
         mask = np.full(len(sample),True)
+    # preallocates mask of same length as sample, either with True only for stars in mu range or for all stars
 
     for label, limits in binDict.items():
         field, funct = allStarFieldAndFunct(label)
-        if field!='unused_in_allStar':
+        if field!=None:
             mask &= ((limits[0]<=funct(sample[field])) & (funct(sample[field])<limits[1]))
         else: pass
     return mask
