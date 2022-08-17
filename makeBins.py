@@ -1,16 +1,19 @@
 import os
 import numpy as np
 
-import isoUtils # need binName, maybe need binList, dataDir
-import pickleGetters
-import isochrones
+import astropy.coordinates as coord
+import astropy.units as u
+
+from . import utils # need binName, maybe need binList, dataDir
+from . import pickleGetters
+from . import isochrones
 
 def main():
-    binList = isoUtils.binsToUse # need to get either from import or possibly loading pickle
+    binList = utils.binsToUse
 
     for binDict in binList:
         # creates bin directory
-        path = os.path.join(isoUtils.clusterDataDir, 'bins', binName(binDict))
+        path = os.path.join(utils.clusterDataDir, 'bins', utils.binName(binDict))
         if not os.path.exists(path):
             os.mkdirs(path)
         
@@ -23,22 +26,25 @@ def main():
 
     # data
     calculateData(binList)
+    
+    # weird order/layout due to use of old code, but it's not that bad
+    # may make more sense if all set up is done first, then in one loop over bins pickles are made
 
 
 # isochrone functs
 def calculateNRG2mass(binDict):
     isogrid = isochrones.newgrid()
     whole_bin_mask = calc_isogrid_mask(binDict, isogrid, RG_only=False)
-    RG_bin_mask = calc_isogrid_mask(binDict, isogrid, RG_only=True)
+    RG_bin_mask    = calc_isogrid_mask(binDict, isogrid, RG_only=True)
     meanMass = np.average(isogrid[whole_bin_mask]['Mass'], weights=isogrid[whole_bin_mask]['weights'])
     RGfraction = isogrid[RG_bin_mask]['weights'].sum()/isogrid[whole_bin_mask]['weights'].sum()
     return meanMass/RGfraction
 
-def calc_isogrid_mask(binDict, isogrid, RG_only=True): # could be put into isochrones
+def calc_isogrid_mask(binDict, isogrid, RG_only=True): # could be put into isochrones.py
     if RG_only:
         mask = ((1<=isogrid['logg']) & (isogrid['logg']<3))
     else:
-        mask = np.full(len(isogrid),True)
+        mask = np.full(len(isogrid), True)
 
     for label, limits in binDict.items():
         field, funct = isogridFieldAndFunct(label)
@@ -48,16 +54,18 @@ def calc_isogrid_mask(binDict, isogrid, RG_only=True): # could be put into isoch
     return mask
 
 def isogridFieldAndFunct(label):
-    """returns field in ischrone grids given my label. Add to if needed.
+    """returns field in ischrone grids given my label in binDict. Add to if needed.
     if undefined in isochrone grid returns empty string. Beware of age
     vs logAge
     Thought: could additionally output a function which maps isogrid value to same scale/units as my values
+    Would be better as a match/switch, but installing python 3.10 can be a faff
     """
     if label=='FeH':
         field = 'MH'
         funct = lambda x: x
     elif label=='MgFe':
         field = 'unused_in_isochrones'
+        funct = lambda x: np.nan
     elif label=='age':
         field = 'logAge'
         funct = lambda x: 10**(x-9)
@@ -77,7 +85,7 @@ def calculateData(bins):
 
     statSample = allStar[statIndx]
     mu, D, R, modz, gLon, gLat, x, y, z, FeH, MgFe, age = extract(statSample)
-    in_mu_range = (isoUtils.muMin<=mu) & (mu<isoUtils.muMax)
+    in_mu_range = (utils.muMin<=mu) & (mu<utils.muMax)
     # array of bools with True where star is in mu range
     Nstars = np.count_nonzero(in_mu_range)
     if ('MgFe' in bins[0].keys()): # bit sketchy, assumes all binDicts have same keys and FeH will always be one of them
@@ -99,7 +107,7 @@ def calculateData(bins):
         adjusted_data[i,0] = np.count_nonzero(in_bin)*adjustment_factor
         adjusted_data[i,1] = R[in_bin].mean()
         adjusted_data[i,2] = modz[in_bin].mean() #double check this
-        with open(os.path.join(isoUtils.clusterDataDir, 'bins', isoUtils.binName(bins[i]), 'data.dat'), 'wb') as f:
+        with open(os.path.join(utils.clusterDataDir, 'bins', utils.binName(bins[i]), 'data.dat'), 'wb') as f:
             pickle.dump(adjusted_data[i,:], f)
     print("Adjusted data: ", adjusted_data)
     return adjusted_data
@@ -110,7 +118,7 @@ def extract(S):
     D = S['weighted_dist']/1000 # kpc
     mu = 10 + 5*np.log10(D)
     gCoords = coord.SkyCoord(l=gLon*u.deg, b=gLat*u.deg, distance=D*u.kpc, frame='galactic')
-    gCentricCoords = gCoords.transform_to(GC_frame)
+    gCentricCoords = gCoords.transform_to(utils.GC_frame)
     x = gCentricCoords.x.to(u.kpc).value
     y = gCentricCoords.y.to(u.kpc).value
     z = gCentricCoords.z.to(u.kpc).value
@@ -127,17 +135,20 @@ def calc_allStarSample_mask(binDict, sample, in_mu_range_only=True):
     """
     if in_mu_range_only:
         field, funct = allStarFieldAndFunct('mu')
-        mask = ((muMin<=funct(sample[field])) & (funct(sample[field])<muMax))
+        mask = ((utils.muMin<=funct(sample[field])) & (funct(sample[field])<utils.muMax))
+        # probably unhelpfully complicated
+        # equivalent to muMin<=10+5*np.log10(sample['weighted_dist']/1000) etc.
     else:
         mask = np.full(len(sample),True)
     # preallocates mask of same length as sample, either with True only for stars in mu range or for all stars
 
     for label, limits in binDict.items():
         field, funct = allStarFieldAndFunct(label)
-        if field!='UKNOWN FIELD':
-            mask &= ((limits[0]<=funct(sample[field])) & (funct(sample[field])<limits[1]))
-        else:
-            pass
+        mask &= ((limits[0]<=funct(sample[field])) & (funct(sample[field])<limits[1]))
+#        if field!='UKNOWN':
+#            mask &= ((limits[0]<=funct(sample[field])) & (funct(sample[field])<limits[1]))
+#        else:
+#            pass # not sure why this was here, want to catch unexpected fields
     return mask
 
 def allStarFieldAndFunct(label):
@@ -160,7 +171,7 @@ def allStarFieldAndFunct(label):
         field = 'age_lowess_correct'
         funct = lambda x: np.maximum(np.minimum(x,13.8),0)
     else:
-        field = 'UKNOWN FIELD'
+        field = 'UKNOWN'
         funct = lambda x: None
     return field, funct
 
