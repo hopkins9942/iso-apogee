@@ -1,6 +1,7 @@
 import os
-import numpy as np
+import pickle
 
+import numpy as np
 import astropy.coordinates as coord
 import astropy.units as u
 
@@ -13,7 +14,9 @@ def main():
 
     for binDict in binList:
         # creates bin directory
-        path = os.path.join(clusterDataDir, 'bins', binName(binDict))
+        name = binName(binDict)
+        print(name)
+        path = os.path.join(clusterDataDir, 'bins', name)
         if not os.path.exists(path):
             os.mkdirs(path)
         
@@ -135,7 +138,7 @@ def calc_allStarSample_mask(binDict, sample, in_mu_range_only=True):
     """
     if in_mu_range_only:
         field, funct = allStarFieldAndFunct('mu')
-        mask = ((utils.muMin<=funct(sample[field])) & (funct(sample[field])<utils.muMax))
+        mask = ((muMin<=funct(sample[field])) & (funct(sample[field])<muMax))
         # probably unhelpfully complicated
         # equivalent to muMin<=10+5*np.log10(sample['weighted_dist']/1000) etc.
     else:

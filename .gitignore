@@ -3,6 +3,7 @@
 /apogeeEnv/
 /py/.ipynb_checkpoints
 /py/__pycache__/
+/__pycache__/
 /py/*.job
 /py/*.out
 /jobs/*.job

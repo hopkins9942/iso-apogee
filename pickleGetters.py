@@ -1,6 +1,7 @@
 import os
 import pickle
 
+import numpy as np
 import apogee.select as apsel
 import apogee.tools.read as apread
 
