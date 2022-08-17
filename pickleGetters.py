@@ -4,7 +4,8 @@ import pickle
 import apogee.select as apsel
 import apogee.tools.read as apread
 
-from . import utils
+from myUtils import clusterDataDir, localDataDir
+#sticking with .pth file method as allows files to be reached interactively and relative imports only work in subpackages
 
 # each funct either loads file or calculates and saves it if it is not created already. onCluster affects only where files are looked for, I don't expect to use this
 
@@ -18,7 +19,7 @@ if __name__ == '__main__':
 def get_apo(onCluster=True):
     """
     """
-    dataDir = utils.clusterDataDir if onCluster else utils.localDataDir
+    dataDir = clusterDataDir if onCluster else localDataDir
     path = os.path.join(dataDir, 'input_data', 'apodr16_csf.dat')
     if os.path.exists(path):
         with open(path, 'rb') as f:
@@ -41,7 +42,7 @@ def get_allStar(onCluster=True):
         use_astroNN_ages=True,
         rmdups=True
     """
-    dataDir = utils.clusterDataDir if onCluster else utils.localDataDir
+    dataDir = clusterDataDir if onCluster else localDataDir
     path = os.path.join(dataDir, 'input_data', 'dr16allStar.dat')
     if os.path.exists(path):
         with open(path, 'rb') as f:
@@ -66,7 +67,7 @@ def get_allStar_statIndx(onCluster=True):
     returns both as whenever statIndx is needed, allStar is too
     """
     allStar = get_allStar()
-    dataDir = utils.clusterDataDir if onCluster else utils.localDataDir
+    dataDir = clusterDataDir if onCluster else localDataDir
     statIndxPath = os.path.join(dataDir, 'input_data', 'dr16statIndx.dat')
     if os.path.exists(statIndxPath):
         with open(statIndxPath, 'rb') as f:

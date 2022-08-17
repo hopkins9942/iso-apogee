@@ -10,7 +10,11 @@ from isodist import imf as mimf
 import tqdm
 from astropy.io import ascii
 
-_DATAFILEPATH = "/data/phys-galactic-isos/sjoh4701/APOGEE/input_data/PARSEC_lognormChab2001_linearagefeh.dat"
+from myUtils import clusterDataDir
+
+#_DATAFILEPATH = "/data/phys-galactic-isos/sjoh4701/APOGEE/input_data/PARSEC_lognormChab2001_linearagefeh.dat"
+
+_DATAFILEPATH = clusterDataDir + '/input_data/PARSEC_lognormChab2001_linearagefeh.dat'
 
 def generate_isogrid():
     """

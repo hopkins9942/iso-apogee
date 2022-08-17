@@ -4,16 +4,16 @@ import numpy as np
 import astropy.coordinates as coord
 import astropy.units as u
 
-from . import utils # need binName, maybe need binList, dataDir
-from . import pickleGetters
-from . import isochrones
+from myUtils import binsToUse, clusterDataDir, binName, muMin, muMax, GC_frame
+import pickleGetters
+import isochrones
 
 def main():
-    binList = utils.binsToUse
+    binList = binsToUse
 
     for binDict in binList:
         # creates bin directory
-        path = os.path.join(utils.clusterDataDir, 'bins', utils.binName(binDict))
+        path = os.path.join(clusterDataDir, 'bins', binName(binDict))
         if not os.path.exists(path):
             os.mkdirs(path)
         
@@ -85,7 +85,7 @@ def calculateData(bins):
 
     statSample = allStar[statIndx]
     mu, D, R, modz, gLon, gLat, x, y, z, FeH, MgFe, age = extract(statSample)
-    in_mu_range = (utils.muMin<=mu) & (mu<utils.muMax)
+    in_mu_range = (muMin<=mu) & (mu<muMax)
     # array of bools with True where star is in mu range
     Nstars = np.count_nonzero(in_mu_range)
     if ('MgFe' in bins[0].keys()): # bit sketchy, assumes all binDicts have same keys and FeH will always be one of them
@@ -107,7 +107,7 @@ def calculateData(bins):
         adjusted_data[i,0] = np.count_nonzero(in_bin)*adjustment_factor
         adjusted_data[i,1] = R[in_bin].mean()
         adjusted_data[i,2] = modz[in_bin].mean() #double check this
-        with open(os.path.join(utils.clusterDataDir, 'bins', utils.binName(bins[i]), 'data.dat'), 'wb') as f:
+        with open(os.path.join(clusterDataDir, 'bins', binName(bins[i]), 'data.dat'), 'wb') as f:
             pickle.dump(adjusted_data[i,:], f)
     print("Adjusted data: ", adjusted_data)
     return adjusted_data
@@ -118,7 +118,7 @@ def extract(S):
     D = S['weighted_dist']/1000 # kpc
     mu = 10 + 5*np.log10(D)
     gCoords = coord.SkyCoord(l=gLon*u.deg, b=gLat*u.deg, distance=D*u.kpc, frame='galactic')
-    gCentricCoords = gCoords.transform_to(utils.GC_frame)
+    gCentricCoords = gCoords.transform_to(GC_frame)
     x = gCentricCoords.x.to(u.kpc).value
     y = gCentricCoords.y.to(u.kpc).value
     z = gCentricCoords.z.to(u.kpc).value
