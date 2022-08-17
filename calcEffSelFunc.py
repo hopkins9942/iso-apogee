@@ -1,19 +1,22 @@
 import multiprocessing
 import pickle
 import os
+import sys
+from functools import partial
 
+import numpy as np
 import apogee.select as apsel
 import mwdust
 
 from myUtils import binsToUse, binName, clusterDataDir, arr, muGridParams
 import pickleGetters
-import isogrid
+import isochrones
 import makeBins
 
 
 def main():
     Ncpus = int(sys.argv[2])
-    jobIndex = = int(sys.argv[1])
+    jobIndex = int(sys.argv[1])
     
     apo = pickleGetters.get_apo()
     del apo._specdata, apo._photdata, apo.apo1sel._specdata, apo.apo1sel._photdata, apo.apo2Nsel._specdata, apo.apo2Nsel._photdata, apo.apo2Ssel._specdata, apo.apo2Ssel._photdata
@@ -27,33 +30,33 @@ def main():
     
     locations = apo.list_fields(cohort='all')
     print(len(locations))
-    isogrid = iso.newgrid()
+    isogrid = isochrones.newgrid()
     # newgrid ensures means it uses new isochrones. I should either rewrite isochrones.py, maybe with MIST isochrones, or at least fully understand it
     # and with isochrone utilities, to avoid following weird import
      
-     mask = makeBins.calc_isogrid_mask(binDict,isogrid)
-     dmap = mwdust.Combined19(filter='2MASS H')
-     apof = apsel.apogeeEffectiveSelect(apo, dmap3d=dmap,
-                                        MH=isogrid[mask]['Hmag'],
-                                        JK0=isogrid[mask]['Jmag']-isogrid[mask]['Ksmag'],
-                                        weights=isogrid[mask]['weights'])
+    mask = makeBins.calc_isogrid_mask(binDict,isogrid)
+    dmap = mwdust.Combined19(filter='2MASS H')
+    apof = apsel.apogeeEffectiveSelect(apo, dmap3d=dmap,
+                                       MH=isogrid[mask]['Hmag'],
+                                       JK0=isogrid[mask]['Jmag']-isogrid[mask]['Ksmag'],
+                                       weights=isogrid[mask]['weights'])
     
-    effSelFunct_mapper = partial(effSelFunct_helper, apof, D, locations)
+    effSelFunc_mapper = partial(effSelFunc_helper, apof, D, locations)
     print("about to start multiprocessing")
     with multiprocessing.Pool(Ncpus) as p:
         print(f"parent: {os.getppid()}, child: {os.getpid()}")
-        temp_effSelFunct = list(p.map(effSelFunct_mapper, range(len(locations)), chunksize=int(len(locations)/(4*_NCPUS))))
-    effSelFunct = np.array(temp_effSelFunct)
+        temp_effSelFunc = list(p.map(effSelFunc_mapper, range(len(locations)), chunksize=int(len(locations)/(4*Ncpus))))
+    effSelFunc = np.array(temp_effSelFunc)
     
     print("Finished multiprocessing")
     
-    filePath = os.path.join(clusterDataDir, 'bins', binName(binDict), 'effSelFunct.dat')
+    filePath = os.path.join(clusterDataDir, 'bins', binName(binDict), 'effSelFunc.dat')
 
     with open(filePath, 'wb') as f:
-        pickle.dump(effSelFunct, f)
+        pickle.dump(effSelFunc, f)
     
     
-def effSelFunct_helper(apof, D, locations, i):
+def effSelFunc_helper(apof, D, locations, i):
     """
     Needed as multiprocessed functions need to be defined at top level
     """
