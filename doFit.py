@@ -1,5 +1,8 @@
 import sys
 import os
+import datetime
+import pickle
+
 import numpy as np
 
 import torch
@@ -30,7 +33,7 @@ def main():
     
     binNum = int(sys.argv[1])
 
-    binsList = myUtils.binsToUse
+    binList = myUtils.binsToUse
 
     binDict = binList[binNum]
     
@@ -95,7 +98,7 @@ def main():
     print(logNuSun, a_R, a_z)
 
 
-    with open(os.path.join(binPath, 'fit_results.dat', 'wb')) as f:
+    with open(os.path.join(binPath, 'fit_results.dat'), 'wb') as f:
         pickle.dump([logNuSun, a_R, a_z], f)
 
 
@@ -214,7 +217,7 @@ def model(R_modz_multiplier, data=None):
     logNuSun = pyro.sample('logNuSun', distributions.Normal(10, 4)) # tune these
     a_R = pyro.sample('a_R', distributions.Normal(0.25, 0.01))
     a_z = pyro.sample('a_z', distributions.Normal(2, 1))
-    return pyro.sample('obs', dm.logNuSunDoubleExpPPP(logNuSun, a_R, a_z, *R_modz_multiplier), obs=data)
+    return pyro.sample('obs', logNuSunDoubleExpPPP(logNuSun, a_R, a_z, *R_modz_multiplier), obs=data)
 
 def calc_coords(apo):
     """makes mu, D, R, modz, solidAngles, gLon gLat, and galacticentric
@@ -225,7 +228,7 @@ def calc_coords(apo):
     Nfields = len(locations)
     # locations is list of ids of fields with at least completed cohort of
     #  any type, therefore some stars in statistical sample
-    mu = myUtils.arr(muGridParams)
+    mu = myUtils.arr(myUtils.muGridParams)
     D = 10**(-2+0.2*mu)
     gLon = np.zeros((Nfields, 1))
     gLat = np.zeros((Nfields, 1))
