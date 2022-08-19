@@ -51,7 +51,7 @@ def main():
     print("Finished multiprocessing")
     
     filePath = os.path.join(clusterDataDir, 'bins', binName(binDict), 'effSelFunc.dat')
-
+    print(filePath)
     with open(filePath, 'wb') as f:
         pickle.dump(effSelFunc, f)
     
