@@ -8,6 +8,8 @@
 /py/*.out
 /jobs/*.job
 /jobs/*.out
+/jobs/oldouts/*.out
+/jobs/oldjobs/
 /sav/*.dat
 /sav/EffSelFunctGrids/*.dat
 /sav/Results*

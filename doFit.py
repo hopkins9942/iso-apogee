@@ -54,7 +54,14 @@ def main():
     
     with open(os.path.join(binPath, 'data.dat'), 'rb') as f:
         data = torch.tensor(pickle.load(f))
-    
+
+    if data[0].item()==0:
+        # No stars in bin
+        with open(os.path.join(binPath, 'fit_results.dat'), 'wb') as f:
+            pickle.dump([0, 0, 0], f)
+        return 0 # exits main(), skipping fit that would fail
+
+
     MAP = False
     if MAP:
         guide = pyro.infer.autoguide.AutoDelta(model)

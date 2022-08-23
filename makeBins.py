@@ -18,7 +18,7 @@ def main():
         print(name)
         path = os.path.join(clusterDataDir, 'bins', name)
         if not os.path.exists(path):
-            os.mkdirs(path)
+            os.makedirs(path)
         
         # NRG2mass
         NRG2mass = calculateNRG2mass(binDict)
@@ -172,7 +172,7 @@ def allStarFieldAndFunct(label):
         funct = lambda x: x
     elif label=='age':
         field = 'age_lowess_correct'
-        funct = lambda x: np.maximum(np.minimum(x,13.8),0)
+        funct = lambda x: np.maximum(np.minimum(x,13.8),0.001)
     else:
         field = 'UKNOWN'
         funct = lambda x: None
