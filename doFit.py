@@ -106,7 +106,7 @@ def main():
 
 
     with open(os.path.join(binPath, 'fit_results.dat'), 'wb') as f:
-        pickle.dump([logNuSun, a_R, a_z], f)
+        pickle.dump([logNuSun.item(), a_R.item(), a_z.item()], f)
 
 
     distro = logNuSunDoubleExpPPP(logNuSun, a_R, a_z, *R_modz_multiplier)
