@@ -106,6 +106,7 @@ def main():
 
 
     with open(os.path.join(binPath, 'fit_results.dat'), 'wb') as f:
+        print(logNuSun.item(), a_R.item(), a_z.item())
         pickle.dump([logNuSun.item(), a_R.item(), a_z.item()], f)
 
 
