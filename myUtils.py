@@ -8,7 +8,7 @@ import astropy.units as u
 # Assumes makeBins.py, calcEffSelFunct.py and doFit.py are run on a cluster,
 # data directory is scp-ed to local machine then analysis.py is run there
 clusterDataDir = '/data/phys-galactic-isos/sjoh4701/APOGEE/' # used by makeBins.py, calcEffSelFunct.py and doFit.py
-localDataDir = '/Users/hopkinsm/data/' # used by analysis.py
+localDataDir = '/Users/hopkinsm/data/APOGEE' # used by analysis.py
 
 GC_frame = coord.Galactocentric() #adjust parameters here if needed
 z_Sun = GC_frame.z_sun.to(u.kpc).value # .value removes unit, which causes problems with pytorch
@@ -32,7 +32,7 @@ def binName(binDict):
     #Note: python list comprehensions are cool
 
 _FeH_edges = arr((-1.575, 0.625, 0.1)) #0.625-09.725 has no APOGEE statsample stars, -1.575--1.475 has about 130
-#binsToUse = [{'FeH': (_FeH_edges[i], _FeH_edges[i+1])} for i in range(len(_FeH_edges)-1)] # 22 bins
+binsToUse = [{'FeH': (_FeH_edges[i], _FeH_edges[i+1])} for i in range(len(_FeH_edges)-1)] # 22 bins
 
 #age_FeH
 _age_edges = np.array([0.0,4.5,9.0,14.0]) # remember ages only good for FeH>-0.5
@@ -42,7 +42,7 @@ _FeH_edges_for_age = arr((-0.475, 0.625, 0.1))
 
 # MgFe_FeH
 _MgFe_edges = arr((-0.3,0.5,0.1))
-binsToUse = [{'FeH': (_FeH_edges[i], _FeH_edges[i+1]), 'MgFe': (_MgFe_edges[j], _MgFe_edges[j+1])}
-    for i in range(len(_FeH_edges)-1) for j in range(len(_MgFe_edges)-1)] # 88 bins
+#binsToUse = [{'FeH': (_FeH_edges[i], _FeH_edges[i+1]), 'MgFe': (_MgFe_edges[j], _MgFe_edges[j+1])}
+#    for i in range(len(_FeH_edges)-1) for j in range(len(_MgFe_edges)-1)] # 88 bins
 
 
