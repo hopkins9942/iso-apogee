@@ -77,6 +77,7 @@ def main():
     ax.set_xlabel(r'[Fe/H]')
     ax.set_ylabel('Stellar mass distribution (dM/dVdFeH)')
     ax.set_title('Solar neighborhood')
+    saveFig(fig, 'localFeH')
     
     fig, ax = plt.subplots()
     ax.bar(fH2Omidpoints, fH2Odist_Sun, width=fH2Owidths)
@@ -179,9 +180,12 @@ def main():
     ax.legend()
 
     
-#_FeH_p = np.array([-0.4,-0.3,-0.2,-0.1,0.0,0.1,0.2,0.3,0.4])
-#_fH2O_p = np.array([0.5098, 0.4905, 0.4468, 0.4129, 0.3563, 0.2918, 0.2173, 0.1532, 0.06516])
-#comp = partial(np.interp, xp=_FeH_p, fp=_fH2O_p)
+
+
+def saveFig(fig, name):#could put in git hash
+    path = '/Users/hopkinsm/Documents/APOGEE/plots/'+name
+    fig.savefig(path)
+
 
 def comp(FeH):
     """Chosen smooth version as stops spurios bumps in ISO distribution
@@ -229,9 +233,6 @@ def getfH2Odist(fH2OEdges, FeHEdges, FeHmassDist):
     return fH2Odist 
     
     
-    
-    
-    
 def bindex(edges, value):
     return np.nonzero(edges<=value)[0][-1]
         
@@ -240,7 +241,7 @@ def bindex(edges, value):
     
 class densityModel:
     """distribution of some 'quantity' (number or mass) in volume
-    and a 'value' such as FeH or fH2O"""
+    and FeH"""
     def __init__(self, edges, distAmp, aR, az):
         """amp should be"""
         self.edges = edges
@@ -258,14 +259,14 @@ class densityModel:
 
     def distribution(self, position=(myUtils.R_Sun, myUtils.z_Sun), normalised=False):
         R, z = position
-        dist = np.array([self.distAmp[i]*np.exp( - self.aR[i]*(R-myUtils.R_Sun) - self.az[i]*np.abs(z)) for i in range(len(self.midpoints))])
+        dist = self.distAmp*np.exp( - self.aR*(R-myUtils.R_Sun) - self.az*np.abs(z))
         if not normalised:
             return dist
         else:
             return dist/sum(self.widths*self.distribution(position))
     
     def integrated(self, normalised=False):
-        dist = np.array([4*np.pi*self.distAmp[i]*np.exp(self.aR[i]*myUtils.R_Sun)/(self.aR[i]**2 * self.az[i]) for i in range(len(self.midpoints))])
+        dist = 4*np.pi*self.distAmp*np.exp(self.aR*myUtils.R_Sun)/(self.aR**2 * self.az)
         if not normalised:
             return dist
         else:
