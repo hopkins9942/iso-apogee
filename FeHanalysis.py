@@ -13,7 +13,7 @@ import myUtils
 
 SMOOTH_FeH=True
 #FINE=True
-#POLYDEG=3 chosen to fix 
+POLYDEG=3
 
 binsDir = '/Users/hopkinsm/data/APOGEE/bins'
 
@@ -289,20 +289,32 @@ def saveFig(fig, name):#could put in git hash
 # Defining comp:
 FeH_p = np.array([-0.4, -0.3, -0.2, -0.1, 0.0, 0.1, 0.2, 0.3, 0.4])
 fH2O_p = np.array([0.5098, 0.4905, 0.4468, 0.4129, 0.3563, 0.2918, 0.2173, 0.1532, 0.06516])
-compPoly = np.polynomial.polynomial.Polynomial.fit(FeH_p, fH2O_p, 3)
-for x in [-0.4,-0.2,0,0.2,0.4]:
-    assert np.isclose(np.sort((compPoly-compPoly(x)).roots())[1],
-                      x) #checks my range of FeH is middle bit of cubic 
+compPoly = np.polynomial.polynomial.Polynomial.fit(FeH_p, fH2O_p, POLYDEG)
 fH2Olow = compPoly(FeH_p[-1])
 fH2Ohigh = compPoly(FeH_p[0])
 if SMOOTH_FeH:
-    
-    comp = lambda FeH: np.where(FeH_p[0]<=FeH, np.where(FeH<FeH_p[-1], compPoly(FeH), fH2Olow), fH2Ohigh)
-    compInv = lambda fH2O: np.where(fH2Olow<=fH2O, np.where(fH2O<fH2Ohigh, np.sort((compPoly-fH2O).roots())[1], np.nan), np.nan)
+    comp = lambda FeH: np.where(FeH_p[0]<=FeH, np.where(FeH<FeH_p[-1],
+                                                        compPoly(FeH),
+                                                        fH2Olow), fH2Ohigh)
+    def compInv(fH2O):
+        """inv mayn't work with array inputs"""
+        if np.ndim(fH2O)==0:
+            if fH2Olow<=fH2O<fH2Ohigh:
+                allroots = (compPoly-fH2O).roots()
+                myroot = allroots[(FeH_p[0]<=allroots)&(allroots<FeH_p[-1])]
+                assert len(myroot)==1 # checks not multiple roots
+                assert np.isreal(myroot[0])
+                return np.real(myroot[0])
+            else:
+                return np.nan
+        else:
+            raise NotImplementedError("No array inputs yet")
+            
 else:
     comp = lambda FeH: np.interp(FeH, xp=FeH_p, fp=fH2O_p)
-    compInv = lambda x: "ARGH, not polynomial"
-
+    compInv = lambda fH2O: np.interp(fH2O, xp=np.flip(fH2O_p), fp=np.flip(FeH_p), left=np.nan, right=np.nan)
+for x in [-0.4+0.0001, -0.2, 0, 0.2, 0.4-0.0001]:
+    assert np.isclose(compInv(compPoly(x)), x) #checks inverse works
 
 # def compInv(fH2O):
 #     FeH_p = np.flip(np.array([-0.4, -0.3, -0.2, -0.1, 0.0, 0.1, 0.2, 0.3, 0.4]))
