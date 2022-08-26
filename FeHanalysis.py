@@ -3,13 +3,15 @@ from functools import partial
 import pickle
 
 import numpy as np
+from scipy.interpolate import CubicSpline
+from scipy.integrate import quad
 import matplotlib.pyplot as plt
 
 import myUtils
 
 # for 1D bins - assumed ordered, non-overlapping, equal size
 
-SMOOTH=True
+SMOOTH=False
 FINE=True
 POLYDEG=3
 
@@ -35,27 +37,36 @@ def main():
         
     #NRGDM = densityModel(FeHEdges, np.exp(FeHnumberlogA)/FeHWidths, aR, az)
     StellarMassDM = densityModel(FeHedges, NRG2mass*np.exp(FeHnumberlogA)/FeHwidths, aR, az)
-    FeHdist_Sun = StellarMassDM.distribution()
-    FeHdist_GalCentre = StellarMassDM.distribution(position=(0,0))
-    FeHdist_integrated = StellarMassDM.integrated()
+    FeHdist_Sun = StellarMassDM.hist()
+    FeHdist_GalCentre = StellarMassDM.hist(position=(0,0))
+    FeHdist_integrated = StellarMassDM.integratedHist()
     
     fH2Oedges = myUtils.arr((0.0, 0.6, (0.005 if FINE else 0.05)))
     fH2Omidpoints = (fH2Oedges[:-1] + fH2Oedges[1:])/2
     fH2Owidths = fH2Oedges[1:] - fH2Oedges[:-1]
     
-    fH2Odist_Sun = getfH2Odist(fH2Oedges, FeHedges, FeHdist_Sun)
-    fH2Odist_GalCentre = getfH2Odist(fH2Oedges, FeHedges, FeHdist_GalCentre)
-    fH2Odist_integrated = getfH2Odist(fH2Oedges, FeHedges, FeHdist_integrated)
+    fH2Odist_Sun = getfH2Ohist(fH2Oedges, FeHedges, FeHdist_Sun)
+    fH2Odist_GalCentre = getfH2Ohist(fH2Oedges, FeHedges, FeHdist_GalCentre)
+    fH2Odist_integrated = getfH2Ohist(fH2Oedges, FeHedges, FeHdist_integrated)
+    
+    smoothfH2Odist_Sun = getSmoothfH2Ohist(fH2Oedges, FeHedges, FeHdist_Sun)
+    smoothfH2Odist_GalCentre = getSmoothfH2Ohist(fH2Oedges, FeHedges, FeHdist_GalCentre)
+    smoothfH2Odist_integrated = getSmoothfH2Ohist(fH2Oedges, FeHedges, FeHdist_integrated)
+    
+    #smoothMassSun = smoothDist(FeHedges, FeHdist_Sun)
+    
     
     #plotting
     FeH_plot = np.linspace(-1, 0.5, 15*5+1)
+    
     
     fig, ax = plt.subplots()
     ax.plot(FeH_plot, comp(FeH_plot))
     for i, FeH in enumerate(FeHedges):
         ax.plot([FeH,FeH], [0,0.5], color=f'C{i}')
     ax.set_xlim([-1,0.5])
-    ax.set_xlabel(r'$[Fe/H]$')
+    ax.set_xlabel(r'[Fe/H]')
+    saveFig(fig,'comp.png')
     
     fig, ax = plt.subplots()
     ax.plot(FeH_plot[:-1], np.diff(comp(FeH_plot))/np.diff(FeH_plot))
@@ -63,6 +74,7 @@ def main():
         ax.plot([FeH,FeH], [0,-1], color=f'C{i}')
     ax.set_xlim([-1,0.5])
     ax.set_xlabel(r'[Fe/H]')
+    saveFig(fig,'compGrad.png')
     
     # fig, ax = plt.subplots()
     # ax.plot(fH2O_plot, compInv(fH2O_plot))
@@ -77,7 +89,28 @@ def main():
     ax.set_xlabel(r'[Fe/H]')
     ax.set_ylabel('Stellar mass distribution (dM/dVdFeH)')
     ax.set_title('Solar neighborhood')
-    saveFig(fig, 'localFeH')
+    saveFig(fig,'localMass.png')
+    
+    fig,ax = plt.subplots()
+    ax.plot(FeH_plot, smoothDist(FeHedges, FeHdist_Sun)(FeH_plot))
+    for i, FeH in enumerate(FeHedges):
+        ax.plot([FeH,FeH], [0,1e7], color=f'C{i}')
+    ax.set_xlabel(r'[Fe/H]')
+    ax.set_ylabel('Stellar mass distribution (dM/dVdFeH)')
+    ax.set_title('Solar neighborhood')
+    saveFig(fig,'smoothlocalMass.png')
+    
+    fig,ax = plt.subplots()
+    ax.bar(FeHmidpoints, [quad(smoothDist(FeHedges, FeHdist_Sun), FeHedges[i], FeHedges[i+1])[0]/FeHwidths[i]
+                          for i in range(len(FeHmidpoints))], width = FeHwidths)
+    for i, FeH in enumerate(FeHedges):
+        ax.plot([FeH,FeH], [0,1e7], color=f'C{i}')
+    ax.set_xlabel(r'[Fe/H]')
+    ax.set_ylabel('Stellar mass distribution (dM/dVdFeH)')
+    ax.set_title('Solar neighborhood')
+    saveFig(fig,'checkLocalMass.png')
+    print(np.array([quad(smoothDist(FeHedges, FeHdist_Sun), FeHedges[i], FeHedges[i+1])[0]/FeHwidths[i]
+                          for i in range(len(FeHmidpoints))]) - FeHdist_Sun)
     
     fig, ax = plt.subplots()
     ax.bar(fH2Omidpoints, fH2Odist_Sun, width=fH2Owidths)
@@ -86,6 +119,16 @@ def main():
     ax.set_xlabel(r'$f_\mathrm{H_2O}$')
     ax.set_ylabel('ISO distribution (dN/dVdfH2O)')
     ax.set_title('Solar neighborhood')
+    saveFig(fig,'localISOs.png')
+    
+    fig, ax = plt.subplots()
+    ax.bar(fH2Omidpoints, smoothfH2Odist_Sun, width=fH2Owidths)
+    for i, FeH in enumerate(FeHedges):
+        ax.plot([comp(FeH),comp(FeH)], [0,1e8], color=f'C{i}') #colours correspond on multiple graphs
+    ax.set_xlabel(r'$f_\mathrm{H_2O}$')
+    ax.set_ylabel('ISO distribution (dN/dVdfH2O)')
+    ax.set_title('Solar neighborhood')
+    saveFig(fig,'smoothlocalISOs.png')
     
     
     # At Gal Centre
@@ -96,6 +139,15 @@ def main():
     ax.set_xlabel(r'[Fe/H]')
     ax.set_ylabel('Stellar mass distribution (dM/dVdFeH)')
     ax.set_title('Galactic Centre')
+    saveFig(fig,'galCentreMass.png')
+    fig, ax = plt.subplots()
+    ax.plot(FeH_plot, smoothDist(FeHedges, FeHdist_GalCentre)(FeH_plot))
+    for i, FeH in enumerate(FeHedges):
+        ax.plot([FeH,FeH], [0,1e9], color=f'C{i}')
+    ax.set_xlabel(r'[Fe/H]')
+    ax.set_ylabel('Stellar mass distribution (dM/dVdFeH)')
+    ax.set_title('Galactic Centre')
+    saveFig(fig,'smoothgalCentreMass.png')
     
     fig, ax = plt.subplots()
     ax.bar(fH2Omidpoints, fH2Odist_GalCentre, width=fH2Owidths)
@@ -104,6 +156,15 @@ def main():
     ax.set_xlabel(r'$f_\mathrm{H_2O}$')
     ax.set_ylabel('ISO distribution (dN/dVdfH2O)')
     ax.set_title('Galactic Centre')
+    saveFig(fig,'galCentreISOs.png')
+    fig, ax = plt.subplots()
+    ax.bar(fH2Omidpoints, smoothfH2Odist_GalCentre, width=fH2Owidths)
+    for i, FeH in enumerate(FeHedges):
+        ax.plot([comp(FeH),comp(FeH)], [0,1e8], color=f'C{i}') #colours correspond on multiple graphs
+    ax.set_xlabel(r'$f_\mathrm{H_2O}$')
+    ax.set_ylabel('ISO distribution (dN/dVdfH2O)')
+    ax.set_title('Galactic Centre')
+    saveFig(fig,'smoothgalCentreISOs.png')
         
     # Integrated
     fig, ax = plt.subplots()
@@ -113,6 +174,15 @@ def main():
     ax.set_xlabel(r'[Fe/H]')
     ax.set_ylabel('Stellar mass distribution (dM/dFeH)')
     ax.set_title('Integrated')
+    saveFig(fig,'integratedMass.png')
+    fig, ax = plt.subplots()
+    ax.plot(FeH_plot, smoothDist(FeHedges, FeHdist_integrated)(FeH_plot))
+    for i, FeH in enumerate(FeHedges):
+        ax.plot([FeH,FeH], [0,1e9], color=f'C{i}')
+    ax.set_xlabel(r'[Fe/H]')
+    ax.set_ylabel('Stellar mass distribution (dM/dVdFeH)')
+    ax.set_title('Integrated')
+    saveFig(fig,'smoothintegratedMass.png')
     
     fig, ax = plt.subplots()
     ax.bar(fH2Omidpoints, fH2Odist_integrated, width=fH2Owidths)
@@ -121,6 +191,15 @@ def main():
     ax.set_xlabel(r'$f_\mathrm{H_2O}$')
     ax.set_ylabel('ISO distribution (dN/dfH2O)')
     ax.set_title('Integrated')
+    saveFig(fig,'integratedISOs.png')
+    fig, ax = plt.subplots()
+    ax.bar(fH2Omidpoints, smoothfH2Odist_integrated, width=fH2Owidths)
+    for i, FeH in enumerate(FeHedges):
+        ax.plot([comp(FeH),comp(FeH)], [0,1e8], color=f'C{i}') #colours correspond on multiple graphs
+    ax.set_xlabel(r'$f_\mathrm{H_2O}$')
+    ax.set_ylabel('ISO distribution (dN/dVdfH2O)')
+    ax.set_title('integrated')
+    saveFig(fig,'smoothintegratedISOs.png')
     
     
     # EAGLE
@@ -138,14 +217,16 @@ def main():
     ax.set_xlabel('[Fe/H]')
     ax.set_ylabel('stellar mass distribution (dM/d[Fe/H])')
     ax.set_title('EAGLE')
+    saveFig(fig,'eagleMass.png')
     
-    fH2Odist_EAGLE = getfH2Odist(fH2Oedges, EAGLEedges, FeHdist_EAGLE)
+    fH2Odist_EAGLE = getfH2Ohist(fH2Oedges, EAGLEedges, FeHdist_EAGLE)
     
     fig, ax = plt.subplots()
     ax.bar(fH2Omidpoints, fH2Odist_EAGLE, width=fH2Owidths)
     ax.set_xlabel(r'$f_\mathrm{H_2O}$')
     ax.set_ylabel('ISO distribution (dN/dfH2O)')
     ax.set_title('EAGLE')
+    saveFig(fig,'eagleISOs.png')
     
     #Comparisons
     #Integrated vs solar neighborhood
@@ -155,6 +236,7 @@ def main():
     ax.set_xlabel(r'[Fe/H]')
     ax.set_ylabel('Stellar mass distribution (normalised)')
     ax.legend()
+    saveFig(fig,'localIntegratedMass.png')
     
     fig, ax = plt.subplots()
     ax.bar(fH2Omidpoints, fH2Odist_integrated/sum(fH2Owidths*fH2Odist_integrated), width=fH2Owidths, alpha=0.5, label='Integrated')
@@ -162,6 +244,7 @@ def main():
     ax.set_xlabel(r'$f_\mathrm{H_2O}$')
     ax.set_ylabel('ISO distribution (normalised)')
     ax.legend()
+    saveFig(fig,'localIntegratedISOs.png')
     
     
     #Integrated vs EAGLE
@@ -171,6 +254,7 @@ def main():
     ax.set_xlabel(r'[Fe/H]')
     ax.set_ylabel('Stellar mass distribution (normalised)')
     ax.legend()
+    saveFig(fig,'eagleIntegratedMass.png')
     
     fig, ax = plt.subplots()
     ax.bar(fH2Omidpoints, fH2Odist_integrated/sum(fH2Owidths*fH2Odist_integrated), width=fH2Owidths, alpha=0.5, label='Integrated')
@@ -178,17 +262,20 @@ def main():
     ax.set_xlabel(r'$f_\mathrm{H_2O}$')
     ax.set_ylabel('ISO distribution (normalised)')
     ax.legend()
+    saveFig(fig,'eagleIntegratedISOs.png')
 
     
 
 
 def saveFig(fig, name):#could put in git hash
-    path = '/Users/hopkinsm/Documents/APOGEE/plots/'+name
+    saveDir = f'/Users/hopkinsm/Documents/APOGEE/plots/{SMOOTH}{FINE}{POLYDEG}/'
+    os.makedirs(saveDir, exist_ok=True)
+    path = saveDir+name
     fig.savefig(path)
 
 
 def comp(FeH):
-    """Chosen smooth version as stops spurios bumps in ISO distribution
+    """Chosen smooth version as stops spurious bumps in ISO distribution
     Means extrema aren't extrema of fH2O_p, instead 0.063856, 0.513264 for order 2"""
     FeH_p = np.array([-0.4, -0.3, -0.2, -0.1, 0.0, 0.1, 0.2, 0.3, 0.4])
     fH2O_p = np.array([0.5098, 0.4905, 0.4468, 0.4129, 0.3563, 0.2918, 0.2173, 0.1532, 0.06516])
@@ -214,29 +301,63 @@ def loadNRG2mass(binDict):
     with open(path, 'rb') as f:
         return pickle.load(f)
 
-def getfH2Odist(fH2OEdges, FeHEdges, FeHmassDist):
+def getfH2Ohist(fH2Oedges, FeHedges, FeHmassHist):
     alpha = 1 # unknown constant of proportionality between number of ISOs produces and stellar mass
-    fH2Odist = np.zeros(len(fH2OEdges)-1)
-    NpointsPerBin = int(50*(FeHEdges[1]-FeHEdges[0])/(fH2OEdges[1]-fH2OEdges[0]))
+    fH2Ohist = np.zeros(len(fH2Oedges)-1)
+    fH2Owidth = fH2Oedges[1]-fH2Oedges[0]
+    FeHwidth = FeHedges[1]-FeHedges[0]
+    NpointsPerBin = int(50*(FeHwidth)/(fH2Owidth))
+    # ensures sufficient points in each fH2O bin
+    # (= NpointsPerBin*fH2)width/FeHwidth)
     
-    fH2Owidth = fH2OEdges[1]-fH2OEdges[0]
-    FeHarray = np.linspace(FeHEdges[0], FeHEdges[-1], NpointsPerBin*(len(FeHEdges)-1), endpoint=False)
+    FeHarray = np.linspace(FeHedges[0], FeHedges[-1], NpointsPerBin*(len(FeHedges)-1), endpoint=False)
     FeHarray += (FeHarray[1] - FeHarray[0])/2
     FeHarrayWidth = FeHarray[1]-FeHarray[0]
     # evenly spaces NpointsPerBin points in each bin offset from edges
+    # note for smooth dist offset not necessary, but probably best kept
     fH2Oarray = comp(FeHarray)
     
-    for j in range(len(fH2Odist)):
-        indexArray = np.nonzero((fH2OEdges[j] <= fH2Oarray)&(fH2Oarray < fH2OEdges[j+1]))[0]//NpointsPerBin
+    for j in range(len(fH2Ohist)):
+        indexArray = np.nonzero((fH2Oedges[j] <= fH2Oarray)&(fH2Oarray < fH2Oedges[j+1]))[0]//NpointsPerBin
         # finds index of points in FeHarray, integer division changes them to index in FeHmassDistAmp bins
-        fH2Odist[j] += (alpha*FeHarrayWidth/fH2Owidth) * FeHmassDist[indexArray].sum()
-    return fH2Odist 
+        fH2Ohist[j] += (alpha*FeHarrayWidth/fH2Owidth) * FeHmassHist[indexArray].sum()
+    return fH2Ohist 
+
+def getSmoothfH2Ohist(fH2Oedges, FeHedges, FeHmassHist):
+    FeHmassDist = smoothDist(FeHedges, FeHmassHist)
+    
+    alpha = 1 # unknown constant of proportionality between number of ISOs produces and stellar mass
+    fH2Ohist = np.zeros(len(fH2Oedges)-1)
+    fH2Owidth = fH2Oedges[1]-fH2Oedges[0]
+    FeHwidth = FeHedges[1]-FeHedges[0]
+    NpointsPerBin = int(50*(FeHwidth)/(fH2Owidth))
+    # ensures sufficient points in each fH2O bin
+    # (= NpointsPerBin*fH2)width/FeHwidth)
+    
+    FeHarray = np.linspace(FeHedges[0], FeHedges[-1], NpointsPerBin*(len(FeHedges)-1), endpoint=False)
+    FeHarray += (FeHarray[1] - FeHarray[0])/2
+    FeHarrayWidth = FeHarray[1]-FeHarray[0]
+    # evenly spaces NpointsPerBin points in each bin offset from edges
+    # note for smooth dist offset not necessary, but probably best kept
+    fH2Oarray = comp(FeHarray)
+    
+    for j in range(len(fH2Ohist)):
+        indexArray = np.nonzero((fH2Oedges[j] <= fH2Oarray)&(fH2Oarray < fH2Oedges[j+1]))[0]
+        # finds index of points in FeHarray
+        fH2Ohist[j] += (alpha*FeHarrayWidth/fH2Owidth) * FeHmassDist(FeHarray[indexArray]).sum()
+    return fH2Ohist 
     
     
 def bindex(edges, value):
     return np.nonzero(edges<=value)[0][-1]
+
+
+def smoothDist(edges, histDist):
+    widths = edges[1:] - edges[:-1]
+    y = np.append(0, np.cumsum(widths*histDist))
+    return CubicSpline(edges, y, bc_type='clamped', extrapolate=True).derivative()
         
-    
+fig,ax=plt.subplots()
     
     
 class densityModel:
@@ -257,20 +378,20 @@ class densityModel:
         # len(self.aR),
         # len(self.az))
 
-    def distribution(self, position=(myUtils.R_Sun, myUtils.z_Sun), normalised=False):
+    def hist(self, position=(myUtils.R_Sun, myUtils.z_Sun), normalised=False):
         R, z = position
         dist = self.distAmp*np.exp( - self.aR*(R-myUtils.R_Sun) - self.az*np.abs(z))
         if not normalised:
             return dist
         else:
-            return dist/sum(self.widths*self.distribution(position))
+            return dist/sum(self.widths*self.hist(position))
     
-    def integrated(self, normalised=False):
+    def integratedHist(self, normalised=False):
         dist = 4*np.pi*self.distAmp*np.exp(self.aR*myUtils.R_Sun)/(self.aR**2 * self.az)
         if not normalised:
             return dist
         else:
-            return dist/sum(self.widths*self.integrated())
+            return dist/sum(self.widths*self.integratedHist())
         
 
 # def binParamSpaceVol(binDict):
