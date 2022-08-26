@@ -11,9 +11,9 @@ import myUtils
 
 # for 1D bins - assumed ordered, non-overlapping, equal size
 
-SMOOTH=False
-FINE=True
-POLYDEG=3
+SMOOTH_FeH=True
+#FINE=True
+#POLYDEG=3 chosen to fix 
 
 binsDir = '/Users/hopkinsm/data/APOGEE/bins'
 
@@ -268,23 +268,41 @@ def main():
 
 
 def saveFig(fig, name):#could put in git hash
-    saveDir = f'/Users/hopkinsm/Documents/APOGEE/plots/{SMOOTH}{FINE}{POLYDEG}/'
+    saveDir = f'/Users/hopkinsm/Documents/APOGEE/plots/testing' #{SMOOTH}{FINE}{POLYDEG}/'
     os.makedirs(saveDir, exist_ok=True)
     path = saveDir+name
     fig.savefig(path)
 
 
-def comp(FeH):
-    """Chosen smooth version as stops spurious bumps in ISO distribution
-    Means extrema aren't extrema of fH2O_p, instead 0.063856, 0.513264 for order 2"""
-    FeH_p = np.array([-0.4, -0.3, -0.2, -0.1, 0.0, 0.1, 0.2, 0.3, 0.4])
-    fH2O_p = np.array([0.5098, 0.4905, 0.4468, 0.4129, 0.3563, 0.2918, 0.2173, 0.1532, 0.06516])
+# def comp(FeH):
+#     """Chosen smooth version as stops spurious bumps in ISO distribution
+#     Means extrema aren't extrema of fH2O_p, instead 0.063856, 0.513264 for order 2"""
+#     FeH_p = np.array([-0.4, -0.3, -0.2, -0.1, 0.0, 0.1, 0.2, 0.3, 0.4])
+#     fH2O_p = np.array([0.5098, 0.4905, 0.4468, 0.4129, 0.3563, 0.2918, 0.2173, 0.1532, 0.06516])
     
-    if not SMOOTH:
-        return np.interp(FeH, xp=FeH_p, fp=fH2O_p)
-    else:
-        p = np.polynomial.polynomial.Polynomial.fit(FeH_p, fH2O_p, POLYDEG)
-        return np.where(FeH_p[0]<=FeH, np.where(FeH<FeH_p[-1], p(FeH), p(FeH_p[-1])), p(FeH_p[0]))
+#     if not SMOOTH:
+#         return np.interp(FeH, xp=FeH_p, fp=fH2O_p)
+#     else:
+#         p = np.polynomial.polynomial.Polynomial.fit(FeH_p, fH2O_p, POLYDEG)
+#         return np.where(FeH_p[0]<=FeH, np.where(FeH<FeH_p[-1], p(FeH), p(FeH_p[-1])), p(FeH_p[0]))
+
+# Defining comp:
+FeH_p = np.array([-0.4, -0.3, -0.2, -0.1, 0.0, 0.1, 0.2, 0.3, 0.4])
+fH2O_p = np.array([0.5098, 0.4905, 0.4468, 0.4129, 0.3563, 0.2918, 0.2173, 0.1532, 0.06516])
+compPoly = np.polynomial.polynomial.Polynomial.fit(FeH_p, fH2O_p, 3)
+for x in [-0.4,-0.2,0,0.2,0.4]:
+    assert np.isclose(np.sort((compPoly-compPoly(x)).roots())[1],
+                      x) #checks my range of FeH is middle bit of cubic 
+fH2Olow = compPoly(FeH_p[-1])
+fH2Ohigh = compPoly(FeH_p[0])
+if SMOOTH_FeH:
+    
+    comp = lambda FeH: np.where(FeH_p[0]<=FeH, np.where(FeH<FeH_p[-1], compPoly(FeH), fH2Olow), fH2Ohigh)
+    compInv = lambda fH2O: np.where(fH2Olow<=fH2O, np.where(fH2O<fH2Ohigh, np.sort((compPoly-fH2O).roots())[1], np.nan), np.nan)
+else:
+    comp = lambda FeH: np.interp(FeH, xp=FeH_p, fp=fH2O_p)
+    compInv = lambda x: "ARGH, not polynomial"
+
 
 # def compInv(fH2O):
 #     FeH_p = np.flip(np.array([-0.4, -0.3, -0.2, -0.1, 0.0, 0.1, 0.2, 0.3, 0.4]))
