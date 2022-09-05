@@ -271,7 +271,7 @@ def main():
         FeHunit = (r'$\mathrm{M}_\odot \mathrm{dex}^{-1} \mathrm{kpc}^{-3}$' if perVolume[plotNum] 
                    else r'$\mathrm{M}_\odot \mathrm{dex}^{-1}$')
         fH2Ounit = (r'$\mathrm{ISOs} \; \mathrm{kpc}^{-3}$' if perVolume[plotNum] 
-                    else r'$\mathrm{ISOs} \; \mathrm{dex}^{-1}$')
+                    else r'$\mathrm{ISOs}$')
         fH2OintUnit = (r'$\mathrm{ISOs} \; \mathrm{kpc}^{-3}$' if perVolume[plotNum] 
                     else r'$\mathrm{ISOs}$')
         
@@ -299,7 +299,7 @@ def main():
         # ax.text(fH2Olow, fH2Oheight*0.7, f"upper: {upperCount:.2e} {fH2OintUnit}")
         for i, FeH in enumerate(FeHedges):
             ax[0].plot([comp(FeH),comp(FeH)], [0,fH2Oheight/10], color=f'C{i}') #colours correspond on multiple graphs
-        ax[0].set_ylim(0,fH2Oheight)
+        # ax[0].set_ylim(0,fH2Oheight)
         ax[0].set_xlabel(r'$f_\mathrm{H_2O}$')
         ax[0].set_ylabel(f'ISO distribution ({fH2Ounit})')
         ax[1].bar([r'$f_\mathrm{H_2O}<0.07$', 'mid', r'$f_\mathrm{H_2O}>0.51$'],
@@ -309,7 +309,7 @@ def main():
         saveFig(fig, f'{name}ISOs.png')
         
     # comparisons
-    comparisonIndices = [(0,2), (2,3)] #Integrated vs solar neighborhood, Integrated vs EAGLE
+    comparisonIndices = [(0,2), (2,3), (0,1)] #Integrated vs solar neighborhood, Integrated vs EAGLE
     for p1, p2 in comparisonIndices:
         FeHedges = APOedges
         FeHmidpoints = (FeHedges[:-1] + FeHedges[1:])/2
@@ -322,10 +322,11 @@ def main():
         name = namesList[p1]+'+'+namesList[p2]
         
         fig, ax = plt.subplots()
-        ax.plot(FeHplotPoints, FeHdist1(FeHplotPoints), color='C0')
-        ax.plot(FeHplotPoints, FeHdist2(FeHplotPoints), color='C1')
+        ax.plot(FeHplotPoints, FeHdist1(FeHplotPoints), label=namesList[p1])
+        ax.plot(FeHplotPoints, FeHdist2(FeHplotPoints), label=namesList[p2])
+        ax.legend()
         ax.set_xlabel(r'[Fe/H]')
-        ax.set_ylabel(r'Normalised SM distribution (\mathrm{dex}^{-1})')
+        ax.set_ylabel(r'Normalised SM distribution ($\mathrm{dex}^{-1}$)')
         ax.set_title(name)
         saveFig(fig, f'{name}Mass.png')
         
@@ -340,7 +341,7 @@ def main():
         fig, ax = plt.subplots(ncols=2, figsize=(10, 4))
         ax[0].plot(fH2OplotPoints, fH2Odist1(fH2OplotPoints), label=namesList[p1])
         ax[0].plot(fH2OplotPoints, fH2Odist2(fH2OplotPoints), label=namesList[p2])
-        ax[0].set_ylim(0,fH2Oheight)
+        # ax[0].set_ylim(0,fH2Oheight)
         ax[0].set_xlabel(r'$f_\mathrm{H_2O}$')
         ax[0].set_ylabel('Normalised ISO distribution')
         ax[0].legend()
