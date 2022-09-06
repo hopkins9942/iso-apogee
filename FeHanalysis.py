@@ -29,7 +29,7 @@ binsDir = '/Users/hopkinsm/data/APOGEE/bins'
 
 def main():
     
-    _FeH_edges = myUtils.arr((-1.575, 0.625, 0.1)) #0.625-09.725 has no APOGEE statsample stars, -1.575--1.475 has about 130
+    _FeH_edges = myUtils.arr((-1.975, 0.725, 0.1)) #0.625-09.725 has no APOGEE statsample stars, -1.575--1.475 has about 130
     binList = [{'FeH': (_FeH_edges[i], _FeH_edges[i+1])} for i in range(len(_FeH_edges)-1)]
     
     FeHedges = np.append([binList[i]['FeH'][0] for i in range(len(binList))],
@@ -310,15 +310,15 @@ def main():
         
     # comparisons
     comparisonIndices = [(0,2), (2,3), (0,1)] #Integrated vs solar neighborhood, Integrated vs EAGLE
-    for p1, p2 in comparisonIndices:
-        FeHedges = APOedges
-        FeHmidpoints = (FeHedges[:-1] + FeHedges[1:])/2
-        FeHwidths = FeHedges[1:] - FeHedges[:-1]
+    for count in range(len(comparisonIndices)):
+        p1, p2 = comparisonIndices[count]
+        FeHedges1 = FeHedgesList[p1]
+        FeHedges2 = FeHedgesList[p2]
         
-        FeHplotPoints = np.linspace(FeHedges[0], FeHedges[-1], 10*len(FeHwidths))
-        FeHdist1 = hist2dist(FeHedges, FeHhistsList[p1], normalised=True)
-        FeHdist2 = hist2dist(FeHedges if p2!=3 else EAGLEedges 
-                             , FeHhistsList[p2], normalised=True)
+        FeHplotPoints = (np.linspace(APOedges[0], APOedges[-1], 10*(len(APOedges)-1)) if count!=1
+                         else np.linspace(EAGLEedges[0], EAGLEedges[-1], 10*(len(EAGLEedges)-1)))
+        FeHdist1 = hist2dist(FeHedges1, FeHhistsList[p1], normalised=True)
+        FeHdist2 = hist2dist(FeHedges2, FeHhistsList[p2], normalised=True)
         name = namesList[p1]+'+'+namesList[p2]
         
         fig, ax = plt.subplots()
