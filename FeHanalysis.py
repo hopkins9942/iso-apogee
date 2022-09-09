@@ -15,6 +15,7 @@ import myUtils
 SMOOTH_FeH=True
 #FINE=True
 POLYDEG=3
+PROPZ=True
 
 repo = git.Repo(search_parent_directories=True)
 sha = repo.head.object.hexsha[:7]
@@ -22,7 +23,7 @@ print(repo)
 print(sha)
 
 
-saveDir = f'/Users/hopkinsm/Documents/APOGEE/plots/{sha}/{POLYDEG}-{SMOOTH_FeH}/'
+saveDir = f'/Users/hopkinsm/Documents/APOGEE/plots/{sha}/{POLYDEG}-{SMOOTH_FeH}-{PROPZ}/'
 
 binsDir = '/Users/hopkinsm/data/APOGEE/bins'
 
@@ -334,13 +335,24 @@ def loadNRG2mass(binDict):
     with open(path, 'rb') as f:
         return pickle.load(f)
 
-
-def SM2ISO(FeHdist, alpha=1, normalised=False):
-    normFactor = alpha*quad(FeHdist, -np.inf, np.inf, limit=200)[0] if normalised else 1
-    ISOdist = lambda fH2O: -alpha*FeHdist(compInv(fH2O))/(normFactor*compDeriv(compInv(fH2O)))
-    lowerEndCount = alpha*quad(FeHdist, FeHhigh, np.inf, limit=200)[0]/normFactor
-    upperEndCount = alpha*quad(FeHdist, -np.inf, FeHlow, limit=200)[0]/normFactor
-    return (ISOdist, lowerEndCount, upperEndCount)
+if PROPZ:
+    def SM2ISO(FeHdist, alpha=1, normalised=False):
+        def integrand(FeH):
+            return (10**FeH)*FeHdist(FeH)
+        normFactor = alpha*quad(integrand, -3, 3, limit=200)[0] if normalised else 1
+        #ISOdist = lambda fH2O: -alpha*FeHdist(compInv(fH2O))/(normFactor*compDeriv(compInv(fH2O)))
+        def ISOdist(fH2O):
+            return -alpha*(10**compInv(fH2O))*FeHdist(compInv(fH2O))/(normFactor*compDeriv(compInv(fH2O)))
+        lowerEndCount = alpha*quad(integrand, FeHhigh, 3, limit=200)[0]/normFactor
+        upperEndCount = alpha*quad(integrand, -3, FeHlow, limit=200)[0]/normFactor
+        return (ISOdist, lowerEndCount, upperEndCount)
+else:
+    def SM2ISO(FeHdist, alpha=1, normalised=False):
+        normFactor = alpha*quad(FeHdist, -np.inf, np.inf, limit=200)[0] if normalised else 1
+        ISOdist = lambda fH2O: -alpha*FeHdist(compInv(fH2O))/(normFactor*compDeriv(compInv(fH2O)))
+        lowerEndCount = alpha*quad(FeHdist, FeHhigh, np.inf, limit=200)[0]/normFactor
+        upperEndCount = alpha*quad(FeHdist, -np.inf, FeHlow, limit=200)[0]/normFactor
+        return (ISOdist, lowerEndCount, upperEndCount)
     
 # def bindex(edges, value):
 #     if value.ndim==0:
