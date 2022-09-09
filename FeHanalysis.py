@@ -106,16 +106,19 @@ def main():
     APOedges = np.append([binList[i]['FeH'][0] for i in range(len(binList))],
                          binList[-1]['FeH'][1])
     
-    namesList = ['Local', 'GalCentre', 'Integrated', 'EAGLE']
-    FeHedgesList = [APOedges, APOedges, APOedges, EAGLEedges]
+    namesList = ['Local', 'GalCentre', 'Integrated', 'EAGLE', 'R10', 'within2', 'outside2']
+    FeHedgesList = [APOedges, APOedges, APOedges, EAGLEedges, APOedges, APOedges, APOedges]
     FeHhistsList = [StellarMassDM.hist(),
                     StellarMassDM.hist((0,0)),
                     StellarMassDM.integratedHist(),
-                    FeHhist_EAGLE
+                    FeHhist_EAGLE,
+                    StellarMassDM.hist((10,0)),
+                    StellarMassDM.histWithin(2),
+                    StellarMassDM.integratedHist()-StellarMassDM.histWithin(2)
                     ]
-    perVolume = [True, True, False, False]
+    perVolume = [True, True, False, False, True, False, False]
     
-    for plotNum in range(4): # to save repeating similar code
+    for plotNum in range(len(namesList)): # to save repeating similar code
         name = namesList[plotNum]
         FeHedges = FeHedgesList[plotNum]
         FeHmidpoints = (FeHedges[:-1] + FeHedges[1:])/2
@@ -174,7 +177,7 @@ def main():
         saveFig(fig, f'{name}ISOs.png')
         
     # comparisons
-    comparisonIndices = [(0,2), (2,3), (0,1)] #Integrated vs solar neighborhood, Integrated vs EAGLE
+    comparisonIndices = [(0,2), (2,3), (0,1), (5,6)] #Integrated vs solar neighborhood, Integrated vs EAGLE
     for count in range(len(comparisonIndices)):
         p1, p2 = comparisonIndices[count]
         FeHedges1 = FeHedgesList[p1]
@@ -223,7 +226,7 @@ def main():
     
         
     # dist vs R
-    R = np.linspace(0,20,100)
+    R = np.linspace(0,15,100)
     R = (R[:-1]+R[1:])/2
     FeH = np.linspace(-1,0.5,100)
     FeH = (FeH[:-1] + FeH[1:])/2
@@ -248,13 +251,19 @@ def main():
     ax.imshow(spatialFeHDist, origin='lower', extent=[R[0], R[-1], FeH[0], FeH[-1]], aspect='auto')
     ax.plot([R[0],R[-1]], [-0.4,-0.4], color ='C0')
     ax.plot([R[0],R[-1]], [ 0.4, 0.4], color ='C0')
+    ax.set_xlabel('R/kpc')
+    ax.set_ylabel('normalised FeH dist')
+    saveFig(fig, 'FeHR')
     
     fig, ax = plt.subplots()
     ax.imshow(spatialfH2ODist, origin='lower', extent=[R[0], R[-1], fH2O[0], fH2O[-1]], aspect='auto')
-
+    ax.set_xlabel('R/kpc')
+    ax.set_ylabel('normalised fH2O dist')
+    saveFig(fig, 'fH2OR')
+    
     fig,ax = plt.subplots()
-    ax.plot(StellarMassDM.histWithin(2))
-    ax.plot(StellarMassDM.integratedHist() - StellarMassDM.histWithin(2))
+    ax.plot(StellarMassDM.histWithin(4))
+    ax.plot(StellarMassDM.integratedHist() - StellarMassDM.histWithin(4))
     
 
 
