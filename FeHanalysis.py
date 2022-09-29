@@ -107,7 +107,7 @@ def main():
     APOedges = np.append([binList[i]['FeH'][0] for i in range(len(binList))],
                          binList[-1]['FeH'][1])
     
-    namesList = ['Local', 'GalCentre', 'Integrated', 'EAGLE', 'R2', 'within2', 'outside2']
+    namesList = ['Solar Neighbourhood', 'GalCentre', 'Milky Way', 'EAGLE', 'R=2kpc', 'within2', 'outside2']
     FeHedgesList = [APOedges, APOedges, APOedges, EAGLEedges, APOedges, APOedges, APOedges]
     FeHhistsList = [StellarMassDM.hist(),
                     StellarMassDM.hist((0,0)),
@@ -145,39 +145,39 @@ def main():
         fH2Oheight = fH2Odist(0.3)*4
         
         
-        fig, ax = plt.subplots()
-        ax.bar(FeHmidpoints, FeHhist, width = FeHwidths, alpha=0.5)
-        ax.plot(FeHplotPoints, FeHdist(FeHplotPoints), color='C1')
-        ax.plot([-0.4,-0.4], [0,FeHdist(0)], color='C2', alpha=0.5)
-        ax.plot([ 0.4, 0.4], [0,FeHdist(0)], color='C2', alpha=0.5)
+        fig, axs = plt.subplots(ncols=3, figsize=[12, 4])
+        axs[0].bar(FeHmidpoints, FeHhist, width = FeHwidths, alpha=0.5)
+        axs[0].plot(FeHplotPoints, FeHdist(FeHplotPoints), color='C1')
+        axs[0].plot([-0.4,-0.4], [0,FeHdist(0)], color='C2', alpha=0.5)
+        axs[0].plot([ 0.4, 0.4], [0,FeHdist(0)], color='C2', alpha=0.5)
         # for i, FeH in enumerate(FeHedges):
         #     ax.plot([FeH,FeH], [0,FeHdist(0)/10], color=f'C{i}')
-        ax.set_xlabel(r'[Fe/H]')
-        ax.set_ylabel(f'Stellar mass distribution ({FeHunit})')
-        ax.set_title(name)
-        if plotNum in [0,2,3,4]:
-            saveFig(fig, f'{name}Mass.png')
+        axs[0].set_xlabel(r'[Fe/H]')
+        axs[0].set_ylabel(f'Stellar mass distribution ({FeHunit})')
+        #axs[0].set_title(name)
         
         print(f'Check spline method: {plotNum}')
         print(np.array([quad(FeHdist, FeHedges[i], FeHedges[i+1])[0]/FeHwidths[i]
                             for i in range(len(FeHmidpoints))]) - FeHhist)
         
-        fig, ax = plt.subplots(ncols=2, figsize=(10, 4))
-        ax[0].plot(fH2OplotPoints, fH2Odist(fH2OplotPoints))
+        #fig, ax = plt.subplots(ncols=2)
+        axs[1].plot(fH2OplotPoints, fH2Odist(fH2OplotPoints))
         # ax.text(fH2Olow, fH2Oheight*0.9, f"lower: {lowerCount:.2e} {fH2OintUnit}")
         # ax.text(fH2Olow, fH2Oheight*0.8, f"middle: {middleCount:.2e} {fH2OintUnit}")
         # ax.text(fH2Olow, fH2Oheight*0.7, f"upper: {upperCount:.2e} {fH2OintUnit}")
         # for i, FeH in enumerate(FeHedges):
         #     ax[0].plot([comp(FeH),comp(FeH)], [0,fH2Oheight/10], color=f'C{i}') #colours correspond on multiple graphs
         # ax[0].set_ylim(0,fH2Oheight)
-        ax[0].set_ylim(bottom=0)
-        ax[0].set_xlabel(r'$f_\mathrm{H_2O}$')
-        ax[0].set_ylabel(f'ISO distribution ({fH2Ounit})')
-        ax[1].bar([r'$f_\mathrm{H_2O}<0.07$', 'mid', r'$f_\mathrm{H_2O}>0.51$'],
+        axs[1].set_ylim(bottom=0)
+        axs[1].set_xlabel(r'$f_\mathrm{H_2O}$')
+        axs[1].set_ylabel(f'ISO distribution ({fH2Ounit})')
+        axs[2].bar([r'$f_\mathrm{H_2O}<0.07$', 'mid', r'$f_\mathrm{H_2O}>0.51$'],
                   [lowerCount, middleCount, upperCount])
-        ax[1].set_ylabel(f'ISO distribution ({fH2OintUnit})')
+        axs[2].set_ylabel(f'ISO distribution ({fH2OintUnit})')
         fig.suptitle(f'{name}')
-        saveFig(fig, f'{name}ISOs.png')
+        fig.set_tight_layout(True)
+        if plotNum in [0,2,3,4]:
+            saveFig(fig, f'{name}.png')
         
     # comparisons
     comparisonIndices = [(0,2), (2,3), (0,1), (0,4)] #Integrated vs solar neighborhood, Integrated vs EAGLE
@@ -190,18 +190,17 @@ def main():
                          else np.linspace(EAGLEedges[0], EAGLEedges[-1], 10*(len(EAGLEedges)-1)))
         FeHdist1 = hist2dist(FeHedges1, FeHhistsList[p1], normalised=True)
         FeHdist2 = hist2dist(FeHedges2, FeHhistsList[p2], normalised=True)
-        name = namesList[p1]+'+'+namesList[p2]
+        name = namesList[p1]+' vs '+namesList[p2]
         
-        fig, ax = plt.subplots()
-        ax.plot(FeHplotPoints, FeHdist1(FeHplotPoints), label=namesList[p1])
-        ax.plot(FeHplotPoints, FeHdist2(FeHplotPoints), label=namesList[p2])
-        ax.plot([-0.4,-0.4], [0,FeHdist1(0)], color='C2', alpha=0.5)
-        ax.plot([ 0.4, 0.4], [0,FeHdist1(0)], color='C2', alpha=0.5)
-        ax.legend()
-        ax.set_xlabel(r'[Fe/H]')
-        ax.set_ylabel(r'Normalised SM distribution ($\mathrm{dex}^{-1}$)')
-        ax.set_title(name)
-        saveFig(fig, f'{name}Mass.png')
+        fig, axs = plt.subplots(ncols=3, figsize=[12, 4])
+        axs[0].plot(FeHplotPoints, FeHdist1(FeHplotPoints), label=namesList[p1])
+        axs[0].plot(FeHplotPoints, FeHdist2(FeHplotPoints), label=namesList[p2])
+        axs[0].plot([-0.4,-0.4], [0,FeHdist1(0)], color='C2', alpha=0.5)
+        axs[0].plot([ 0.4, 0.4], [0,FeHdist1(0)], color='C2', alpha=0.5)
+        axs[0].legend()
+        axs[0].set_xlabel(r'[Fe/H]')
+        axs[0].set_ylabel(r'Normalised SM distribution ($\mathrm{dex}^{-1}$)')
+        #axs[0].set_title(name)
         
         fH2OplotPoints = np.linspace(fH2Olow+0.0001, fH2Ohigh-0.0001)
         fH2Odist1, lowerCount1, upperCount1 = SM2ISO(FeHdist1, normalised=True)
@@ -211,22 +210,23 @@ def main():
         
         fH2Oheight = max(fH2Odist1(0.3)*4, fH2Odist2(0.3)*4)
         
-        fig, ax = plt.subplots(ncols=2, figsize=(10, 4))
-        ax[0].plot(fH2OplotPoints, fH2Odist1(fH2OplotPoints), label=namesList[p1])
-        ax[0].plot(fH2OplotPoints, fH2Odist2(fH2OplotPoints), label=namesList[p2])
+        #fig, ax = plt.subplots(ncols=2, figsize=(10, 4))
+        axs[1].plot(fH2OplotPoints, fH2Odist1(fH2OplotPoints), label=namesList[p1])
+        axs[1].plot(fH2OplotPoints, fH2Odist2(fH2OplotPoints), label=namesList[p2])
         # ax[0].set_ylim(0,fH2Oheight)
-        ax[0].set_ylim(bottom=0)
-        ax[0].set_xlabel(r'$f_\mathrm{H_2O}$')
-        ax[0].set_ylabel('Normalised ISO distribution')
-        ax[0].legend()
-        ax[1].bar([r'$f_\mathrm{H_2O}<0.07$', 'mid', r'$f_\mathrm{H_2O}>0.51$'],
+        axs[1].set_ylim(bottom=0)
+        axs[1].set_xlabel(r'$f_\mathrm{H_2O}$')
+        axs[1].set_ylabel('Normalised ISO distribution')
+        axs[1].legend()
+        axs[2].bar([r'$f_\mathrm{H_2O}<0.07$', 'mid', r'$f_\mathrm{H_2O}>0.51$'],
                   [lowerCount1, middleCount1, upperCount1], alpha=0.5, label=namesList[p1])
-        ax[1].bar([r'$f_\mathrm{H_2O}<0.07$', 'mid', r'$f_\mathrm{H_2O}>0.51$'],
+        axs[2].bar([r'$f_\mathrm{H_2O}<0.07$', 'mid', r'$f_\mathrm{H_2O}>0.51$'],
                   [lowerCount2, middleCount2, upperCount2], alpha=0.5, label=namesList[p2])
-        ax[1].set_ylabel('Normalised ISO distribution')
-        ax[1].legend()
+        axs[2].set_ylabel('Normalised ISO distribution')
+        axs[2].legend()
         fig.suptitle(f'{name}')
-        saveFig(fig, f'{name}ISOs.png')
+        fig.set_tight_layout(True)
+        saveFig(fig, f'{name}.png')
     
         
     # dist vs R
