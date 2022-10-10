@@ -74,7 +74,7 @@ def main():
     svi = SVI(model, guide, optimiser, loss=Trace_ELBO(num_particles=4))
 
     print(f"Beginning fitting {datetime.datetime.now()}")
-    maxSteps = 10000 # let settle significantly longer than visual loss decrease and median change stops - shape of guide is adjusting too
+    maxSteps = 50000 # let settle significantly longer than visual loss decrease and median change stops - shape of guide is adjusting too
     lossArray = np.zeros(maxSteps)
     latent_medians = np.zeros((maxSteps,n_latents))
     incDetectLag = 200
