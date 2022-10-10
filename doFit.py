@@ -58,7 +58,7 @@ def main():
     if data[0].item()==0:
         # No stars in bin
         with open(os.path.join(binPath, 'fit_results.dat'), 'wb') as f:
-            pickle.dump([0, 0, 0], f)
+            pickle.dump([-999, -999, -999], f)
         return 0 # exits main(), skipping fit that would fail
 
 

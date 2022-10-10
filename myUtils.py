@@ -31,23 +31,23 @@ def binName(binDict):
     return '_'.join(['_'.join([key, f'{limits[0]:.3f}', f'{limits[1]:.3f}']) for key,limits in binDict.items()])
     #Note: python list comprehensions are cool
 
-_FeH_edges = arr((-1.575, 0.625, 0.1)) #0.625-09.725 has no APOGEE statsample stars, -1.575--1.475 has about 130
-
-binsToUse = [{'FeH': (_FeH_edges[i], _FeH_edges[i+1])} for i in range(len(_FeH_edges)-1)]
-# 22 bins
+_FeH_edges = arr((-1.975, 0.725, 0.1)) #0.625-09.725 has no APOGEE statsample stars, -1.575--1.475 has about 130
+# isochfrones have MH from -2.0 to 0.65 every 0.05, with one at 0.69525
+#binsToUse = [{'FeH': (_FeH_edges[i], _FeH_edges[i+1])} for i in range(len(_FeH_edges)-1)]
+# 27 bins
 
 #age_FeH
 _age_edges = np.array([0.0,4.5,9.0,14.0]) # remember ages only good for FeH>-0.5
-_FeH_edges_for_age = arr((-0.475, 0.625, 0.1))
+_FeH_edges_for_age = arr((-0.475, 0.725, 0.1))
 #binsToUse = [{'FeH': (_FeH_edges_for_age[i], _FeH_edges_for_age[i+1]), 'age': (_age_edges[j], _age_edges[j+1])} for i in range(len(_FeH_edges_for_age)-1) for j in range(len(_age_edges)-1)]
-# 33 bins
+# 36 bins
 
 # MgFe_FeH
 _MgFe_edges = arr((-0.3,0.5,0.1))
 
-_FeH_edges_for_MgFe = arr((-1.575, 0.625, 0.2))
-#binsToUse = [{'FeH': (_FeH_edges_for_MgFe[i], _FeH_edges_for_MgFe[i+1]), 'MgFe': (_MgFe_edges[j], _MgFe_edges[j+1])} for i in range(len(_FeH_edges_for_MgFe)-1) for j in range(len(_MgFe_edges)-1)]
-# 88 bins
+_FeH_edges_for_MgFe = arr((-1.675, 0.725, 0.2))
+binsToUse = [{'FeH': (_FeH_edges_for_MgFe[i], _FeH_edges_for_MgFe[i+1]), 'MgFe': (_MgFe_edges[j], _MgFe_edges[j+1])} for i in range(len(_FeH_edges_for_MgFe)-1) for j in range(len(_MgFe_edges)-1)]
+# 96 bins
 
 
 
