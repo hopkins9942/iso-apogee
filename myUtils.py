@@ -8,7 +8,7 @@ import astropy.units as u
 # Assumes makeBins.py, calcEffSelFunct.py and doFit.py are run on a cluster,
 # data directory is scp-ed to local machine then analysis.py is run there
 clusterDataDir = '/data/phys-galactic-isos/sjoh4701/APOGEE/' # used by makeBins.py, calcEffSelFunct.py and doFit.py
-localDataDir = '/Users/hopkinsm/data/APOGEE' # used by analysis.py
+localDataDir = '/Users/hopkinsm/data/APOGEE/' # used by analysis.py and 
 
 GC_frame = coord.Galactocentric() #adjust parameters here if needed
 z_Sun = GC_frame.z_sun.to(u.kpc).value # .value removes unit, which causes problems with pytorch
@@ -48,6 +48,5 @@ _MgFe_edges = arr((-0.3,0.5,0.1))
 _FeH_edges_for_MgFe = arr((-1.675, 0.725, 0.2))
 binsToUse = [{'FeH': (_FeH_edges_for_MgFe[i], _FeH_edges_for_MgFe[i+1]), 'MgFe': (_MgFe_edges[j], _MgFe_edges[j+1])} for i in range(len(_FeH_edges_for_MgFe)-1) for j in range(len(_MgFe_edges)-1)]
 # 96 bins
-
 
 

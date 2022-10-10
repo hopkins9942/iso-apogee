@@ -1,20 +1,21 @@
 import os
 os.environ['RESULTS_VERS'] = "l33"
 import numpy as np
-import apogee.select as apsel
-import pickle
-from scipy.interpolate import interp1d, UnivariateSpline
+#import apogee.select as apsel
+#import pickle
+from scipy.interpolate import interp1d#, UnivariateSpline
 from scipy import integrate
 import isodist
 from isodist import imf as mimf
 import tqdm
 from astropy.io import ascii
 
-from myUtils import clusterDataDir
+#from myUtils import clusterDataDir as dataDir
+from myUtils import localDataDir as dataDir
 
 #_DATAFILEPATH = "/data/phys-galactic-isos/sjoh4701/APOGEE/input_data/PARSEC_lognormChab2001_linearagefeh.dat"
 
-_DATAFILEPATH = clusterDataDir + '/input_data/PARSEC_lognormChab2001_linearagefeh.dat'
+_DATAFILEPATH = dataDir + 'input_data/PARSEC_lognormChab2001_linearagefeh.dat'
 
 def generate_isogrid():
     """

@@ -23,7 +23,7 @@ print(repo)
 print(sha)
 
 
-saveDir = f'/Users/hopkinsm/Documents/APOGEE/plots/{sha}/FeHanalysis/{POLYDEG}-{SMOOTH_FeH}-{PROPZ}/'
+saveDir = f'/Users/hopkinsm/Documents/APOGEE/plots/{sha}/ToSreport/{POLYDEG}-{SMOOTH_FeH}-{PROPZ}/'
 
 binsDir = '/Users/hopkinsm/data/APOGEE/bins'
 
