@@ -79,7 +79,7 @@ def main():
     maxSteps = 50000 # let settle significantly longer than visual loss decrease and median change stops - shape of guide is adjusting too
     lossArray = np.zeros(maxSteps)
     latent_medians = np.zeros((maxSteps,n_latents))
-    incDetectLag = 200
+    incDetectLag = 1000
     for step in range(maxSteps):
         loss = svi.step(R_modz_multiplier, data)
         lossArray[step] = loss
@@ -96,7 +96,7 @@ def main():
         if step%100==0:
             print(f'Loss = {loss}, median logNuSun = {latent_medians[step][0]}')
             
-            if step>incDetectLag and np.all(np.abs(latent_medians[step]-latent_medians[step-incDetectLag])<np.array([0.05,0.02,0.05])):
+            if step>incDetectLag and np.all(np.abs(latent_medians[step]-latent_medians[step-incDetectLag])<np.array([0.01,0.01,0.01])):
                 lossArray = lossArray[:step+1]
                 latent_medians = latent_medians[:step+1]
                 break

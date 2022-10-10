@@ -10,8 +10,8 @@ from isodist import imf as mimf
 import tqdm
 from astropy.io import ascii
 
-#from myUtils import clusterDataDir as dataDir
-from myUtils import localDataDir as dataDir
+from myUtils import clusterDataDir as dataDir
+#from myUtils import localDataDir as dataDir
 
 #_DATAFILEPATH = "/data/phys-galactic-isos/sjoh4701/APOGEE/input_data/PARSEC_lognormChab2001_linearagefeh.dat"
 
