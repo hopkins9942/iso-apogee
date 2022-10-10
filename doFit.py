@@ -55,6 +55,8 @@ def main():
     with open(os.path.join(binPath, 'data.dat'), 'rb') as f:
         data = torch.tensor(pickle.load(f))
 
+    print("No. stars: ", data[0].item())
+    
     if data[0].item()==0:
         # No stars in bin
         with open(os.path.join(binPath, 'fit_results.dat'), 'wb') as f:
@@ -94,7 +96,7 @@ def main():
         if step%100==0:
             print(f'Loss = {loss}, median logNuSun = {latent_medians[step][0]}')
             
-            if step>incDetectLag and (np.abs(latent_medians[step]-latent_medians[step-incDetectLag])<np.array([0.05,0.02,0.05])):
+            if step>incDetectLag and np.all(np.abs(latent_medians[step]-latent_medians[step-incDetectLag])<np.array([0.05,0.02,0.05])):
                 lossArray = lossArray[:step+1]
                 latent_medians = latent_medians[:step+1]
                 break
