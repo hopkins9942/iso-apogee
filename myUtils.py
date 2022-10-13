@@ -45,7 +45,7 @@ _FeH_edges_for_age = arr((-0.475, 0.725, 0.1))
 # MgFe_FeH
 _MgFe_edges = arr((-0.3,0.5,0.05))
 
-_FeH_edges_for_MgFe = arr((-1.975, 0.725, 0.1))
+_FeH_edges_for_MgFe = arr((-1.975, 0.725, 0.1)) #arr((-1.675, 0.725, 0.2))
 binsToUse = [{'FeH': (_FeH_edges_for_MgFe[i], _FeH_edges_for_MgFe[i+1]), 'MgFe': (_MgFe_edges[j], _MgFe_edges[j+1])} for i in range(len(_FeH_edges_for_MgFe)-1) for j in range(len(_MgFe_edges)-1)]
 # 432 bins
 

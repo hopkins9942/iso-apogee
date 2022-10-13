@@ -14,79 +14,98 @@ import myUtils
 
 POLYDEG=3
 
-repo = git.Repo(search_parent_directories=True)
-sha = repo.head.object.hexsha[:7]
-print(repo)
-print(sha)
 
 
-saveDir = f'/Users/hopkinsm/Documents/APOGEE/plots/{sha}/FeHMgFeanalysis/{POLYDEG}/'
 
-binsDir = '/Users/hopkinsm/data/APOGEE/bins/'
 
-FeHedges = myUtils._FeH_edges_for_MgFe
-MgFeedges = myUtils._MgFe_edges
 
 def main():
+    repo = git.Repo(search_parent_directories=True)
+    sha = repo.head.object.hexsha[:7]
+    print(repo)
+    print(sha)
     
+    FeHEdges = myUtils._FeH_edges_for_MgFe
+    MgFeEdges = myUtils._MgFe_edges
     
-    binList = [{'FeH': (FeHedges[bindex(i)[1]], FeHedges[bindex(i)[1]+1]), 'MgFe': (MgFeedges[bindex(i)[0]], MgFeedges[bindex(i)[0]+1])}
-                                                         for i in range((len(MgFeedges)-1)*(len(FeHedges)-1))]
+    FeHMidpoints = (FeHEdges[:-1] + FeHEdges[1:])/2
+    FeHWidths = FeHEdges[1:] - FeHEdges[:-1]
     
+    MgFeMidpoints = (MgFeEdges[:-1] + MgFeEdges[1:])/2
+    MgFeWidths = MgFeEdges[1:] - MgFeEdges[:-1]
     
-    FeHmidpoints = (FeHedges[:-1] + FeHedges[1:])/2
-    FeHwidths = FeHedges[1:] - FeHedges[:-1]
-    
-    MgFemidpoints = (MgFeedges[:-1] + MgFeedges[1:])/2
-    MgFewidths = MgFeedges[1:] - MgFeedges[:-1]
-    
-    logA     = np.zeros(shape)
-    print(logA)
-    aR       = np.zeros(shape)
-    az       = np.zeros(shape)
-    NRG2mass = np.zeros(shape)
-    
-    for i, binDict in enumerate(binList):
-        bi = bindex(i)
-        logA[bi], aR[bi], az[bi] = loadFitResults(binDict)
-        if (logA[bi]==-999):
-            # no stars in bin, fit not attempted
-            aR[bi], az[bi] = 0.000001, 0.0000001
-            NRG2mass[bi] = 0
-        else:
-            NRG2mass[bi] = loadNRG2mass(binDict)
             
-    print(np.meshgrid(FeHmidpoints,MgFemidpoints))
-            
-    widthmgs = np.meshgrid(FeHwidths, MgFewidths)
-    binAreas = widthmgs[0]*widthmgs[1]
-    print(binAreas)
-        
-    #NRGDM = densityModel(FeHEdges, np.exp(FeHnumberlogA)/FeHWidths, aR, az)
-    StellarMassDM = densityModel(FeHedges, NRG2mass*np.exp(logA)/(binAreas), aR, az)
+    binAreas = MgFeWidths[:,np.newaxis]*FeHWidths
     
-    print('Check hist')
-    print(StellarMassDM.integratedHist())
+    StellarMassDM = FeHMgFeModel.loadFromBins(FeHEdges, MgFeEdges)
+    
+    fig, axs = plt.subplots(ncols=5, figsize=[16, 4])
+    titles = ['density at sun', 'integrated density', 'thick disk', 'aR', 'az']
+    for i, im in enumerate([StellarMassDM.hist(), StellarMassDM.integratedHist(), StellarMassDM.hist(R=4,z=1), StellarMassDM.aR, StellarMassDM.az]):
+        axs[i].imshow(im, vmin=0, origin='lower', aspect='auto', extent=(FeHEdges[0], FeHEdges[-1], MgFeEdges[0], MgFeEdges[-1]))
+        axs[i].set_title(titles[i])
+        axs[i].set_xlabel('[Fe/H]')
+        axs[i].set_ylabel('[alpha/Fe]')
+    fig.set_tight_layout(True)
+    saveFig(fig, 'Bovy2012')
+    
+    print(StellarMassDM.hist(R=4,z=1))
+    
+    
+    FeHHist = StellarMassDM.FeHHist()
+    FeHDist = hist2dist(FeHEdges, FeHHist)
+    
+    FeHplotPoints = np.linspace(FeHEdges[0], FeHEdges[-1], 10*len(FeHWidths))
+    fH2OplotPoints = np.linspace(fH2Olow+0.0001, fH2Ohigh-0.0001)
+    fH2Odist, lowerCount, upperCount = SM2ISO(FeHDist)
+    middleCount = quad(fH2Odist, fH2OplotPoints[0], fH2OplotPoints[-1])[0]
+
     
     fig, axs = plt.subplots(ncols=3, figsize=[12, 4])
-    axs[0].imshow(StellarMassDM.integratedHist(), origin='lower', extent=(FeHedges[0], FeHedges[-1], MgFeedges[0], MgFeedges[-1]))
-    axs[1].imshow(aR[StellarMassDM.integratedHist()>1e8], origin='lower', extent=(FeHedges[0], FeHedges[-1], MgFeedges[0], MgFeedges[-1]))
-    axs[2].imshow(az, origin='lower', extent=(FeHedges[0], FeHedges[-1], MgFeedges[0], MgFeedges[-1]))
+    axs[0].bar(FeHMidpoints, FeHHist, width = FeHWidths, alpha=0.5)
+    axs[0].plot(FeHplotPoints, FeHDist(FeHplotPoints), color='C1')
+    axs[0].plot([-0.4,-0.4], [0,FeHDist(0)], color='C2', alpha=0.5)
+    axs[0].plot([ 0.4, 0.4], [0,FeHDist(0)], color='C2', alpha=0.5)
+    axs[0].set_xlabel(r'[Fe/H]')
+    axs[0].set_ylabel(f'Stellar mass distribution')
+
+    
+    # print(f'Check spline method: {plotNum}')
+    # print(np.array([quad(FeHdist, FeHedges[i], FeHedges[i+1])[0]/FeHwidths[i]
+    #                     for i in range(len(FeHmidpoints))]) - FeHhist)
+    
+
+    axs[1].plot(fH2OplotPoints, fH2Odist(fH2OplotPoints))
+    axs[1].set_ylim(bottom=0)
+    axs[1].set_xlabel(r'$f_\mathrm{H_2O}$')
+    axs[1].set_ylabel(f'ISO distribution)')
+    axs[2].bar([r'$f_\mathrm{H_2O}<0.07$', 'mid', r'$f_\mathrm{H_2O}>0.51$'],
+              [lowerCount, middleCount, upperCount])
+    axs[2].set_ylabel(f'ISO distribution')
+    fig.suptitle(f'local')
+    fig.set_tight_layout(True)
+    saveFig(fig, f'localISO.png')
 
 
-shape = (len(MgFeedges)-1, len(FeHedges)-1)
 
-def bindex(indx):
-    "ravels or unravels index, depending on input"
-    dims = shape
-    if type(indx) is tuple:
-        return np.ravel_multi_index(indx,dims)
-    else:
-        return np.unravel_index(indx,dims)
+   
+
+# shape = (len(MgFeedges)-1, len(FeHedges)-1)
+
+# def bindex(indx):
+#     "ravels or unravels index, depending on input"
+#     dims = shape
+#     if type(indx) is tuple:
+#         return np.ravel_multi_index(indx,dims)
+#     else:
+#         return np.unravel_index(indx,dims)
 
 
 
 def saveFig(fig, name):
+    repo = git.Repo(search_parent_directories=True)
+    sha = repo.head.object.hexsha[:7]
+    saveDir = f'/Users/hopkinsm/Documents/APOGEE/plots/{sha}/FeHMgFeanalysis/{POLYDEG}/'
     os.makedirs(saveDir, exist_ok=True)
     path = saveDir+name
     fig.savefig(path, dpi=300)
@@ -138,15 +157,15 @@ for x in [-0.4+0.0001, -0.2, 0, 0.2, 0.4-0.0001]:
     assert np.isclose(compInv(comp(x)), x) #checks inverse works
 
 
-def loadFitResults(binDict):
-    path = os.path.join(binsDir, myUtils.binName(binDict), 'fit_results.dat')
-    with open(path, 'rb') as f:
-        return pickle.load(f)
+# def loadFitResults(binDict):
+#     path = os.path.join(binsDir, myUtils.binName(binDict), 'fit_results.dat')
+#     with open(path, 'rb') as f:
+#         return pickle.load(f)
 
-def loadNRG2mass(binDict):
-    path = os.path.join(binsDir, myUtils.binName(binDict), 'NRG2mass.dat')
-    with open(path, 'rb') as f:
-        return pickle.load(f)
+# def loadNRG2mass(binDict):
+#     path = os.path.join(binsDir, myUtils.binName(binDict), 'NRG2mass.dat')
+#     with open(path, 'rb') as f:
+#         return pickle.load(f)
 
 
 def SM2ISO(FeHdist, alpha=1, normalised=False):
@@ -176,37 +195,91 @@ def hist2dist(edges, hist, normalised=False):
 
     
     
-class densityModel:
-    """distribution of some 'quantity' (number or mass) in volume
-    and FeH"""
-    def __init__(self, edges, distAmp, aR, az):
-        """amp should be"""
-        self.edges = edges
-        self.widths = edges[1:]-edges[:-1]
-        self.midpoints = (edges[:-1]+edges[1:])/2
-        self.distAmp = distAmp
+# class densityModel:
+#     """distribution of some 'quantity' (number or mass) in volume
+#     and FeH"""
+#     def __init__(self, edges, distAmp, aR, az):
+#         """amp should be"""
+#         self.edges = edges
+#         self.widths = edges[1:]-edges[:-1]
+#         self.midpoints = (edges[:-1]+edges[1:])/2
+#         self.distAmp = distAmp
+#         self.aR = aR
+#         self.az = az
+
+#     def hist(self, position=(myUtils.R_Sun, myUtils.z_Sun), normalised=False):
+#         R, z = position
+#         dist = self.distAmp*np.exp( - self.aR*(R-myUtils.R_Sun) - self.az*np.abs(z))
+#         if not normalised:
+#             return dist
+#         else:
+#             return dist/sum(self.widths*self.hist(position))
+    
+#     def integratedHist(self, normalised=False):
+#         dist = 4*np.pi*self.distAmp*np.exp(self.aR*myUtils.R_Sun)/(self.aR**2 * self.az)
+#         if not normalised:
+#             return dist
+#         else:
+#             return dist/sum(self.widths*self.integratedHist())
+        
+#     def histWithin(self, R, z=np.inf):
+#         return (4*np.pi*self.distAmp*np.exp(self.aR*myUtils.R_Sun)/(self.aR**2 * self.az))*(1-np.exp(-self.az*z))*(1 - (1+self.aR*R)*np.exp(-self.aR*R))
+        
+    
+class FeHMgFeModel:
+    """made 20221012"""
+    def __init__(self, FeHEdges, MgFeEdges, amp, aR, az):
+        self.MgFeEdges = MgFeEdges
+        self.FeHEdges = FeHEdges
+        self.FeHWidths = FeHEdges[1:] - FeHEdges[:-1]
+        self.MgFeWidths = MgFeEdges[1:] - MgFeEdges[:-1]
+        self.areas = self.MgFeWidths[:,np.newaxis]*self.FeHWidths
+        self.amp = amp
         self.aR = aR
         self.az = az
-
-    def hist(self, position=(myUtils.R_Sun, myUtils.z_Sun), normalised=False):
-        R, z = position
-        dist = self.distAmp*np.exp( - self.aR*(R-myUtils.R_Sun) - self.az*np.abs(z))
+    
+    @classmethod
+    def loadFromBins(cls, FeHEdges, MgFeEdges):
+        NMgFe = len(MgFeEdges)-1
+        NFeH = len(FeHEdges)-1
+        amp = np.zeros((NMgFe, NFeH))
+        aR = np.zeros((NMgFe, NFeH))
+        az = np.zeros((NMgFe, NFeH))
+        for i in range(NMgFe):
+            for j in range(NFeH):
+                binsDir = '/Users/hopkinsm/data/APOGEE/bins/'
+                ijBinDir = os.path.join(binsDir, f'FeH_{FeHEdges[j]:.3f}_{FeHEdges[j+1]:.3f}_MgFe_{MgFeEdges[i]:.3f}_{MgFeEdges[i+1]:.3f}')
+                resPath  = os.path.join(ijBinDir, 'fit_results.dat')
+                NRG2MPath= os.path.join(ijBinDir, 'NRG2mass.dat')
+                with open(resPath, 'rb') as f1:
+                    logA, aR[i,j], az[i,j] = pickle.load(f1)
+                with open(NRG2MPath, 'rb') as f2:
+                    NRG2Mass = pickle.load(f2)
+                amp[i,j] = NRG2Mass*np.exp(logA)/((MgFeEdges[i+1]-MgFeEdges[i])*(FeHEdges[j+1]-FeHEdges[j]))
+        return cls(FeHEdges, MgFeEdges,  amp, aR, az)
+    
+    def hist(self, R=myUtils.R_Sun, z=myUtils.z_Sun, normalised=False):
+        hist = self.amp*np.exp( - self.aR*(R-myUtils.R_Sun) - self.az*np.abs(z))
         if not normalised:
-            return dist
+            return hist
         else:
-            return dist/sum(self.widths*self.hist(position))
+            return hist/sum(self.areas*self.hist(R,z)) #assumes bins cover whole distribution
     
     def integratedHist(self, normalised=False):
-        dist = 4*np.pi*self.distAmp*np.exp(self.aR*myUtils.R_Sun)/(self.aR**2 * self.az)
+        hist = 4*np.pi*self.amp*np.exp(self.aR*myUtils.R_Sun)/(self.aR**2 * self.az)
         if not normalised:
-            return dist
+            return hist
         else:
-            return dist/sum(self.widths*self.integratedHist())
+            return hist/sum(self.areas*self.integratedHist())
         
-    def histWithin(self, R, z=np.inf):
-        return (4*np.pi*self.distAmp*np.exp(self.aR*myUtils.R_Sun)/(self.aR**2 * self.az))*(1-np.exp(-self.az*z))*(1 - (1+self.aR*R)*np.exp(-self.aR*R))
+    def FeHHist(self, R=myUtils.R_Sun, z=myUtils.z_Sun, normalised=False):
+        return (self.hist(R,z,normalised)*self.MgFeWidths[:,np.newaxis]).sum(axis=0)
         
+        
+
 
     
 if __name__=='__main__':
     main()
+
+

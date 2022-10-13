@@ -18,12 +18,29 @@ def main():
     Ncpus = int(sys.argv[2])
     jobIndex = int(sys.argv[1])
     
+    binDict = binsToUse[jobIndex]
+    print(binDict)
+    
+    binPath = os.path.join(clusterDataDir, 'bins', binName(binDict))
+    
+    with open(os.path.join(binPath, 'data.dat'), 'rb') as f:
+        data = pickle.load(f)
+    if data[0]==0: # No stars in bin, no need to fit
+        effSelFunc = np.zeros(1)
+        print("No stars, not fit")
+        filePath = os.path.join(binPath, 'effSelFunc.dat')
+        print(filePath)
+        with open(filePath, 'wb') as f:
+            pickle.dump(effSelFunc, f)
+        return 0
+    
+    
+    
     apo = pickleGetters.get_apo()
     del apo._specdata, apo._photdata, apo.apo1sel._specdata, apo.apo1sel._photdata, apo.apo2Nsel._specdata, apo.apo2Nsel._photdata, apo.apo2Ssel._specdata, apo.apo2Ssel._photdata
     # apo deep copied in each process, this saves memory
     
-    binDict = binsToUse[jobIndex]
-    print(binDict)
+    
     mu = arr(muGridParams)
     print(mu)
     D = 10**(-2 + 0.2*mu)
@@ -50,7 +67,7 @@ def main():
     
     print("Finished multiprocessing")
     
-    filePath = os.path.join(clusterDataDir, 'bins', binName(binDict), 'effSelFunc.dat')
+    filePath = os.path.join(binPath, 'effSelFunc.dat')
     print(filePath)
     with open(filePath, 'wb') as f:
         pickle.dump(effSelFunc, f)
