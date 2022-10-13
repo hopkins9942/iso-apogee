@@ -37,6 +37,18 @@ def main():
 
     binDict = binList[binNum]
     
+    binPath = os.path.join(myUtils.clusterDataDir, 'bins', myUtils.binName(binDict))
+    
+    with open(os.path.join(binPath, 'data.dat'), 'rb') as f:
+        data = torch.tensor(pickle.load(f))
+    print("No. stars: ", data[0].item())
+    if data[0].item()==0:
+        # No stars in bin
+        with open(os.path.join(binPath, 'fit_results.dat'), 'wb') as f:
+            pickle.dump([-999, -999, -999], f)
+        return 0 # exits main(), skipping fit that would fail
+
+    
     mu, D, R, modz, solidAngles, gLon, gLat, x, y, z = calc_coords(apo)
     effSelFunc = get_effSelFunc(binDict)
     multiplier = (solidAngles*(D**3)*(mu[1]-mu[0])*effSelFunc*np.log(10)/5)
@@ -50,19 +62,8 @@ def main():
     print(modz.mean())
     print(multiplier.mean())
     
-    binPath = os.path.join(myUtils.clusterDataDir, 'bins', myUtils.binName(binDict))
     
-    with open(os.path.join(binPath, 'data.dat'), 'rb') as f:
-        data = torch.tensor(pickle.load(f))
-
-    print("No. stars: ", data[0].item())
     
-    if data[0].item()==0:
-        # No stars in bin
-        with open(os.path.join(binPath, 'fit_results.dat'), 'wb') as f:
-            pickle.dump([-999, -999, -999], f)
-        return 0 # exits main(), skipping fit that would fail
-
 
     MAP = False
     if MAP:

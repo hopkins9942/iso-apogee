@@ -49,6 +49,8 @@ def main():
     fig.set_tight_layout(True)
     saveFig(fig, 'Bovy2012')
     
+    print(StellarMassDM.hist(R=4,z=1))
+    
     
     FeHHist = StellarMassDM.FeHHist()
     FeHDist = hist2dist(FeHEdges, FeHHist)
