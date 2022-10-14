@@ -8,7 +8,7 @@ import numpy as np
 import apogee.select as apsel
 import mwdust
 
-from myUtils import binsToUse, binName, clusterDataDir, arr, muGridParams
+from myUtils import binsToUse, binName, clusterDataDir, arr, muGridParams, fitLim
 import pickleGetters
 import isochrones
 import makeBins
@@ -25,7 +25,7 @@ def main():
     
     with open(os.path.join(binPath, 'data.dat'), 'rb') as f:
         data = pickle.load(f)
-    if data[0]==0: # No stars in bin, no need to fit
+    if data[0]<myUtils.fitLim: # No stars in bin, no need to fit
         effSelFunc = np.zeros(1)
         print("No stars, not fit")
         filePath = os.path.join(binPath, 'effSelFunc.dat')

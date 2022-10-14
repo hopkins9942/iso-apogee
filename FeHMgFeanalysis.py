@@ -85,7 +85,13 @@ def main():
     fig.suptitle(f'local')
     fig.set_tight_layout(True)
     saveFig(fig, f'localISO.png')
-
+    
+    names = ['local', 'Milky Way', 'thick disk', 'inner disk']
+    
+    hists = []
+    for plotNum in range(names):
+        
+        
 
 
    

@@ -42,7 +42,7 @@ def main():
     with open(os.path.join(binPath, 'data.dat'), 'rb') as f:
         data = torch.tensor(pickle.load(f))
     print("No. stars: ", data[0].item())
-    if data[0].item()==0:
+    if data[0].item()<myUtils.fitLim:
         # No stars in bin
         with open(os.path.join(binPath, 'fit_results.dat'), 'wb') as f:
             pickle.dump([-999, -999, -999], f)
