@@ -6,15 +6,19 @@ import os
 import pickle
 import git
 
+import matplotlib as mpl
 import matplotlib.pyplot as plt
+from matplotlib import cm
 import scipy
 
 import myUtils
 
 
-
+cmap1 = mpl.colormaps['Blues']
+cmap2 = mpl.colormaps['hsv']
 
 POLYDEG = 3
+Nlim = 100
 repo = git.Repo(search_parent_directories=True)
 sha = repo.head.object.hexsha[:7]
 print(repo)
@@ -34,9 +38,9 @@ def plotageFeH():
     
     G = Galaxy.loadFromBins(labels=['FeH', 'age'], edges=[FeHEdges, ageEdges])
     
-    fig, axs = plt.subplots(ncols=5, figsize=[16, 4])
+    fig, axs = plt.subplots(ncols=5, figsize=[17, 4])
     titles = ['density at sun', 'integrated density', 'thick disk', 'aR', 'az']
-    for i, im in enumerate([G.hist(), G.integratedHist(), G.hist(R=4,z=1), np.where(G.over100, G.aR, 0), np.where(G.over100, G.az, 0)]):
+    for i, im in enumerate([G.hist(), G.integratedHist(), G.hist(R=4,z=1), np.where(G.N>=Nlim, G.aR, 0), np.where(G.N>=Nlim, G.az, 0)]):
         axs[i].imshow(im.T, vmin=0, origin='lower', aspect='auto', extent=(FeHEdges[0], FeHEdges[-1], ageEdges[0], ageEdges[-1]))
         axs[i].set_title(titles[i])
         axs[i].set_xlabel('[Fe/H]')
@@ -79,21 +83,48 @@ def plotMgFeFeH():
     labels = ['FeH', 'MgFe']
     edges = [FeHEdges,MgFeEdges]
     G = Galaxy.loadFromBins(labels, edges)
-    
-    # print(G.hist())
-    print(G.shape)
-    
-    fig, axs = plt.subplots(ncols=5, figsize=[16, 4])
-    titles = ['density at sun', 'integrated density', 'R=4,z=1', 'scale length', 'scale height']
-    for i, im in enumerate([G.hist(), G.integratedHist(), G.hist(R=4,z=1), np.where(G.over100, 1/G.aR, 0), np.where(G.over100, 1/G.az, 0)]):
-        axs[i].imshow(im.T, vmin=0, origin='lower', aspect='auto', extent=(FeHEdges[0], FeHEdges[-1], MgFeEdges[0], MgFeEdges[-1]))
-        axs[i].set_title(titles[i])
-        axs[i].set_xlabel('[Fe/H]')
-        axs[i].set_ylabel('[Mg/Fe]')
-    fig.set_tight_layout(True)
+    print(G.hist())
     
     saveDir = f'/Users/hopkinsm/Documents/APOGEE/plots/{sha}/analysis_FeHMgFe_POLYDEG{POLYDEG}/'
     os.makedirs(saveDir, exist_ok=True)
+
+    
+    fig, axs = plt.subplots(ncols=3, figsize=[18, 4])
+    titles = ['density at sun', 'integrated density', 'R=4,z=1']
+    for i, X in enumerate([G.hist(), G.integratedHist(), G.hist(R=4,z=1)]):
+        image = axs[i].imshow(X.T, origin='lower', aspect='auto',
+                              extent=(FeHEdges[0], FeHEdges[-1], MgFeEdges[0], MgFeEdges[-1]),
+                              cmap=cmap1)
+        axs[i].set_title(titles[i])
+        axs[i].set_xlabel('[Fe/H]')
+        axs[i].set_ylabel('[Mg/Fe]')
+        fig.colorbar(image, ax=axs[i])
+    fig.set_tight_layout(True)
+    path = saveDir+'densities'
+    fig.savefig(path, dpi=300)
+    
+    
+    fig,ax = plt.subplots()
+    image = ax.imshow(G.N, cmap=cmap1, norm=mpl.colors.LogNorm())
+    ax.set_title('Stars per bin')
+    ax.set_xlabel('[Fe/H]')
+    ax.set_ylabel('[Mg/Fe]')
+    fig.colorbar(image, ax=ax)
+    fig.set_tight_layout(True)
+    path = saveDir+'N'
+    fig.savefig(path, dpi=300)
+    
+    titles = ['scale length', 'scale height']
+    fig, axs = plt.subplots(ncols=len(titles), figsize=[12, 4])
+    for i, X in enumerate([np.where(G.N>=Nlim, 1/G.aR, np.nan), np.where(G.N>=Nlim, 1/G.az, np.nan)]):
+        image = axs[i].imshow(X.T, origin='lower', aspect='auto',
+                              extent=(FeHEdges[0], FeHEdges[-1], MgFeEdges[0], MgFeEdges[-1]),
+                              cmap=mpl.colormaps['jet'])
+        axs[i].set_title(titles[i])
+        axs[i].set_xlabel('[Fe/H]')
+        axs[i].set_ylabel('[Mg/Fe]')
+        fig.colorbar(image, ax=axs[i])
+    fig.set_tight_layout(True)
     path = saveDir+'Bovy2012'
     fig.savefig(path, dpi=300)
     
@@ -109,7 +140,7 @@ def plotMgFeFeH():
 
 
 class Galaxy:
-    def __init__(self, labels, edges, amp, aR, az, over100):
+    def __init__(self, labels, edges, amp, aR, az, N):
         """
         edges[i] is array of edges of ith dimention
         amp, aR and az each have element corresponding to bin
@@ -121,7 +152,8 @@ class Galaxy:
         self.amp = amp
         self.aR = aR
         self.az = az
-        self.over100 = over100
+        #self.over100 = over100
+        self.N = N
         
         self.shape = self.amp.shape
         self.widths = [(self.edges[i][1:] - self.edges[i][:-1]) for i in range(len(self.shape))]
@@ -145,15 +177,15 @@ class Galaxy:
         amp = np.zeros(shape)
         aR = np.zeros(shape)
         az = np.zeros(shape)
-        over100 = np.zeros(shape)
+        N = np.zeros(shape)
         
         for binNum in range(amp.size):
             multiIndex = np.unravel_index(binNum, shape)
             limits = np.array([[edges[i][multiIndex[i]], edges[i][multiIndex[i]+1]] for i in range(len(labels))])
             binDir  = os.path.join(myUtils.localDataDir, 'bins', binName(labels, limits))
             with open(os.path.join(binDir, 'data.dat'), 'rb') as f0:
-                N, *_ = pickle.load(f0)
-                over100[multiIndex] = (N>100)
+                tempN, *_ = pickle.load(f0)
+                N[multiIndex] = tempN
                 
             with open(os.path.join(binDir, 'fit_results.dat'), 'rb') as f1:
                 logA, aR[multiIndex], az[multiIndex] = pickle.load(f1)
@@ -162,7 +194,7 @@ class Galaxy:
                 NRG2Mass = pickle.load(f2)
                 
             amp[multiIndex] = NRG2Mass*np.exp(logA)/(np.prod(limits[:,1]-limits[:,0]))
-        return cls(labels, edges, amp, aR, az, over100)
+        return cls(labels, edges, amp, aR, az, N)
     
     
     def hist(self, R=myUtils.R_Sun, z=myUtils.z_Sun, normalised=False):
