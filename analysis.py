@@ -18,7 +18,7 @@ cmap1 = mpl.colormaps['Blues']
 cmap2 = mpl.colormaps['hsv']
 
 POLYDEG = 3
-Nlim = 100
+
 repo = git.Repo(search_parent_directories=True)
 sha = repo.head.object.hexsha[:7]
 print(repo)
@@ -27,8 +27,137 @@ print(sha)
     
 def main():
     # plotFeH()
-    plotMgFeFeH()
+    # plotMgFeFeH()
     # plotageFeH()
+    plot_scales_MgFeFeHvsFeH()
+    plot_data_MgFeFeHvsFeH()
+    
+    
+    
+def plot_data_MgFeFeHvsFeH():
+    FeHEdges = myUtils._FeH_edges # assumes same FeH bins for both fits. could do differently
+    MgFeEdges = myUtils._MgFe_edges 
+    
+    G_MgFeFeH = Galaxy.loadFromBins(['FeH', 'MgFe'], [FeHEdges,MgFeEdges])
+    lenFeH, lenMgFe = G_MgFeFeH.shape
+    
+    G_FeH = Galaxy.loadFromBins(['FeH',], [FeHEdges,])
+    
+    FeH_axis = G_MgFeFeH.labels.index('FeH')
+    assert FeH_axis==0
+    
+    Nlim = 5
+    
+    labels=['N','mean R', 'mean modz']
+    for k in range(3):
+        fig, ax = plt.subplots()
+        for i in range(lenFeH):
+            if G_FeH.data[0,i]>=Nlim:
+                ax.scatter(G_FeH.midpoints[0][i], G_FeH.data[k,i], color='C0', alpha=0.5)
+                for j in range(lenMgFe):
+                    # print(G_FeH.midpoints[0][i], G_MgFeFeH.data[k,i,j])
+                    if G_MgFeFeH.data[0,i,j]>=Nlim:
+                        
+                        ax.scatter(G_FeH.midpoints[0][i], G_MgFeFeH.data[k,i,j], color='C1', alpha=0.5)
+                if k==0:
+                    ax.scatter(G_FeH.midpoints[0][i], G_MgFeFeH.data[k,i,:].sum(), color='C2', alpha=0.5)
+        ax.set_yscale('log')
+        ax.set_xlabel('[Fe/H]')
+        ax.set_ylabel(f'{labels[k]}')
+    
+    
+    
+def plot_scales_MgFeFeHvsFeH():
+    FeHEdges = myUtils._FeH_edges # assumes same FeH bins for both fits. could do differently
+    MgFeEdges = myUtils._MgFe_edges 
+    
+    G_MgFeFeH = Galaxy.loadFromBins(['FeH', 'MgFe'], [FeHEdges,MgFeEdges])
+    lenFeH, lenMgFe = G_MgFeFeH.shape
+    
+    G_FeH = Galaxy.loadFromBins(['FeH',], [FeHEdges,])
+    
+    FeH_axis = G_MgFeFeH.labels.index('FeH')
+    assert FeH_axis==0
+    
+    print(G_MgFeFeH.aR[:,0])
+    print(G_FeH.aR)
+    print(G_FeH.midpoints[0])
+    print(G_FeH.data[0])
+    
+    Nlim=5
+    
+    
+    # for i in range(lenFeH):
+    #     if G_FeH.data[0][i]>=Nlim:
+    #         fig, ax = plt.subplots()
+    #         x = 1/G_FeH.aR[i]
+    #         y = 1/G_FeH.az[i]
+    #         ax.scatter(x, y, color='C0', alpha=0.5)
+    #         ax.annotate(f'{G_FeH.data[0][i]:.0f}', (x, y))
+    #         for j in range(lenMgFe):
+    #             if G_MgFeFeH.data[0][i,j]>=Nlim:
+    #                 x = 1/G_MgFeFeH.aR[i,j]
+    #                 y = 1/G_MgFeFeH.az[i,j]
+    #                 ax.scatter(x, y, color='C1', alpha=0.5)
+    #                 ax.annotate(f'{G_MgFeFeH.data[0][i,j]:.0f}', (x, y))
+    #         # ax.set_xscale('log')
+    #         # ax.set_yscale('log')
+    #         ax.set_xlabel('scale length /kpc')
+    #         ax.set_ylabel('scale height /kpc')
+    #         ax.set_title(f'FeH={G_FeH.edges[0][i]:.3f} to {G_FeH.edges[0][i+1]:.3f}')
+            
+    
+    fig, ax = plt.subplots()
+    for i in range(lenFeH):
+        if G_FeH.data[0][i]>=Nlim:
+            ax.scatter(G_FeH.midpoints[0][i], 1/G_FeH.aR[i], color='C0', alpha=0.5)
+            for j in range(lenMgFe):
+                if G_MgFeFeH.data[0][i,j]>=Nlim:
+                    ax.scatter(G_FeH.midpoints[0][i], 1/G_MgFeFeH.aR[i,j], color='C1', alpha=0.5)
+    ax.set_xlabel('[Fe/H]')
+    ax.set_ylabel('scale length /kpc')
+        
+    fig, ax = plt.subplots()
+    for i in range(lenFeH):
+        if G_FeH.data[0][i]>=Nlim:
+            ax.scatter(G_FeH.midpoints[0][i], 1/G_FeH.az[i], color='C0', alpha=0.5)
+            for j in range(lenMgFe):
+                if G_MgFeFeH.data[0][i,j]>=Nlim:
+                    ax.scatter(G_FeH.midpoints[0][i], 1/G_MgFeFeH.az[i,j], color='C1', alpha=0.5)
+    ax.set_yscale('log')
+    ax.set_xlabel('[Fe/H]')
+    ax.set_ylabel('scale height /kpc')
+    
+    
+    MgFeTotalWidth = G_MgFeFeH.edges[1][-1]-G_MgFeFeH.edges[1][0]
+    print(MgFeTotalWidth)
+    
+    fig, ax = plt.subplots()
+    for i in range(lenFeH):
+        if G_FeH.data[0][i]>=Nlim:
+            ax.scatter(G_FeH.midpoints[0][i], G_FeH.hist()[i]/MgFeTotalWidth, color='C0', alpha=0.5)
+            for j in range(lenMgFe):
+                if G_MgFeFeH.data[0][i,j]>=Nlim:
+                    ax.scatter(G_FeH.midpoints[0][i], G_MgFeFeH.hist()[i,j], color='C1', alpha=0.5)
+            ax.scatter(G_FeH.midpoints[0][i], (G_MgFeFeH.widths[1]*G_MgFeFeH.hist()[i,:]).sum()/MgFeTotalWidth, color='C2', alpha=0.5)
+    ax.set_yscale('log')
+    ax.set_xlabel('[Fe/H]')
+    ax.set_ylabel('Mass density at Sun per [Fe/H] per [Mg/Fe] /Msol pc^-3 dex^-2')
+            
+    fig, ax = plt.subplots()
+    for i in range(lenFeH):
+        if G_FeH.data[0][i]>=Nlim:
+            ax.scatter(G_FeH.midpoints[0][i], G_FeH.integratedHist()[i]/MgFeTotalWidth, color='C0', alpha=0.5)
+            for j in range(lenMgFe):
+                if G_MgFeFeH.data[0][i,j]>=Nlim:
+                    ax.scatter(G_FeH.midpoints[0][i], G_MgFeFeH.integratedHist()[i,j], color='C1', alpha=0.5)
+            ax.scatter(G_FeH.midpoints[0][i], (G_MgFeFeH.widths[1]*G_MgFeFeH.integratedHist()[i,:]).sum()/MgFeTotalWidth, color='C2', alpha=0.5)
+    ax.set_yscale('log')
+    ax.set_xlabel('[Fe/H]')
+    ax.set_ylabel('Integrated Mass per [Fe/H] per [Mg/Fe] /Msol dex^-2')
+
+    
+    
 
 
 def plotageFeH():
@@ -38,6 +167,7 @@ def plotageFeH():
     
     G = Galaxy.loadFromBins(labels=['FeH', 'age'], edges=[FeHEdges, ageEdges])
     
+    Nlim = 100
     fig, axs = plt.subplots(ncols=5, figsize=[17, 4])
     titles = ['density at sun', 'integrated density', 'thick disk', 'aR', 'az']
     for i, im in enumerate([G.hist(), G.integratedHist(), G.hist(R=4,z=1), np.where(G.N>=Nlim, G.aR, 0), np.where(G.N>=Nlim, G.az, 0)]):
@@ -104,8 +234,10 @@ def plotMgFeFeH():
     fig.savefig(path, dpi=300)
     
     
-    fig,ax = plt.subplots()
-    image = ax.imshow(G.N, cmap=cmap1, norm=mpl.colors.LogNorm())
+    fig,ax = plt.subplots(figsize=[6, 4])
+    image = ax.imshow(G.N.T, origin='lower', aspect='auto',
+                      extent=(FeHEdges[0], FeHEdges[-1], MgFeEdges[0], MgFeEdges[-1]),
+                      cmap=cmap1, norm=mpl.colors.LogNorm())
     ax.set_title('Stars per bin')
     ax.set_xlabel('[Fe/H]')
     ax.set_ylabel('[Mg/Fe]')
@@ -114,12 +246,13 @@ def plotMgFeFeH():
     path = saveDir+'N'
     fig.savefig(path, dpi=300)
     
+    Nlim = 10
     titles = ['scale length', 'scale height']
     fig, axs = plt.subplots(ncols=len(titles), figsize=[12, 4])
     for i, X in enumerate([np.where(G.N>=Nlim, 1/G.aR, np.nan), np.where(G.N>=Nlim, 1/G.az, np.nan)]):
         image = axs[i].imshow(X.T, origin='lower', aspect='auto',
                               extent=(FeHEdges[0], FeHEdges[-1], MgFeEdges[0], MgFeEdges[-1]),
-                              cmap=mpl.colormaps['jet'])
+                              cmap=mpl.colormaps['jet'], norm=mpl.colors.LogNorm())
         axs[i].set_title(titles[i])
         axs[i].set_xlabel('[Fe/H]')
         axs[i].set_ylabel('[Mg/Fe]')
@@ -128,11 +261,11 @@ def plotMgFeFeH():
     path = saveDir+'Bovy2012'
     fig.savefig(path, dpi=300)
     
-    dists = [G.FeH('local'), G.FeH('MW', integrated=True), G.FeH('R2', R=2, z=0)]
+    # dists = [G.FeH('local'), G.FeH('MW', integrated=True), G.FeH('R2', R=2, z=0)]
     
-    for d in dists:
-        d.plot()
-    dists[0].plotWith(dists[1])
+    # for d in dists:
+    #     d.plot()
+    # dists[0].plotWith(dists[1])
     
     
     
@@ -140,7 +273,7 @@ def plotMgFeFeH():
 
 
 class Galaxy:
-    def __init__(self, labels, edges, amp, aR, az, N):
+    def __init__(self, labels, edges, amp, aR, az, data):
         """
         edges[i] is array of edges of ith dimention
         amp, aR and az each have element corresponding to bin
@@ -153,7 +286,7 @@ class Galaxy:
         self.aR = aR
         self.az = az
         #self.over100 = over100
-        self.N = N
+        self.data = data
         
         self.shape = self.amp.shape
         self.widths = [(self.edges[i][1:] - self.edges[i][:-1]) for i in range(len(self.shape))]
@@ -177,15 +310,14 @@ class Galaxy:
         amp = np.zeros(shape)
         aR = np.zeros(shape)
         az = np.zeros(shape)
-        N = np.zeros(shape)
+        data = np.zeros((3, *shape))
         
         for binNum in range(amp.size):
             multiIndex = np.unravel_index(binNum, shape)
             limits = np.array([[edges[i][multiIndex[i]], edges[i][multiIndex[i]+1]] for i in range(len(labels))])
             binDir  = os.path.join(myUtils.localDataDir, 'bins', binName(labels, limits))
             with open(os.path.join(binDir, 'data.dat'), 'rb') as f0:
-                tempN, *_ = pickle.load(f0)
-                N[multiIndex] = tempN
+                data[0][multiIndex], data[1][multiIndex], data[2][multiIndex] = pickle.load(f0)
                 
             with open(os.path.join(binDir, 'fit_results.dat'), 'rb') as f1:
                 logA, aR[multiIndex], az[multiIndex] = pickle.load(f1)
@@ -194,7 +326,7 @@ class Galaxy:
                 NRG2Mass = pickle.load(f2)
                 
             amp[multiIndex] = NRG2Mass*np.exp(logA)/(np.prod(limits[:,1]-limits[:,0]))
-        return cls(labels, edges, amp, aR, az, N)
+        return cls(labels, edges, amp, aR, az, data)
     
     
     def hist(self, R=myUtils.R_Sun, z=myUtils.z_Sun, normalised=False):

@@ -14,6 +14,8 @@ import isochrones
 import makeBins
 
 
+
+# TODO: use fact that MgFe doesn't affect effselfuct to speed up - ie copy just fe bin one?
 def main():
     Ncpus = int(sys.argv[2])
     jobIndex = int(sys.argv[1])
@@ -25,7 +27,8 @@ def main():
     
     with open(os.path.join(binPath, 'data.dat'), 'rb') as f:
         data = pickle.load(f)
-    if data[0]<myUtils.fitLim: # No stars in bin, no need to fit
+#    if data[0]<myUtils.fitLim: # No stars in bin, no need to fit
+# needs fixing - low star bins are good to look at, and data[0] isn't an int due to bad FeH distribution
         effSelFunc = np.zeros(1)
         print("No stars, not fit")
         filePath = os.path.join(binPath, 'effSelFunc.dat')
