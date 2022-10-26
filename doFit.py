@@ -37,12 +37,17 @@ def main():
 
     binDict = binList[binNum]
     
-    binPath = os.path.join(myUtils.clusterDataDir, 'bins', myUtils.binName(binDict))
+    MAP = True
+    
+    if MAP:
+        binPath = os.path.join(myUtils.clusterDataDir, 'bins-MAP', myUtils.binName(binDict))
+    else:
+        binPath = os.path.join(myUtils.clusterDataDir, 'bins', myUtils.binName(binDict))
     
     with open(os.path.join(binPath, 'data.dat'), 'rb') as f:
         data = torch.tensor(pickle.load(f))
     print("No. stars: ", data[0].item())
-    if data[0].item()<myUtils.fitLim:
+    if data[0].item()==0:
         # No stars in bin
         with open(os.path.join(binPath, 'fit_results.dat'), 'wb') as f:
             pickle.dump([-999, -999, -999], f)
@@ -65,7 +70,7 @@ def main():
     
     
 
-    MAP = False
+    
     if MAP:
         guide = pyro.infer.autoguide.AutoDelta(model)
     else:

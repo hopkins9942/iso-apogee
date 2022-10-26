@@ -35,6 +35,10 @@ def main():
     
     
 def plot_data_MgFeFeHvsFeH():
+    
+    saveDir = f'/Users/hopkinsm/Documents/APOGEE/plots/{sha}/analysis_data/'
+    os.makedirs(saveDir, exist_ok=True)
+    
     FeHEdges = myUtils._FeH_edges # assumes same FeH bins for both fits. could do differently
     MgFeEdges = myUtils._MgFe_edges 
     
@@ -61,28 +65,37 @@ def plot_data_MgFeFeHvsFeH():
                         ax.scatter(G_FeH.midpoints[0][i], G_MgFeFeH.data[k,i,j], color='C1', alpha=0.5)
                 if k==0:
                     ax.scatter(G_FeH.midpoints[0][i], G_MgFeFeH.data[k,i,:].sum(), color='C2', alpha=0.5)
-        ax.set_yscale('log')
+        if k != 1: ax.set_yscale('log')
         ax.set_xlabel('[Fe/H]')
         ax.set_ylabel(f'{labels[k]}')
+        path = saveDir+f'{labels[k]}'
+        fig.savefig(path, dpi=300)
     
     
     
 def plot_scales_MgFeFeHvsFeH():
+    
+    saveDir = f'/Users/hopkinsm/Documents/APOGEE/plots/{sha}/analysis_scales/'
+    os.makedirs(saveDir, exist_ok=True)
+    
+    
+    
     FeHEdges = myUtils._FeH_edges # assumes same FeH bins for both fits. could do differently
     MgFeEdges = myUtils._MgFe_edges 
     
     G_MgFeFeH = Galaxy.loadFromBins(['FeH', 'MgFe'], [FeHEdges,MgFeEdges])
     lenFeH, lenMgFe = G_MgFeFeH.shape
+    print(G_MgFeFeH.shape)
     
     G_FeH = Galaxy.loadFromBins(['FeH',], [FeHEdges,])
     
     FeH_axis = G_MgFeFeH.labels.index('FeH')
     assert FeH_axis==0
     
-    print(G_MgFeFeH.aR[:,0])
-    print(G_FeH.aR)
+    print(1/G_MgFeFeH.aR[-5,:])
+    print(1/G_FeH.aR[-5])
     print(G_FeH.midpoints[0])
-    print(G_FeH.data[0])
+    print(G_FeH.data[:,-5])
     
     Nlim=5
     
@@ -107,30 +120,9 @@ def plot_scales_MgFeFeHvsFeH():
     #         ax.set_title(f'FeH={G_FeH.edges[0][i]:.3f} to {G_FeH.edges[0][i+1]:.3f}')
             
     
-    fig, ax = plt.subplots()
-    for i in range(lenFeH):
-        if G_FeH.data[0][i]>=Nlim:
-            ax.scatter(G_FeH.midpoints[0][i], 1/G_FeH.aR[i], color='C0', alpha=0.5)
-            for j in range(lenMgFe):
-                if G_MgFeFeH.data[0][i,j]>=Nlim:
-                    ax.scatter(G_FeH.midpoints[0][i], 1/G_MgFeFeH.aR[i,j], color='C1', alpha=0.5)
-    ax.set_xlabel('[Fe/H]')
-    ax.set_ylabel('scale length /kpc')
-        
-    fig, ax = plt.subplots()
-    for i in range(lenFeH):
-        if G_FeH.data[0][i]>=Nlim:
-            ax.scatter(G_FeH.midpoints[0][i], 1/G_FeH.az[i], color='C0', alpha=0.5)
-            for j in range(lenMgFe):
-                if G_MgFeFeH.data[0][i,j]>=Nlim:
-                    ax.scatter(G_FeH.midpoints[0][i], 1/G_MgFeFeH.az[i,j], color='C1', alpha=0.5)
-    ax.set_yscale('log')
-    ax.set_xlabel('[Fe/H]')
-    ax.set_ylabel('scale height /kpc')
-    
     
     MgFeTotalWidth = G_MgFeFeH.edges[1][-1]-G_MgFeFeH.edges[1][0]
-    print(MgFeTotalWidth)
+    
     
     fig, ax = plt.subplots()
     for i in range(lenFeH):
@@ -143,6 +135,8 @@ def plot_scales_MgFeFeHvsFeH():
     ax.set_yscale('log')
     ax.set_xlabel('[Fe/H]')
     ax.set_ylabel('Mass density at Sun per [Fe/H] per [Mg/Fe] /Msol pc^-3 dex^-2')
+    path = saveDir+'amp'
+    fig.savefig(path, dpi=300)
             
     fig, ax = plt.subplots()
     for i in range(lenFeH):
@@ -155,6 +149,33 @@ def plot_scales_MgFeFeHvsFeH():
     ax.set_yscale('log')
     ax.set_xlabel('[Fe/H]')
     ax.set_ylabel('Integrated Mass per [Fe/H] per [Mg/Fe] /Msol dex^-2')
+    
+    fig, ax = plt.subplots()
+    for i in range(lenFeH):
+        if G_FeH.data[0][i]>=Nlim:
+            ax.scatter(G_FeH.midpoints[0][i], 1/G_FeH.aR[i], color='C0', alpha=0.5)
+            for j in range(lenMgFe):
+                if G_MgFeFeH.data[0][i,j]>=Nlim:
+                    ax.scatter(G_FeH.midpoints[0][i], 1/G_MgFeFeH.aR[i,j], color='C1', alpha=0.5)
+    # ylim = ax.get_ylim()
+    # ax.fill_between(G_FeH.midpoints[0], ylim[0], ylim[0]+(ylim[1]-ylim[0])*G_FeH.data[0]/max(G_FeH.data[0]), alpha=0.2, color='C2')
+    ax.set_xlabel('[Fe/H]')
+    ax.set_ylabel('scale length /kpc')
+    path = saveDir+'length'
+    fig.savefig(path, dpi=300)
+        
+    fig, ax = plt.subplots()
+    for i in range(lenFeH):
+        if G_FeH.data[0][i]>=Nlim:
+            ax.scatter(G_FeH.midpoints[0][i], 1/G_FeH.az[i], color='C0', alpha=0.5)
+            for j in range(lenMgFe):
+                if G_MgFeFeH.data[0][i,j]>=Nlim:
+                    ax.scatter(G_FeH.midpoints[0][i], 1/G_MgFeFeH.az[i,j], color='C1', alpha=0.5)
+    ax.set_yscale('log')
+    ax.set_xlabel('[Fe/H]')
+    ax.set_ylabel('scale height /kpc')
+    path = saveDir+'height'
+    fig.savefig(path, dpi=300)
 
     
     
@@ -209,11 +230,11 @@ def plotFeH():
 def plotMgFeFeH():
     FeHEdges = myUtils._FeH_edges_for_MgFe
     MgFeEdges = myUtils._MgFe_edges
-    print(len(FeHEdges), len(MgFeEdges))
+    # print(len(FeHEdges), len(MgFeEdges))
     labels = ['FeH', 'MgFe']
     edges = [FeHEdges,MgFeEdges]
     G = Galaxy.loadFromBins(labels, edges)
-    print(G.hist())
+    # print(G.hist())
     
     saveDir = f'/Users/hopkinsm/Documents/APOGEE/plots/{sha}/analysis_FeHMgFe_POLYDEG{POLYDEG}/'
     os.makedirs(saveDir, exist_ok=True)
@@ -235,7 +256,7 @@ def plotMgFeFeH():
     
     
     fig,ax = plt.subplots(figsize=[6, 4])
-    image = ax.imshow(G.N.T, origin='lower', aspect='auto',
+    image = ax.imshow(G.data[0].T, origin='lower', aspect='auto',
                       extent=(FeHEdges[0], FeHEdges[-1], MgFeEdges[0], MgFeEdges[-1]),
                       cmap=cmap1, norm=mpl.colors.LogNorm())
     ax.set_title('Stars per bin')
@@ -246,10 +267,10 @@ def plotMgFeFeH():
     path = saveDir+'N'
     fig.savefig(path, dpi=300)
     
-    Nlim = 10
+    Nlim = 5
     titles = ['scale length', 'scale height']
     fig, axs = plt.subplots(ncols=len(titles), figsize=[12, 4])
-    for i, X in enumerate([np.where(G.N>=Nlim, 1/G.aR, np.nan), np.where(G.N>=Nlim, 1/G.az, np.nan)]):
+    for i, X in enumerate([np.where(G.data[0]>=Nlim, 1/G.aR, np.nan), np.where(G.data[0]>=Nlim, 1/G.az, np.nan)]):
         image = axs[i].imshow(X.T, origin='lower', aspect='auto',
                               extent=(FeHEdges[0], FeHEdges[-1], MgFeEdges[0], MgFeEdges[-1]),
                               cmap=mpl.colormaps['jet'], norm=mpl.colors.LogNorm())

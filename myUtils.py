@@ -19,7 +19,7 @@ muMax = 17.0
 muStep = 0.1
 muGridParams = (muMin, muMax, muStep)
 
-fitLim = 100 # bovy2012
+# fitLim = 100 # bovy2012
 
 def arr(gridParams):
     start, stop, step = gridParams
