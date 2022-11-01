@@ -132,6 +132,8 @@ def main():
     print(f"does {data[0]} equal {distro.effVol()}?")
     print(f"does {data[1]} equal {(distro.nu()*multiplier*R).sum()/distro.effVol()}?")
     print(f"does {data[2]} equal {(distro.nu()*multiplier*modz).sum()/distro.effVol()}?")
+    print(f"does {data[0]*(data[1]-myUtils.R_Sun)} equal {(distro.nu()*multiplier*(R-myUtils.R_Sun)).sum()}?")
+    print(f"does {data[0]*data[2]} equal {(distro.nu()*multiplier*modz).sum()}?")
 
     fig, ax = plt.subplots()
     ax.plot(lossArray)
