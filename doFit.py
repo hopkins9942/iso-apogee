@@ -239,9 +239,9 @@ def model(R_modz_multiplier, data=None):
     #    a_z = pyro.sample('a_z', dist.Normal(...))
     #    return pyro.sample('obs', MyDist(FeHBinEdges, logA, a_R, a_z, validate_args=True), obs=sums)
 
-    logNuSun = pyro.sample('logNuSun', distributions.Normal(10, 4)) # tune these
-    a_R = pyro.sample('a_R', distributions.Normal(0.25, 0.01))
-    a_z = pyro.sample('a_z', distributions.Normal(2, 1))
+    logNuSun = pyro.sample('logNuSun', distributions.Normal(10, 100)) # tune these
+    a_R = pyro.sample('a_R', distributions.Normal(0.25, 1))
+    a_z = pyro.sample('a_z', distributions.Normal(2, 4))
     return pyro.sample('obs', logNuSunDoubleExpPPP(logNuSun, a_R, a_z, *R_modz_multiplier), obs=data)
 
 def calc_coords(apo):
