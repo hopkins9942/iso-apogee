@@ -60,14 +60,8 @@ def main():
     
     R_modz_multiplier = (R, modz, multiplier)
     
-    print(R.shape)
-    print(modz.shape)
-    print(multiplier.shape)
-    print(R.mean())
-    print(modz.mean())
-    print(multiplier.mean())
-    
-    
+    print("bin: ", myUtils.binName(binDict))
+    print('data: ', data)
     
 
     
@@ -94,11 +88,11 @@ def main():
         latent_medians[step] = [v.item() for v in  guide.median(R_modz_multiplier).values()]
         
         
-        if loss>10**11: #step>incDetectLag and (lossArray[step]>lossArray[step-incDetectLag]):
-            # Note: this is no longer the parts that checks convergence, that is below
-            lossArray = lossArray[:step+1]
-            latent_medians = latent_medians[:step+1]
-            break
+        # if loss>10**11: #step>incDetectLag and (lossArray[step]>lossArray[step-incDetectLag]):
+        #     # Note: this is no longer the parts that checks convergence, that is below
+        #     lossArray = lossArray[:step+1]
+        #     latent_medians = latent_medians[:step+1]
+        #     break
         
         if step%100==0:
             print(f'Loss = {loss}, median logNuSun = {latent_medians[step][0]}')
