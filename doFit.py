@@ -37,7 +37,7 @@ def main():
 
     binDict = binList[binNum]
     
-    MAP = True
+    MAP = False
     
     if MAP:
         binPath = os.path.join(myUtils.clusterDataDir, 'bins-MAP', myUtils.binName(binDict))
@@ -77,7 +77,7 @@ def main():
         guide = pyro.infer.autoguide.AutoMultivariateNormal(model)
     n_latents=3
     
-    lr = 0.05
+    lr = 0.01
     optimiser = Adam({"lr": lr}) # tune, and look at other parameters
     svi = SVI(model, guide, optimiser, loss=Trace_ELBO(num_particles=4))
 
@@ -95,6 +95,7 @@ def main():
         
         
         if loss>10**11: #step>incDetectLag and (lossArray[step]>lossArray[step-incDetectLag]):
+            # Note: this is no longer the parts that checks convergence, that is below
             lossArray = lossArray[:step+1]
             latent_medians = latent_medians[:step+1]
             break
@@ -232,6 +233,9 @@ def model(R_modz_multiplier, data=None):
     FeHBinEdges mark edges of metallicity bins being used, in form of 2*nbins tensor with [lowerEdge, upperEdge] for each bin
     sums is 3*nbins tensor with [N,sumR,summodz] for each bin
     FOR NOW ASSUMES ONE BIN
+    
+    20221101: changed priors to uniform in log. For logNuSun this is slightly arbitrary, but for scale length 
+    and height this is the uninformative scale invariant prior
     """
     #with pyro.plate('bins', len(FeHBinEdges-1): # needs new bin definition: do something like with plate as
     #    logA = pyro.sample('logA', dist.Normal(...))
@@ -239,9 +243,11 @@ def model(R_modz_multiplier, data=None):
     #    a_z = pyro.sample('a_z', dist.Normal(...))
     #    return pyro.sample('obs', MyDist(FeHBinEdges, logA, a_R, a_z, validate_args=True), obs=sums)
 
-    logNuSun = pyro.sample('logNuSun', distributions.Normal(10, 100)) # tune these
-    a_R = pyro.sample('a_R', distributions.Normal(0.25, 1))
-    a_z = pyro.sample('a_z', distributions.Normal(2, 4))
+    logNuSun = pyro.sample('logNuSun', distributions.Uniform(0, 20)) # tune these - check fitted values are nowhere near edge
+    loga_R = pyro.sample('loga_R', distributions.Uniform(np.log(1/20), np.log(1/0.01)))
+    loga_z = pyro.sample('loga_z', distributions.Uniform(np.log(1/20), np.log(1/0.01)))
+    a_R = pyro.deterministic('a_R', torch.exp(loga_R))
+    a_z = pyro.deterministic('a_z', torch.exp(loga_z))
     return pyro.sample('obs', logNuSunDoubleExpPPP(logNuSun, a_R, a_z, *R_modz_multiplier), obs=data)
 
 def calc_coords(apo):
