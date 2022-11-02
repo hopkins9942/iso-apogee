@@ -37,12 +37,14 @@ def main():
 
     binDict = binList[binNum]
     
-    MAP = False
+    MAP = True
     
-    if MAP:
-        binPath = os.path.join(myUtils.clusterDataDir, 'bins-MAP', myUtils.binName(binDict))
-    else:
-        binPath = os.path.join(myUtils.clusterDataDir, 'bins', myUtils.binName(binDict))
+#    if MAP:
+#        binPath = os.path.join(myUtils.clusterDataDir, 'bins-MAP', myUtils.binName(binDict))
+#    else:
+#        binPath = os.path.join(myUtils.clusterDataDir, 'bins', myUtils.binName(binDict))
+    
+    binPath = os.path.join(myUtils.clusterDataDir, 'bins', myUtils.binName(binDict))
     
     with open(os.path.join(binPath, 'data.dat'), 'rb') as f:
         data = torch.tensor(pickle.load(f))
