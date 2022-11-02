@@ -98,6 +98,7 @@ def main():
             print(f'Loss = {loss}, median logNuSun = {latent_medians[step][0]}')
             
             if step>incDetectLag and np.all(np.abs(latent_medians[step]-latent_medians[step-incDetectLag])<np.array([0.01,0.01,0.01])):
+                # tune condition if needed
                 lossArray = lossArray[:step+1]
                 latent_medians = latent_medians[:step+1]
                 break
@@ -113,11 +114,15 @@ def main():
     for name, value in guide.median(R_modz_multiplier).items():
         print(name, value.item())
 
-    logNuSun, a_R, a_z = guide.median(R_modz_multiplier).values()
+    logNuSun, loga_R, loga_z = guide.median(R_modz_multiplier).values()
+    a_R = torch.exp(loga_R)
+    a_z = torch.exp(loga_z)
+    print("logNuSun, a_R, a_z:")
     print(logNuSun, a_R, a_z)
 
 
     with open(os.path.join(binPath, 'fit_results.dat'), 'wb') as f:
+        print("What's saved:")
         print(logNuSun.item(), a_R.item(), a_z.item())
         pickle.dump([logNuSun.item(), a_R.item(), a_z.item()], f)
 
