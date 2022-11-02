@@ -94,8 +94,8 @@ def main():
         #     latent_medians = latent_medians[:step+1]
         #     break
         
-        if step%100==0:
-            print(f'Loss = {loss}, median logNuSun = {latent_medians[step][0]}')
+        if step%10==0:
+            print(f'Loss = {loss}, medians: {latent_medians[step]}')
             
             if step>incDetectLag and np.all(np.abs(latent_medians[step]-latent_medians[step-incDetectLag])<np.array([0.01,0.01,0.01])):
                 # tune condition if needed
