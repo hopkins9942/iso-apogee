@@ -69,6 +69,10 @@ def main():
         guide = pyro.infer.autoguide.AutoDelta(model)
     else:
         guide = pyro.infer.autoguide.AutoMultivariateNormal(model)
+    
+    print("inital guide medians: ", guide.median(R_modz_multiplier).values())
+        
+        
     n_latents=3
     
     lr = 0.01
@@ -81,7 +85,14 @@ def main():
     latent_medians = np.zeros((maxSteps,n_latents))
     incDetectLag = 1000
     for step in range(maxSteps):
-        loss = svi.step(R_modz_multiplier, data)
+        try:
+            loss = svi.step(R_modz_multiplier, data)
+        except ValueError:
+            lossArray[step] = loss
+            latent_medians[step] = [v.item() for v in  guide.median(R_modz_multiplier).values()]
+            print(lossArray)
+            print(latent_medians)
+            
         lossArray[step] = loss
 
         #parameter_means[step] = mvn_guide._loc_scale()[0].detach().numpy()
@@ -244,7 +255,7 @@ def model(R_modz_multiplier, data=None):
     #    a_z = pyro.sample('a_z', dist.Normal(...))
     #    return pyro.sample('obs', MyDist(FeHBinEdges, logA, a_R, a_z, validate_args=True), obs=sums)
 
-    logNuSun = pyro.sample('logNuSun', distributions.Uniform(0, 20)) # tune these - check fitted values are nowhere near edge
+    logNuSun = pyro.sample('logNuSun', distributions.Uniform(-5, 20)) # tune these - check fitted values are nowhere near edge
     loga_R = pyro.sample('loga_R', distributions.Uniform(np.log(1/20), np.log(1/0.01)))
     loga_z = pyro.sample('loga_z', distributions.Uniform(np.log(1/20), np.log(1/0.01)))
     a_R = pyro.deterministic('a_R', torch.exp(loga_R))
