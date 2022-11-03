@@ -29,6 +29,9 @@ def main():
         data = pickle.load(f)
 #    if data[0]<myUtils.fitLim: # No stars in bin, no need to fit
 # needs fixing - low star bins are good to look at, and data[0] isn't an int due to bad FeH distribution
+        assert False
+        # put in somethiong here so doesn't recalculate same effselfunc for every Mg bin at same Fe
+
         effSelFunc = np.zeros(1)
         print("No stars, not fit")
         filePath = os.path.join(binPath, 'effSelFunc.dat')
