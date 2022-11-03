@@ -12,6 +12,7 @@ import pyro.distributions.constraints as constraints
 from pyro.distributions.util import broadcast_all
 from pyro.distributions.torch_distribution import TorchDistribution
 from pyro.infer import SVI, Trace_ELBO
+from pyro.infer.autoguide.initialization import init_to_value, init_to_median
 from pyro.optim import Adam
 
 import astropy.coordinates as coord
@@ -65,12 +66,16 @@ def main():
     print("bin: ", myUtils.binName(binDict))
     print('data: ', data)
     
+    tempEV=logNuSunDoubleExpPPP(logNuSun=0, a_R=1, a_z=1, R=R, modz=modz, multiplier=multiplier).effVol()
 
-    
+    initVal = {'logNuSun': np.log(data[0].item()/tempEV)}
+
+
     if MAP:
         guide = pyro.infer.autoguide.AutoDelta(model)
     else:
-        guide = pyro.infer.autoguide.AutoMultivariateNormal(model)
+        guide = pyro.infer.autoguide.AutoMultivariateNormal(model, init_to_value(values=initVal,
+                                                                   fallback=init_to_median()))
     
     print("inital guide medians: ", guide.median(R_modz_multiplier).values())
         
@@ -94,6 +99,7 @@ def main():
             latent_medians[step] = [v.item() for v in  guide.median(R_modz_multiplier).values()]
             print(lossArray)
             print(latent_medians)
+            break
             
         lossArray[step] = loss
 
@@ -257,7 +263,7 @@ def model(R_modz_multiplier, data=None):
     #    a_z = pyro.sample('a_z', dist.Normal(...))
     #    return pyro.sample('obs', MyDist(FeHBinEdges, logA, a_R, a_z, validate_args=True), obs=sums)
 
-    logNuSun = pyro.sample('logNuSun', distributions.Uniform(-5, 20)) # tune these - check fitted values are nowhere near edge
+    logNuSun = pyro.sample('logNuSun', distributions.Uniform(-10, 20)) # tune these - check fitted values are nowhere near edge
     loga_R = pyro.sample('loga_R', distributions.Uniform(np.log(1/20), np.log(1/0.01)))
     loga_z = pyro.sample('loga_z', distributions.Uniform(np.log(1/20), np.log(1/0.01)))
     a_R = pyro.deterministic('a_R', torch.exp(loga_R))
