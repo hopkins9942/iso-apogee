@@ -72,7 +72,7 @@ def main():
     else:
         guide = pyro.infer.autoguide.AutoMultivariateNormal(model)
     
-    print("inital guide medians: ", guide.median(R_modz_multiplier).values())
+    #print("inital guide medians: ", guide.median(R_modz_multiplier).values())
         
         
     n_latents=3
