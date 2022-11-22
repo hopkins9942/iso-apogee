@@ -72,7 +72,8 @@ def main():
 
 
     if MAP:
-        guide = pyro.infer.autoguide.AutoDelta(model)
+        guide = pyro.infer.autoguide.AutoDelta(model, init_to_value(values=initVal,
+                                                                   fallback=init_to_median()))
     else:
         guide = pyro.infer.autoguide.AutoMultivariateNormal(model, init_to_value(values=initVal,
                                                                    fallback=init_to_median()))
@@ -96,27 +97,24 @@ def main():
             loss = svi.step(R_modz_multiplier, data)
         except ValueError:
             lossArray[step] = loss
-            latent_medians[step] = [v.item() for v in  guide.median(R_modz_multiplier).values()]
+            latent_medians[step] = [v.item() for v in guide.median(R_modz_multiplier).values()]
             print(lossArray)
             print(latent_medians)
-            break
+            return 1
             
         lossArray[step] = loss
-
-        #parameter_means[step] = mvn_guide._loc_scale()[0].detach().numpy()
-        latent_medians[step] = [v.item() for v in  guide.median(R_modz_multiplier).values()]
+        latent_medians[step] = [v.item() for v in guide.median(R_modz_multiplier).values()]
         
-        
-        # if loss>10**11: #step>incDetectLag and (lossArray[step]>lossArray[step-incDetectLag]):
-        #     # Note: this is no longer the parts that checks convergence, that is below
-        #     lossArray = lossArray[:step+1]
-        #     latent_medians = latent_medians[:step+1]
-        #     break
-        
-        if step%10==0:
+        checkDelay = 10
+        if step%checkDelay == 0:
             print(f'Loss = {loss}, medians: {latent_medians[step]}')
-            
-            if step>incDetectLag and np.all(np.abs(latent_medians[step]-latent_medians[step-incDetectLag])<np.array([0.01,0.01,0.01])):
+            if step>=checkDelay and lossArray[step]==lossArray[step-checkDelay]:
+                # stuck
+                print(lossArray)
+                print(latent_medians)
+                return 2
+
+            if step>=incDetectLag and np.all(np.abs(latent_medians[step]-latent_medians[step-incDetectLag])<np.array([0.01,0.01,0.01])):
                 # tune condition if needed
                 lossArray = lossArray[:step+1]
                 latent_medians = latent_medians[:step+1]
@@ -177,6 +175,8 @@ def main():
         fig = corner.corner(samples_for_plot, labels=labels) #takes input as np array with rows as samples
         fig.suptitle(("MAP" if MAP else "MVN")+f", lr: {lr}, step: {step}")
         fig.savefig(os.path.join(binPath, str(lr)+("-MAP-" if MAP else "-MVN-")+"latents.png")) #git hash?
+
+    return 0
 
 class logNuSunDoubleExpPPP(TorchDistribution): # move to own module?
     """
@@ -308,4 +308,9 @@ def get_effSelFunc(binDict):
 
 
 if __name__=='__main__':
-    main()
+    for i in range(5):
+        print(f"Attempt {i}")
+        output = main()
+        print(f"Output: {output}")
+        if output==0:
+            break
