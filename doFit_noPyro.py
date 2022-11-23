@@ -80,7 +80,7 @@ def main():
                 data[2] - (modz * B(aR, az)).sum()/B(aR, az).sum()
                 )
     
-    res = scipy.optimize.minimize(fun=fun, x0=(1/data[1], 1/data[2]), jac=jac)
+    res = scipy.optimize.minimize(fun=fun, x0=(1/data[1], 1/data[2]), jac=jac, bounds=((0,None), (0,None)))
     
     print(res)
     print(res.x)
@@ -90,6 +90,9 @@ def main():
     logNuSun = np.log(data[0]/B(aR,az).sum())
     
     print("results: ", logNuSun, aR, az)
+    
+    if (aR<0) or (az<0):
+        print("NEGATIVE a WARNING")
     
     with open(os.path.join(binPath, 'noPyro_fit_results.dat'), 'wb') as f:
         print("What's saved:")
@@ -117,12 +120,12 @@ def main():
     peaklogNuSun = np.log(data[0]/beta)
     
     fig, ax = plt.subplots()
-    ax.imshow(pgrid.T, origin='lower',
+    image = ax.imshow(pgrid.T, origin='lower',
               extent = (laRArr[0], laRArr[-1], lazArr[0], lazArr[-1]))
     ax.set_title("posterior marginalised over logNuSun")
     ax.set_xlabel('ln aR')
     ax.set_ylabel('ln az')
-    fig.colorbar()
+    fig.colorbar(image, ax=ax)
     fig.set_tight_layout(True)
     path = os.path.join(binPath, 'posterior.png')
     fig.savefig(path, dpi=300)

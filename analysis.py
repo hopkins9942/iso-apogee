@@ -27,9 +27,9 @@ print(sha)
     
 def main():
     # plotFeH()
-    plotMgFeFeH()
+    # plotMgFeFeH()
     # plotageFeH()
-    # plot_scales_MgFeFeHvsFeH()
+    plot_scales_MgFeFeHvsFeH()
     # plot_data_MgFeFeHvsFeH()
     
     
@@ -50,7 +50,7 @@ def plot_data_MgFeFeHvsFeH():
     FeH_axis = G_MgFeFeH.labels.index('FeH')
     assert FeH_axis==0
     
-    Nlim = 5
+    Nlim = 1
     
     labels=['N','mean R', 'mean modz']
     for k in range(3):
@@ -97,7 +97,7 @@ def plot_scales_MgFeFeHvsFeH():
     print(G_FeH.midpoints[0])
     print(G_FeH.data[:,-5])
     
-    Nlim=5
+    Nlim=1
     
     
     # for i in range(lenFeH):
@@ -159,7 +159,7 @@ def plot_scales_MgFeFeHvsFeH():
                     ax.scatter(G_FeH.midpoints[0][i], 1/G_MgFeFeH.aR[i,j], color='C1', alpha=0.5)
     # ylim = ax.get_ylim()
     # ax.fill_between(G_FeH.midpoints[0], ylim[0], ylim[0]+(ylim[1]-ylim[0])*G_FeH.data[0]/max(G_FeH.data[0]), alpha=0.2, color='C2')
-    ax.set_yscale('log')
+    # ax.set_yscale('log')
     ax.set_xlabel('[Fe/H]')
     ax.set_ylabel('scale length /kpc')
     path = saveDir+'length'
@@ -172,7 +172,7 @@ def plot_scales_MgFeFeHvsFeH():
             for j in range(lenMgFe):
                 if G_MgFeFeH.data[0][i,j]>=Nlim:
                     ax.scatter(G_FeH.midpoints[0][i], 1/G_MgFeFeH.az[i,j], color='C1', alpha=0.5)
-    ax.set_yscale('log')
+    # ax.set_yscale('log')
     ax.set_xlabel('[Fe/H]')
     ax.set_ylabel('scale height /kpc')
     path = saveDir+'height'
