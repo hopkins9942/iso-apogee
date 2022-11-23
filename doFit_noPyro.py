@@ -121,7 +121,8 @@ def main():
     
     ncells = 30 #along each axis
     # widths = [1, 0.5, 0.5] # taken by looking at pyro fits and doubling it ish - tune!
-    widths = [1, 4*(data[0]*hess[0,0])**(-0.5), 4*(data[0]*hess[1,1])**(-0.5)]
+    widths = [1, (4*(data[0]*hess[0,0])**(-0.5))/aR_forplot, (4*(data[0]*hess[1,1])**(-0.5))/az_forplot]
+    print(widths)
     # lNuArr = logNuSun + np.linspace(-widths[0]/2, widths[0]/2, ncells)
     laRArr = np.log(aR_forplot) + np.linspace(-widths[1]/2, widths[1]/2, ncells)
     lazArr = np.log(az_forplot) + np.linspace(-widths[2]/2, widths[2]/2, ncells)

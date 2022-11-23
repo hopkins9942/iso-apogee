@@ -27,9 +27,9 @@ print(sha)
     
 def main():
     # plotFeH()
-    # plotMgFeFeH()
+    plotMgFeFeH()
     # plotageFeH()
-    plot_scales_MgFeFeHvsFeH()
+    # plot_scales_MgFeFeHvsFeH()
     # plot_data_MgFeFeHvsFeH()
     
     
@@ -283,11 +283,11 @@ def plotMgFeFeH():
     path = saveDir+'Bovy2012'
     fig.savefig(path, dpi=300)
     
-    # dists = [G.FeH('local'), G.FeH('MW', integrated=True), G.FeH('R2', R=2, z=0)]
+    dists = [G.FeH('local'), G.FeH('MW', integrated=True), G.FeH('R2', R=2, z=0)]
     
-    # for d in dists:
-    #     d.plot()
-    # dists[0].plotWith(dists[1])
+    for d in dists:
+        d.plot()
+    dists[0].plotWith(dists[1])
     
     
     
@@ -392,6 +392,7 @@ class Galaxy:
         axes.remove(FeHaxis)
         axes = tuple(axes)
         FeHhist = (hist * self.vols).sum(axis=axes)/FeHwidths
+        print(FeHhist)
         return Distributions(FeHhist, FeHedges, name, self.binType, perVolume, normalised)
 
 
