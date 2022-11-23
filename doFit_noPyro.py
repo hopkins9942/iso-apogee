@@ -64,7 +64,7 @@ def main():
     
     def fun(x):
         aR, az = x
-        return np.log(B.sum()) + aR*(data[1] - myUtils.R_Sun) + az*data[2]
+        return np.log(B(aR,az).sum()) + aR*(data[1] - myUtils.R_Sun) + az*data[2]
     
     def jac(x):
         aR, az = x
