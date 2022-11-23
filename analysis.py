@@ -27,10 +27,10 @@ print(sha)
     
 def main():
     # plotFeH()
-    # plotMgFeFeH()
+    plotMgFeFeH()
     # plotageFeH()
-    plot_scales_MgFeFeHvsFeH()
-    plot_data_MgFeFeHvsFeH()
+    # plot_scales_MgFeFeHvsFeH()
+    # plot_data_MgFeFeHvsFeH()
     
     
     
@@ -42,7 +42,7 @@ def plot_data_MgFeFeHvsFeH():
     FeHEdges = myUtils._FeH_edges # assumes same FeH bins for both fits. could do differently
     MgFeEdges = myUtils._MgFe_edges 
     
-    G_MgFeFeH = Galaxy.loadFromBins(['FeH', 'MgFe'], [FeHEdges,MgFeEdges])
+    G_MgFeFeH = Galaxy.loadFromBins(['FeH', 'MgFe'], [FeHEdges,MgFeEdges], noPyro=True)
     lenFeH, lenMgFe = G_MgFeFeH.shape
     
     G_FeH = Galaxy.loadFromBins(['FeH',], [FeHEdges,])
@@ -83,7 +83,7 @@ def plot_scales_MgFeFeHvsFeH():
     FeHEdges = myUtils._FeH_edges # assumes same FeH bins for both fits. could do differently
     MgFeEdges = myUtils._MgFe_edges 
     
-    G_MgFeFeH = Galaxy.loadFromBins(['FeH', 'MgFe'], [FeHEdges,MgFeEdges])
+    G_MgFeFeH = Galaxy.loadFromBins(['FeH', 'MgFe'], [FeHEdges,MgFeEdges], noPyro=True)
     lenFeH, lenMgFe = G_MgFeFeH.shape
     print(G_MgFeFeH.shape)
     
@@ -159,6 +159,7 @@ def plot_scales_MgFeFeHvsFeH():
                     ax.scatter(G_FeH.midpoints[0][i], 1/G_MgFeFeH.aR[i,j], color='C1', alpha=0.5)
     # ylim = ax.get_ylim()
     # ax.fill_between(G_FeH.midpoints[0], ylim[0], ylim[0]+(ylim[1]-ylim[0])*G_FeH.data[0]/max(G_FeH.data[0]), alpha=0.2, color='C2')
+    ax.set_yscale('log')
     ax.set_xlabel('[Fe/H]')
     ax.set_ylabel('scale length /kpc')
     path = saveDir+'length'
@@ -233,7 +234,7 @@ def plotMgFeFeH():
     # print(len(FeHEdges), len(MgFeEdges))
     labels = ['FeH', 'MgFe']
     edges = [FeHEdges,MgFeEdges]
-    G = Galaxy.loadFromBins(labels, edges)
+    G = Galaxy.loadFromBins(labels, edges, noPyro=True)
     # print(G.hist())
     
     saveDir = f'/Users/hopkinsm/Documents/APOGEE/plots/{sha}/analysis_FeHMgFe_POLYDEG{POLYDEG}/'
@@ -267,7 +268,7 @@ def plotMgFeFeH():
     path = saveDir+'N'
     fig.savefig(path, dpi=300)
     
-    Nlim = 5
+    Nlim = 50
     titles = ['scale length', 'scale height']
     fig, axs = plt.subplots(ncols=len(titles), figsize=[12, 4])
     for i, X in enumerate([np.where(G.data[0]>=Nlim, 1/G.aR, np.nan), np.where(G.data[0]>=Nlim, 1/G.az, np.nan)]):
@@ -318,7 +319,7 @@ class Galaxy:
             self.vols[multiIndex] = np.prod([self.widths[i][multiIndex[i]] for i in range(len(self.shape))])
         
     @classmethod
-    def loadFromBins(cls, labels, edges):
+    def loadFromBins(cls, labels, edges, noPyro=False):
         """
         edges[i] is list of np.array edges of ith dimention
         labels[i] should be string of ith quantity
@@ -339,9 +340,13 @@ class Galaxy:
             binDir  = os.path.join(myUtils.localDataDir, 'bins', binName(labels, limits))
             with open(os.path.join(binDir, 'data.dat'), 'rb') as f0:
                 data[0][multiIndex], data[1][multiIndex], data[2][multiIndex] = pickle.load(f0)
-                
-            with open(os.path.join(binDir, 'fit_results.dat'), 'rb') as f1:
-                logA, aR[multiIndex], az[multiIndex] = pickle.load(f1)
+            
+            if noPyro:
+                with open(os.path.join(binDir, 'noPyro_fit_results.dat'), 'rb') as f1:
+                    logA, aR[multiIndex], az[multiIndex] = pickle.load(f1)
+            else:
+                with open(os.path.join(binDir, 'fit_results.dat'), 'rb') as f1:
+                    logA, aR[multiIndex], az[multiIndex] = pickle.load(f1)
                 
             with open(os.path.join(binDir, 'NRG2mass.dat'), 'rb') as f2:
                 NRG2Mass = pickle.load(f2)
