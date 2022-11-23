@@ -91,22 +91,36 @@ def main():
     
     print("results: ", logNuSun, aR, az)
     
-    if (aR<0) or (az<0):
-        print("NEGATIVE a WARNING")
+    
     
     with open(os.path.join(binPath, 'noPyro_fit_results.dat'), 'wb') as f:
         print("What's saved:")
         print(logNuSun, aR, az)
         pickle.dump([logNuSun, aR, az], f)
     
+    # human readable text file
+    path = os.path.join(binPath, 'results.txt')
+    with open(path, 'w') as f:
+        f.write(f"result: \n{res}\n\nWhat's saved:\n{[logNuSun, aR, az]}\n\n\
+                median - peak logNuSun = {np.log(gammaincinv(data[0], 0.5)/data[0])}")
+    
+    
     # plotting
+    
+    if (aR<0):
+        print("NEGATIVE aR WARNING")
+        aR = 0.000000000001
+        
+    if (az<0):
+        print("NEGATIVE az WARNING")
+        az = 0.000000000001
     
     
     ncells = 30 #along each axis
     widths = [1, 0.5, 0.5] # taken by looking at pyro fits and doubling it ish - tune!
     # lNuArr = logNuSun + np.linspace(-widths[0]/2, widths[0]/2, ncells)
     laRArr = np.log(aR) + np.linspace(-widths[1]/2, widths[1]/2, ncells)
-    lazArr = np.log(aR) + np.linspace(-widths[2]/2, widths[2]/2, ncells)
+    lazArr = np.log(az) + np.linspace(-widths[2]/2, widths[2]/2, ncells)
 
     pgrid = np.zeros((len(laRArr), len(lazArr)))
     beta = np.zeros((len(laRArr), len(lazArr)))
@@ -142,6 +156,7 @@ def main():
     fig.set_tight_layout(True)
     path = os.path.join(binPath, 'peaklogNuSun.png')
     fig.savefig(path, dpi=300)
+    
     
     
     
