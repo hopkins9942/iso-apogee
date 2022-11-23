@@ -92,8 +92,8 @@ def main():
     print("results: ", logNuSun, aR, az)
     
     f_peak = res.fun
-    hessInv = res.hess_inv.todense()
-    print("hessInv: ", hessInv)
+    hess = np.linalg.inv(res.hess_inv.todense())
+    print("hess: ", hess)
     
     
     with open(os.path.join(binPath, 'noPyro_fit_results.dat'), 'wb') as f:
@@ -104,7 +104,7 @@ def main():
     # human readable text file
     path = os.path.join(binPath, 'results.txt')
     with open(path, 'w') as f:
-        f.write(f"data: {data}\n\nresult: \n{res}\n\nhessInv: \n{hessInv}\n\nWhat's saved:\n{[logNuSun, aR, az]}\n\nmedian - peak logNuSun = {np.log(gammaincinv(data[0], 0.5)/data[0])}")
+        f.write(f"data: {data}\n\nresult: \n{res}\n\nhess: \n{hess}\n\nWhat's saved:\n{[logNuSun, aR, az]}\n\nmedian - peak logNuSun = {np.log(gammaincinv(data[0], 0.5)/data[0])}")
     
     
     # plotting
@@ -120,7 +120,8 @@ def main():
     
     
     ncells = 30 #along each axis
-    widths = [1, 0.5, 0.5] # taken by looking at pyro fits and doubling it ish - tune!
+    # widths = [1, 0.5, 0.5] # taken by looking at pyro fits and doubling it ish - tune!
+    widths = [1, 4*(data[0]*hess[0,0])**(-0.5), 4*(data[0]*hess[1,1])**(-0.5)]
     # lNuArr = logNuSun + np.linspace(-widths[0]/2, widths[0]/2, ncells)
     laRArr = np.log(aR_forplot) + np.linspace(-widths[1]/2, widths[1]/2, ncells)
     lazArr = np.log(az_forplot) + np.linspace(-widths[2]/2, widths[2]/2, ncells)
@@ -132,7 +133,7 @@ def main():
         for j in range(len(lazArr)):
             pgrid[i,j] = np.exp(-data[0]*(fun((laRArr[i], lazArr[j]))-f_peak)) *(widths[1]/ncells)*(widths[2]/ncells)
             beta[i,j] = B(laRArr[i], lazArr[j]).sum()
-    pgrid/pgrid.sum()
+    pgrid = pgrid/pgrid.sum()
     # values are marginal posterior over logaR, logaz
     peaklogNuSun = np.log(data[0]/beta)
     
@@ -159,6 +160,8 @@ def main():
     fig.set_tight_layout(True)
     path = os.path.join(binPath, 'peaklogNuSun.png')
     fig.savefig(path, dpi=300)
+    
+    print(pgrid)
     
     
     
