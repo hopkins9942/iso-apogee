@@ -14,8 +14,9 @@ import pickle
 import numpy as np
 import astropy.coordinates as coord
 import astropy.units as u
-
+import matplotlib.pyplot as plt
 import scipy.optimize
+from scipy.special import gammaincinv
 
 
 import myUtils
@@ -41,6 +42,7 @@ def main():
     
     if data[0]==0:
         # No stars in bin
+        print("No stars")
         with open(os.path.join(binPath, 'noPyro_fit_results.dat'), 'wb') as f:
             pickle.dump([-999, -999, -999], f)
         return 0
@@ -63,6 +65,12 @@ def main():
         return multiplier*np.exp(-aR*(R-myUtils.R_Sun) -az*modz)
     
     def fun(x):
+        """equal to stuff - ln(p), where p can be either value of total
+        posterior in logNuSun, logaR, logaz OR marginal posterior in logaR, logaz
+        (they're proportional)
+         
+         NOTE although input is aR,az, this is for posterior with unifrm priors
+         in and distributed in logaR and logaz"""
         aR, az = x
         return np.log(B(aR,az).sum()) + aR*(data[1] - myUtils.R_Sun) + az*data[2]
     
@@ -88,8 +96,51 @@ def main():
         print(logNuSun, aR, az)
         pickle.dump([logNuSun, aR, az], f)
     
+    # plotting
     
+    
+    ncells = 30 #along each axis
+    widths = [1, 0.5, 0.5] # taken by looking at pyro fits and doubling it ish - tune!
+    # lNuArr = logNuSun + np.linspace(-widths[0]/2, widths[0]/2, ncells)
+    laRArr = np.log(aR) + np.linspace(-widths[1]/2, widths[1]/2, ncells)
+    lazArr = np.log(aR) + np.linspace(-widths[2]/2, widths[2]/2, ncells)
 
+    pgrid = np.zeros((len(laRArr), len(lazArr)))
+    beta = np.zeros((len(laRArr), len(lazArr)))
+    
+    for i in range(len(laRArr)):
+        for j in range(len(lazArr)):
+            pgrid[i,j] = np.exp(-data[0] *fun((laRArr[i], lazArr[j]))) *(widths[1]/ncells)*(widths[2]/ncells)
+            beta[i,j] = B(laRArr[i], lazArr[j]).sum()
+    pgrid/pgrid.sum()
+    # values are marginal posterior over logaR, logaz
+    peaklogNuSun = np.log(data[0]/beta)
+    
+    fig, ax = plt.subplots()
+    ax.imshow(pgrid.T, origin='lower',
+              extent = (laRArr[0], laRArr[-1], lazArr[0], lazArr[-1]))
+    ax.set_title("posterior marginalised over logNuSun")
+    ax.set_xlabel('ln aR')
+    ax.set_ylabel('ln az')
+    fig.colorbar()
+    fig.set_tight_layout(True)
+    path = os.path.join(binPath, 'posterior.png')
+    fig.savefig(path, dpi=300)
+    
+    # peak and median value of logNuSun at each aR,az
+    print("median - peak logNuSun = ", np.log(gammaincinv(data[0], 0.5)/data[0]))
+    fig, ax = plt.subplots()
+    image = ax.imshow(peaklogNuSun.T, origin='lower',
+              extent = (laRArr[0], laRArr[-1], lazArr[0], lazArr[-1]))
+    ax.set_title("value of logNuSun at posterior peak")
+    ax.set_xlabel('ln aR')
+    ax.set_ylabel('ln az')
+    fig.colorbar(image, ax=ax)
+    fig.set_tight_layout(True)
+    path = os.path.join(binPath, 'peaklogNuSun.png')
+    fig.savefig(path, dpi=300)
+    
+    
     
     
 def calc_coords(apo):
