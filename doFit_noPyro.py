@@ -93,7 +93,7 @@ def main():
     
     f_peak = res.fun
     hessInv = res.hess_inv.todense()
-    print("hessInv: hessInv")
+    print("hessInv: ", hessInv)
     
     
     with open(os.path.join(binPath, 'noPyro_fit_results.dat'), 'wb') as f:
@@ -110,11 +110,11 @@ def main():
     # plotting
     aR_forplot = aR
     az_forplot = az
-    if (aR<0):
+    if (aR<=0):
         print("NEGATIVE aR WARNING")
         aR_forplot = 0.000000000001
         
-    if (az<0):
+    if (az<=0):
         print("NEGATIVE az WARNING")
         az_forplot = 0.000000000001
     
