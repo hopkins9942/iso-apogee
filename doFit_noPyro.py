@@ -101,10 +101,6 @@ def main():
         print(logNuSun, aR, az)
         pickle.dump([logNuSun, aR, az], f)
     
-    # human readable text file
-    path = os.path.join(binPath, 'results.txt')
-    with open(path, 'w') as f:
-        f.write(f"data: {data}\n\nresult: \n{res}\n\nhess: \n{hess}\n\nWhat's saved:\n{[logNuSun, aR, az]}\n\nmedian - peak logNuSun = {np.log(gammaincinv(data[0], 0.5)/data[0])}")
     
     
     # plotting
@@ -128,19 +124,24 @@ def main():
     lazArr = np.log(az_forplot) + np.linspace(-widths[2]/2, widths[2]/2, ncells)
 
     pgrid = np.zeros((len(laRArr), len(lazArr)))
+    lpgrid = np.zeros((len(laRArr), len(lazArr)))
     beta = np.zeros((len(laRArr), len(lazArr)))
     
     for i in range(len(laRArr)):
         for j in range(len(lazArr)):
             pgrid[i,j] = np.exp(-data[0]*(fun((laRArr[i], lazArr[j]))-f_peak)) *(widths[1]/ncells)*(widths[2]/ncells)
+            lpgrid[i,j] = -data[0]*(fun((laRArr[i], lazArr[j]))-f_peak)
             beta[i,j] = B(laRArr[i], lazArr[j]).sum()
-    pgrid = pgrid/pgrid.sum()
+    # pgrid = pgrid/pgrid.sum()
     # values are marginal posterior over logaR, logaz
+    print(pgrid.sum())
+    
     peaklogNuSun = np.log(data[0]/beta)
     
     fig, ax = plt.subplots()
     image = ax.imshow(pgrid.T, origin='lower',
-              extent = (laRArr[0], laRArr[-1], lazArr[0], lazArr[-1]))
+              extent = (laRArr[0], laRArr[-1], lazArr[0], lazArr[-1]),
+              aspect='auto')
     ax.set_title("posterior marginalised over logNuSun")
     ax.set_xlabel('ln aR')
     ax.set_ylabel('ln az')
@@ -149,11 +150,24 @@ def main():
     path = os.path.join(binPath, 'posterior.png')
     fig.savefig(path, dpi=300)
     
+    fig, ax = plt.subplots()
+    image = ax.imshow(lpgrid.T, origin='lower',
+              extent = (laRArr[0], laRArr[-1], lazArr[0], lazArr[-1]),
+              aspect='auto')
+    ax.set_title("posterior marginalised over logNuSun")
+    ax.set_xlabel('ln aR')
+    ax.set_ylabel('ln az')
+    fig.colorbar(image, ax=ax)
+    fig.set_tight_layout(True)
+    path = os.path.join(binPath, 'logposterior.png')
+    fig.savefig(path, dpi=300)
+    
     # peak and median value of logNuSun at each aR,az
     print("median - peak logNuSun = ", np.log(gammaincinv(data[0], 0.5)/data[0]))
     fig, ax = plt.subplots()
     image = ax.imshow(peaklogNuSun.T, origin='lower',
-              extent = (laRArr[0], laRArr[-1], lazArr[0], lazArr[-1]))
+              extent = (laRArr[0], laRArr[-1], lazArr[0], lazArr[-1]),
+              aspect='auto')
     ax.set_title("value of logNuSun at posterior peak")
     ax.set_xlabel('ln aR')
     ax.set_ylabel('ln az')
@@ -162,7 +176,13 @@ def main():
     path = os.path.join(binPath, 'peaklogNuSun.png')
     fig.savefig(path, dpi=300)
     
-    print(pgrid)
+    print(lpgrid)
+    
+    # human readable text file
+    path = os.path.join(binPath, 'results.txt')
+    with open(path, 'w') as f:
+        f.write(f"data: {data}\n\nresult: \n{res}\n\nhess: \n{hess}\n\nwidths: \n{widths}\n\nWhat's saved:\n{[logNuSun, aR, az]}\n\nmedian - peak logNuSun = {np.log(gammaincinv(data[0], 0.5)/data[0])}")
+    
     
     
     
