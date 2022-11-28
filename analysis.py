@@ -50,7 +50,7 @@ def plot_data_MgFeFeHvsFeH():
     FeH_axis = G_MgFeFeH.labels.index('FeH')
     assert FeH_axis==0
     
-    Nlim = 1
+    Nlim = 3
     
     labels=['N','mean R', 'mean modz']
     for k in range(3):
@@ -319,7 +319,7 @@ class Galaxy:
             self.vols[multiIndex] = np.prod([self.widths[i][multiIndex[i]] for i in range(len(self.shape))])
         
     @classmethod
-    def loadFromBins(cls, labels, edges, noPyro=False):
+    def loadFromBins(cls, labels, edges, noPyro=True):
         """
         edges[i] is list of np.array edges of ith dimention
         labels[i] should be string of ith quantity

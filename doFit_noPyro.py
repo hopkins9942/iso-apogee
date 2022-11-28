@@ -95,11 +95,16 @@ def main():
     hess = np.linalg.inv(res.hess_inv.todense())
     print("hess: ", hess)
     
+    sigmas = np.array([((data[0])**(-0.5)), ((data[0]*hess[0,0])**(-0.5)), ((data[0]*hess[1,1])**(-0.5))])
     
+    
+    print("What's saved:")
+    print([logNuSun, aR, az])
+    print(sigmas)
     with open(os.path.join(binPath, 'noPyro_fit_results.dat'), 'wb') as f:
-        print("What's saved:")
-        print(logNuSun, aR, az)
         pickle.dump([logNuSun, aR, az], f)
+    with open(os.path.join(binPath, 'noPyro_fit_sigmas.dat'), 'wb') as f:
+        pickle.dump(sigmas, f)
     
     
     
@@ -116,10 +121,12 @@ def main():
     
     
     ncells = 30 #along each axis
-    widths = 2*np.array([(4*(data[0]*hess[0,0])**(-0.5))/aR_forplot, (4*(data[0]*hess[1,1])**(-0.5))/az_forplot])
+    widthFactor = 4
+    widths = widthFactor*sigmas[1:]/np.array([aR_forplot, az_forplot])
+    # factor for nice cover, division by aR,az because width of log(aR),log(az)
     print(widths)
-    laRArr = np.log(aR_forplot) + np.linspace(-widths[0]/2, widths[0]/2, ncells)
-    lazArr = np.log(az_forplot) + np.linspace(-widths[1]/2, widths[1]/2, ncells)
+    laRArr = np.log(aR_forplot) + np.linspace(-widths[0], widths[0], ncells)
+    lazArr = np.log(az_forplot) + np.linspace(-widths[1], widths[1], ncells)
 
     pgrid = np.zeros((len(laRArr), len(lazArr)))
     # lpgrid = np.zeros((len(laRArr), len(lazArr)))
@@ -140,6 +147,10 @@ def main():
     image = ax.imshow(pgrid.T, origin='lower',
               extent = (laRArr[0], laRArr[-1], lazArr[0], lazArr[-1]),
               aspect='auto')
+    ax.axvline(np.log(aR_forplot-sigmas[1]), 'b', alpha=0.5)
+    ax.axvline(np.log(aR_forplot+sigmas[1]), 'b', alpha=0.5)
+    ax.axhline(np.log(az_forplot-sigmas[2]), 'b', alpha=0.5)
+    ax.axhline(np.log(az_forplot+sigmas[2]), 'b', alpha=0.5)
     ax.set_title("posterior marginalised over logNuSun")
     ax.set_xlabel('ln aR')
     ax.set_ylabel('ln az')
@@ -175,12 +186,12 @@ def main():
     path = os.path.join(binPath, 'peaklogNuSun.png')
     fig.savefig(path, dpi=300)
     
-    print(pgrid)
+    # print(pgrid)
     
     # human readable text file
     path = os.path.join(binPath, 'results.txt')
     with open(path, 'w') as f:
-        f.write(f"data: {data}\n\nresult: \n{res}\n\nhess: \n{hess}\n\nwidths: \n{widths}\n\nWhat's saved:\n{[logNuSun, aR, az]}\n\nmedian - peak logNuSun = {np.log(gammaincinv(data[0], 0.5)/data[0])}")
+        f.write(f"data: {data}\n\nresult: \n{res}\n\nsigmas: \n{sigmas}\n\nhess: \n{hess}\n\nwidths: \n{widths}\n\nWhat's saved:\n{[logNuSun, aR, az]}\n\nmedian - peak logNuSun = {np.log(gammaincinv(data[0], 0.5)/data[0])}")
     
     
     
