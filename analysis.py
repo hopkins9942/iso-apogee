@@ -154,9 +154,11 @@ def plot_scales_MgFeFeHvsFeH():
     for i in range(lenFeH):
         if G_FeH.data[0][i]>=Nlim:
             ax.scatter(G_FeH.midpoints[0][i], 1/G_FeH.aR[i], color='C0', alpha=0.5)
+            # ax.errorbar(G_FeH.midpoints[0][i], 1/G_FeH.aR[i], G_FeH.sig_aR[i]/G_FeH.aR[i]**2, color='C0', alpha=0.5)
             for j in range(lenMgFe):
                 if G_MgFeFeH.data[0][i,j]>=Nlim:
-                    ax.scatter(G_FeH.midpoints[0][i], 1/G_MgFeFeH.aR[i,j], color='C1', alpha=0.5)
+                    # ax.scatter(G_FeH.midpoints[0][i], 1/G_MgFeFeH.aR[i,j], color='C1', alpha=0.5)
+                    ax.errorbar(G_FeH.midpoints[0][i], 1/G_MgFeFeH.aR[i,j], G_MgFeFeH.sig_aR[i,j]/G_MgFeFeH.aR[i,j]**2, color='C1', alpha=0.5)
     # ylim = ax.get_ylim()
     # ax.fill_between(G_FeH.midpoints[0], ylim[0], ylim[0]+(ylim[1]-ylim[0])*G_FeH.data[0]/max(G_FeH.data[0]), alpha=0.2, color='C2')
     # ax.set_yscale('log')
@@ -295,7 +297,7 @@ def plotMgFeFeH():
 
 
 class Galaxy:
-    def __init__(self, labels, edges, amp, aR, az, data):
+    def __init__(self, labels, edges, amp, aR, az, sig_logNuSun, sig_aR, sig_az, data):
         """
         edges[i] is array of edges of ith dimention
         amp, aR and az each have element corresponding to bin
@@ -308,6 +310,9 @@ class Galaxy:
         self.aR = aR
         self.az = az
         #self.over100 = over100
+        self.sig_logNuSun = sig_logNuSun # unsure if useful
+        self.sig_aR = sig_aR
+        self.sig_az = sig_az
         self.data = data
         
         self.shape = self.amp.shape
@@ -332,6 +337,9 @@ class Galaxy:
         amp = np.zeros(shape)
         aR = np.zeros(shape)
         az = np.zeros(shape)
+        sig_logNuSun = np.zeros(shape)
+        sig_aR = np.zeros(shape)
+        sig_az = np.zeros(shape)
         data = np.zeros((3, *shape))
         
         for binNum in range(amp.size):
@@ -344,6 +352,8 @@ class Galaxy:
             if noPyro:
                 with open(os.path.join(binDir, 'noPyro_fit_results.dat'), 'rb') as f1:
                     logA, aR[multiIndex], az[multiIndex] = pickle.load(f1)
+                with open(os.path.join(binDir, 'noPyro_fit_sigmas.dat'), 'rb') as f1:
+                    sig_logNuSun[multiIndex], sig_aR[multiIndex], sig_az[multiIndex] = pickle.load(f1)
             else:
                 with open(os.path.join(binDir, 'fit_results.dat'), 'rb') as f1:
                     logA, aR[multiIndex], az[multiIndex] = pickle.load(f1)

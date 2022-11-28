@@ -45,6 +45,8 @@ def main():
         print("No stars")
         with open(os.path.join(binPath, 'noPyro_fit_results.dat'), 'wb') as f:
             pickle.dump([-999, -999, -999], f)
+        with open(os.path.join(binPath, 'noPyro_fit_sigmas.dat'), 'wb') as f:
+            pickle.dump([-999, -999, -999], f)
         return 0
     
     # mu, D, R, modz, solidAngles, gLon, gLat, x, y, z = calc_coords(apo)
@@ -113,11 +115,13 @@ def main():
     az_forplot = az
     if (aR<=0):
         print("NEGATIVE aR WARNING")
-        aR_forplot = 0.000000000001
+        # aR_forplot = 0.000000000001
+        return "NEGATIVE aR"
         
     if (az<=0):
         print("NEGATIVE az WARNING")
-        az_forplot = 0.000000000001
+        # az_forplot = 0.000000000001
+        return "NEGATIVE az"
     
     
     ncells = 30 #along each axis
@@ -147,10 +151,10 @@ def main():
     image = ax.imshow(pgrid.T, origin='lower',
               extent = (laRArr[0], laRArr[-1], lazArr[0], lazArr[-1]),
               aspect='auto')
-    ax.axvline(np.log(aR_forplot-sigmas[1]), 'b', alpha=0.5)
-    ax.axvline(np.log(aR_forplot+sigmas[1]), 'b', alpha=0.5)
-    ax.axhline(np.log(az_forplot-sigmas[2]), 'b', alpha=0.5)
-    ax.axhline(np.log(az_forplot+sigmas[2]), 'b', alpha=0.5)
+    ax.axvline(np.log(aR_forplot-sigmas[1]), color='C0', alpha=0.5)
+    ax.axvline(np.log(aR_forplot+sigmas[1]), color='C0', alpha=0.5)
+    ax.axhline(np.log(az_forplot-sigmas[2]), color='C0', alpha=0.5)
+    ax.axhline(np.log(az_forplot+sigmas[2]), color='C0', alpha=0.5)
     ax.set_title("posterior marginalised over logNuSun")
     ax.set_xlabel('ln aR')
     ax.set_ylabel('ln az')
