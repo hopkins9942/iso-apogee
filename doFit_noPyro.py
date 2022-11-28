@@ -129,9 +129,9 @@ def main():
     
     for i in range(len(laRArr)):
         for j in range(len(lazArr)):
-            pgrid[i,j] = np.exp(-data[0]*(fun((laRArr[i], lazArr[j]))-f_peak)) *(widths[1]/ncells)*(widths[2]/ncells)
-            lpgrid[i,j] = -data[0]*(fun((laRArr[i], lazArr[j]))-f_peak)
-            beta[i,j] = B(laRArr[i], lazArr[j]).sum()
+            pgrid[i,j] = np.exp(-data[0]*(fun((np.exp(laRArr[i]), np.exp(lazArr[j])))-f_peak)) *(widths[1]/ncells)*(widths[2]/ncells)
+            lpgrid[i,j] = -data[0]*(fun((np.exp(laRArr[i]), np.exp(lazArr[j])))-f_peak)
+            beta[i,j] = B(np.exp(laRArr[i]), np.exp(lazArr[j])).sum()
     # pgrid = pgrid/pgrid.sum()
     # values are marginal posterior over logaR, logaz
     print(pgrid.sum())
@@ -154,7 +154,7 @@ def main():
     image = ax.imshow(lpgrid.T, origin='lower',
               extent = (laRArr[0], laRArr[-1], lazArr[0], lazArr[-1]),
               aspect='auto')
-    ax.set_title("posterior marginalised over logNuSun")
+    ax.set_title("log(posterior marginalised over logNuSun)")
     ax.set_xlabel('ln aR')
     ax.set_ylabel('ln az')
     fig.colorbar(image, ax=ax)
