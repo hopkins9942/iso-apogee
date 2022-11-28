@@ -116,25 +116,23 @@ def main():
     
     
     ncells = 30 #along each axis
-    # widths = [1, 0.5, 0.5] # taken by looking at pyro fits and doubling it ish - tune!
-    widths = [1, (4*(data[0]*hess[0,0])**(-0.5))/aR_forplot, (4*(data[0]*hess[1,1])**(-0.5))/az_forplot]
+    widths = 2*np.array([(4*(data[0]*hess[0,0])**(-0.5))/aR_forplot, (4*(data[0]*hess[1,1])**(-0.5))/az_forplot])
     print(widths)
-    # lNuArr = logNuSun + np.linspace(-widths[0]/2, widths[0]/2, ncells)
-    laRArr = np.log(aR_forplot) + np.linspace(-widths[1]/2, widths[1]/2, ncells)
-    lazArr = np.log(az_forplot) + np.linspace(-widths[2]/2, widths[2]/2, ncells)
+    laRArr = np.log(aR_forplot) + np.linspace(-widths[0]/2, widths[0]/2, ncells)
+    lazArr = np.log(az_forplot) + np.linspace(-widths[1]/2, widths[1]/2, ncells)
 
     pgrid = np.zeros((len(laRArr), len(lazArr)))
-    lpgrid = np.zeros((len(laRArr), len(lazArr)))
+    # lpgrid = np.zeros((len(laRArr), len(lazArr)))
     beta = np.zeros((len(laRArr), len(lazArr)))
     
     for i in range(len(laRArr)):
         for j in range(len(lazArr)):
-            pgrid[i,j] = np.exp(-data[0]*(fun((np.exp(laRArr[i]), np.exp(lazArr[j])))-f_peak)) *(widths[1]/ncells)*(widths[2]/ncells)
-            lpgrid[i,j] = -data[0]*(fun((np.exp(laRArr[i]), np.exp(lazArr[j])))-f_peak)
+            pgrid[i,j] = np.exp(-data[0]*(fun((np.exp(laRArr[i]), np.exp(lazArr[j])))-f_peak)) #*(widths[0]/ncells)*(widths[1]/ncells)
+            # lpgrid[i,j] = -data[0]*(fun((np.exp(laRArr[i]), np.exp(lazArr[j])))-f_peak)
             beta[i,j] = B(np.exp(laRArr[i]), np.exp(lazArr[j])).sum()
-    # pgrid = pgrid/pgrid.sum()
-    # values are marginal posterior over logaR, logaz
-    print(pgrid.sum())
+    pgrid = pgrid/(pgrid*(widths[0]/ncells)*(widths[1]/ncells)).sum()
+    # values are marginal posterior over logaR, logaz (value per log(aR),log(az))
+    print('Should be 1: ', pgrid.sum()*(widths[0]/ncells)*(widths[1]/ncells))
     
     peaklogNuSun = np.log(data[0]/beta)
     
@@ -150,19 +148,20 @@ def main():
     path = os.path.join(binPath, 'posterior.png')
     fig.savefig(path, dpi=300)
     
-    fig, ax = plt.subplots()
-    image = ax.imshow(lpgrid.T, origin='lower',
-              extent = (laRArr[0], laRArr[-1], lazArr[0], lazArr[-1]),
-              aspect='auto')
-    ax.set_title("log(posterior marginalised over logNuSun)")
-    ax.set_xlabel('ln aR')
-    ax.set_ylabel('ln az')
-    fig.colorbar(image, ax=ax)
-    fig.set_tight_layout(True)
-    path = os.path.join(binPath, 'logposterior.png')
-    fig.savefig(path, dpi=300)
+    # fig, ax = plt.subplots()
+    # image = ax.imshow(lpgrid.T, origin='lower',
+    #           extent = (laRArr[0], laRArr[-1], lazArr[0], lazArr[-1]),
+    #           aspect='auto')
+    # ax.set_title("log(posterior marginalised over logNuSun)")
+    # ax.set_xlabel('ln aR')
+    # ax.set_ylabel('ln az')
+    # fig.colorbar(image, ax=ax)
+    # fig.set_tight_layout(True)
+    # path = os.path.join(binPath, 'logposterior.png')
+    # fig.savefig(path, dpi=300)
     
     # peak and median value of logNuSun at each aR,az
+    print('logNuSun at peak = ', logNuSun)
     print("median - peak logNuSun = ", np.log(gammaincinv(data[0], 0.5)/data[0]))
     fig, ax = plt.subplots()
     image = ax.imshow(peaklogNuSun.T, origin='lower',
@@ -176,7 +175,7 @@ def main():
     path = os.path.join(binPath, 'peaklogNuSun.png')
     fig.savefig(path, dpi=300)
     
-    print(lpgrid)
+    print(pgrid)
     
     # human readable text file
     path = os.path.join(binPath, 'results.txt')
