@@ -270,7 +270,12 @@ def plotMgFeFeH():
     path = saveDir+'N'
     fig.savefig(path, dpi=300)
     
-    Nlim = 50
+    # print(G.aR)
+    # print(G.az)
+    print(np.where((G.aR==0.0)&(G.amp!=0), 1000*G.midpoints[0][:,np.newaxis]+G.midpoints[1], -1))
+    print(np.where((G.az==0.0)&(G.amp!=0), 1000*G.midpoints[0][:,np.newaxis]+G.midpoints[1], -1))
+    
+    Nlim = 10
     titles = ['scale length', 'scale height']
     fig, axs = plt.subplots(ncols=len(titles), figsize=[12, 4])
     for i, X in enumerate([np.where(G.data[0]>=Nlim, 1/G.aR, np.nan), np.where(G.data[0]>=Nlim, 1/G.az, np.nan)]):
@@ -286,6 +291,7 @@ def plotMgFeFeH():
     fig.savefig(path, dpi=300)
     
     dists = [G.FeH('local'), G.FeH('MW', integrated=True), G.FeH('R2', R=2, z=0)]
+    
     
     for d in dists:
         d.plot()
@@ -362,7 +368,7 @@ class Galaxy:
                 NRG2Mass = pickle.load(f2)
                 
             amp[multiIndex] = NRG2Mass*np.exp(logA)/(np.prod(limits[:,1]-limits[:,0]))
-        return cls(labels, edges, amp, aR, az, data)
+        return cls(labels, edges, amp, aR, az, sig_logNuSun, sig_aR, sig_az, data)
     
     
     def hist(self, R=myUtils.R_Sun, z=myUtils.z_Sun, normalised=False):
@@ -374,7 +380,7 @@ class Galaxy:
     
     def integratedHist(self, Rlim=None, zlim=None, normalised=False):
         """integrates R=0 to R and z=-z to z, with default of whole galaxy"""
-        hist = 4*np.pi*self.amp*np.exp(self.aR*myUtils.R_Sun)/(self.aR**2 * self.az)
+        hist = np.where(self.amp!=0, 4*np.pi*self.amp*np.exp(self.aR*myUtils.R_Sun)/(self.aR**2 * self.az), 0)
         if Rlim!=None:
             hist *= (1 - (1+self.aR*Rlim)*np.exp(-self.aR*Rlim))
         if zlim!=None:

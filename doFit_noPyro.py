@@ -82,7 +82,7 @@ def main():
                 data[2] - (modz * B(aR, az)).sum()/B(aR, az).sum()
                 )
     
-    res = scipy.optimize.minimize(fun=fun, x0=(1/data[1], 1/data[2]), jac=jac, bounds=((0,None), (0,None)))
+    res = scipy.optimize.minimize(fun=fun, x0=(1/data[1], 1/data[2]), jac=jac)
     
     print(res)
     print(res.x)
