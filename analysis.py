@@ -50,7 +50,7 @@ def plot_data_MgFeFeHvsFeH():
     FeH_axis = G_MgFeFeH.labels.index('FeH')
     assert FeH_axis==0
     
-    Nlim = 3
+    Nlim = 5
     
     labels=['N','mean R', 'mean modz']
     for k in range(3):
@@ -97,7 +97,7 @@ def plot_scales_MgFeFeHvsFeH():
     print(G_FeH.midpoints[0])
     print(G_FeH.data[:,-5])
     
-    Nlim=1
+    Nlim=10
     
     
     # for i in range(lenFeH):
@@ -154,14 +154,14 @@ def plot_scales_MgFeFeHvsFeH():
     for i in range(lenFeH):
         if G_FeH.data[0][i]>=Nlim:
             # ax.scatter(G_FeH.midpoints[0][i], 1/G_FeH.aR[i], color='C0', alpha=0.5)
-            ax.errorbar(G_FeH.midpoints[0][i], 1/G_FeH.aR[i], G_FeH.sig_aR[i]/G_FeH.aR[i]**2, color='C0', alpha=0.5)
+            ax.errorbar(G_FeH.midpoints[0][i], 1/G_FeH.aR[i], G_FeH.sig_aR[i]/G_FeH.aR[i]**2, marker='o', color='C0', alpha=0.5)
             for j in range(lenMgFe):
                 if G_MgFeFeH.data[0][i,j]>=Nlim:
                     # ax.scatter(G_FeH.midpoints[0][i], 1/G_MgFeFeH.aR[i,j], color='C1', alpha=0.5)
-                    ax.errorbar(G_FeH.midpoints[0][i], 1/G_MgFeFeH.aR[i,j], G_MgFeFeH.sig_aR[i,j]/G_MgFeFeH.aR[i,j]**2, color='C1', alpha=0.5)
+                    ax.errorbar(G_FeH.midpoints[0][i], 1/G_MgFeFeH.aR[i,j], G_MgFeFeH.sig_aR[i,j]/G_MgFeFeH.aR[i,j]**2, marker='o', color='C1', alpha=0.5)
     # ylim = ax.get_ylim()
     # ax.fill_between(G_FeH.midpoints[0], ylim[0], ylim[0]+(ylim[1]-ylim[0])*G_FeH.data[0]/max(G_FeH.data[0]), alpha=0.2, color='C2')
-    # ax.set_yscale('log')
+    ax.set_yscale('log')
     ax.set_xlabel('[Fe/H]')
     ax.set_ylabel('scale length /kpc')
     path = saveDir+'length'
@@ -170,11 +170,13 @@ def plot_scales_MgFeFeHvsFeH():
     fig, ax = plt.subplots()
     for i in range(lenFeH):
         if G_FeH.data[0][i]>=Nlim:
-            ax.scatter(G_FeH.midpoints[0][i], 1/G_FeH.az[i], color='C0', alpha=0.5)
+            # ax.scatter(G_FeH.midpoints[0][i], 1/G_FeH.az[i], color='C0', alpha=0.5)
+            ax.errorbar(G_FeH.midpoints[0][i], 1/G_FeH.az[i], G_FeH.sig_az[i]/G_FeH.az[i]**2, marker='o', color='C0', alpha=0.5)
             for j in range(lenMgFe):
                 if G_MgFeFeH.data[0][i,j]>=Nlim:
-                    ax.scatter(G_FeH.midpoints[0][i], 1/G_MgFeFeH.az[i,j], color='C1', alpha=0.5)
-    # ax.set_yscale('log')
+                    # ax.scatter(G_FeH.midpoints[0][i], 1/G_MgFeFeH.az[i,j], color='C1', alpha=0.5)
+                    ax.errorbar(G_FeH.midpoints[0][i], 1/G_MgFeFeH.az[i,j], G_MgFeFeH.sig_az[i,j]/G_MgFeFeH.az[i,j]**2, marker='o', color='C1', alpha=0.5)
+    ax.set_yscale('log')
     ax.set_xlabel('[Fe/H]')
     ax.set_ylabel('scale height /kpc')
     path = saveDir+'height'
@@ -248,7 +250,7 @@ def plotMgFeFeH():
     for i, X in enumerate([G.hist(), G.integratedHist(), G.hist(R=4,z=1)]):
         image = axs[i].imshow(X.T, origin='lower', aspect='auto',
                               extent=(FeHEdges[0], FeHEdges[-1], MgFeEdges[0], MgFeEdges[-1]),
-                              cmap=cmap1)
+                              cmap=cmap1, norm=mpl.colors.LogNorm())
         axs[i].set_title(titles[i])
         axs[i].set_xlabel('[Fe/H]')
         axs[i].set_ylabel('[Mg/Fe]')
@@ -272,10 +274,10 @@ def plotMgFeFeH():
     
     # print(G.aR)
     # print(G.az)
-    print(np.where((G.aR==0.0)&(G.amp!=0), 1000*G.midpoints[0][:,np.newaxis]+G.midpoints[1], -1))
-    print(np.where((G.az==0.0)&(G.amp!=0), 1000*G.midpoints[0][:,np.newaxis]+G.midpoints[1], -1))
+    # print(np.where((G.aR==0.0)&(G.amp!=0), 1000*G.midpoints[0][:,np.newaxis]+G.midpoints[1], -1))
+    # print(np.where((G.az==0.0)&(G.amp!=0), 1000*G.midpoints[0][:,np.newaxis]+G.midpoints[1], -1))
     
-    Nlim = 10
+    Nlim = 100
     titles = ['scale length', 'scale height']
     fig, axs = plt.subplots(ncols=len(titles), figsize=[12, 4])
     for i, X in enumerate([np.where(G.data[0]>=Nlim, 1/G.aR, np.nan), np.where(G.data[0]>=Nlim, 1/G.az, np.nan)]):
@@ -380,7 +382,8 @@ class Galaxy:
     
     def integratedHist(self, Rlim=None, zlim=None, normalised=False):
         """integrates R=0 to R and z=-z to z, with default of whole galaxy"""
-        hist = np.where(self.amp!=0, 4*np.pi*self.amp*np.exp(self.aR*myUtils.R_Sun)/(self.aR**2 * self.az), 0)
+        hist = np.where((self.aR>0)&(self.az>0), 4*np.pi*self.amp*np.exp(self.aR*myUtils.R_Sun)/(self.aR**2 * self.az), 0)
+        # volume technically infinite for negative a, this only occurs when negligible stars in bin
         if Rlim!=None:
             hist *= (1 - (1+self.aR*Rlim)*np.exp(-self.aR*Rlim))
         if zlim!=None:
