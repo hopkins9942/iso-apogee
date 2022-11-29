@@ -125,7 +125,7 @@ def main():
     
     
     ncells = 30 #along each axis
-    widthFactor = 4
+    widthFactor = 6
     widths = widthFactor*sigmas[1:] #/np.array([aR_forplot, az_forplot])
     # factor for nice cover, division by aR,az is for width of log(aR),log(az)
     print(widths)
@@ -144,8 +144,7 @@ def main():
     
     # values are marginal posterior over logaR, logaz (value per log(aR),log(az))
     intp = pgrid.sum()*(widths[0]/ncells)*(widths[1]/ncells)
-    print('Should be 1: ', intp)
-    # pgrid = pgrid/intp
+    pgrid = pgrid/intp
     
     peaklogNuSun = np.log(data[0]/beta)
     
