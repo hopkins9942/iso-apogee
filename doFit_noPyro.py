@@ -94,7 +94,7 @@ def main():
     print("results: ", logNuSun, aR, az)
     
     f_peak = res.fun
-    hess = np.linalg.inv(res.hess_inv.todense())
+    hess = np.linalg.inv(res.hess_inv)
     print("hess: ", hess)
     
     sigmas = np.array([((data[0])**(-0.5)), ((data[0]*hess[0,0])**(-0.5)), ((data[0]*hess[1,1])**(-0.5))])
