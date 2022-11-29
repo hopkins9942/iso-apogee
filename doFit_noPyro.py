@@ -113,51 +113,53 @@ def main():
     # plotting
     aR_forplot = aR
     az_forplot = az
-    if (aR<=0):
-        print("NEGATIVE aR WARNING")
-        # aR_forplot = 0.000000000001
-        return "NEGATIVE aR"
+    # if (aR<=0):
+    #     print("NEGATIVE aR WARNING")
+    #     # aR_forplot = 0.000000000001
+    #     return "NEGATIVE aR"
         
-    if (az<=0):
-        print("NEGATIVE az WARNING")
-        # az_forplot = 0.000000000001
-        return "NEGATIVE az"
+    # if (az<=0):
+    #     print("NEGATIVE az WARNING")
+    #     # az_forplot = 0.000000000001
+    #     return "NEGATIVE az"
     
     
     ncells = 30 #along each axis
     widthFactor = 4
-    widths = widthFactor*sigmas[1:]/np.array([aR_forplot, az_forplot])
-    # factor for nice cover, division by aR,az because width of log(aR),log(az)
+    widths = widthFactor*sigmas[1:] #/np.array([aR_forplot, az_forplot])
+    # factor for nice cover, division by aR,az is for width of log(aR),log(az)
     print(widths)
-    laRArr = np.log(aR_forplot) + np.linspace(-widths[0], widths[0], ncells)
-    lazArr = np.log(az_forplot) + np.linspace(-widths[1], widths[1], ncells)
+    aRArr = aR_forplot + np.linspace(-widths[0], widths[0], ncells)
+    azArr = az_forplot + np.linspace(-widths[1], widths[1], ncells)
 
-    pgrid = np.zeros((len(laRArr), len(lazArr)))
+    pgrid = np.zeros((len(aRArr), len(azArr)))
     # lpgrid = np.zeros((len(laRArr), len(lazArr)))
-    beta = np.zeros((len(laRArr), len(lazArr)))
+    beta = np.zeros((len(aRArr), len(azArr)))
     
-    for i in range(len(laRArr)):
-        for j in range(len(lazArr)):
-            pgrid[i,j] = np.exp(-data[0]*(fun((np.exp(laRArr[i]), np.exp(lazArr[j])))-f_peak)) #*(widths[0]/ncells)*(widths[1]/ncells)
+    for i in range(len(aRArr)):
+        for j in range(len(azArr)):
+            pgrid[i,j] = np.exp(-data[0]*(fun((aRArr[i], azArr[j]))-f_peak)) #*(widths[0]/ncells)*(widths[1]/ncells)
             # lpgrid[i,j] = -data[0]*(fun((np.exp(laRArr[i]), np.exp(lazArr[j])))-f_peak)
-            beta[i,j] = B(np.exp(laRArr[i]), np.exp(lazArr[j])).sum()
-    pgrid = pgrid/(pgrid*(widths[0]/ncells)*(widths[1]/ncells)).sum()
+            beta[i,j] = B(aRArr[i], azArr[j]).sum()
+    
     # values are marginal posterior over logaR, logaz (value per log(aR),log(az))
-    print('Should be 1: ', pgrid.sum()*(widths[0]/ncells)*(widths[1]/ncells))
+    intp = pgrid.sum()*(widths[0]/ncells)*(widths[1]/ncells)
+    print('Should be 1: ', intp)
+    # pgrid = pgrid/intp
     
     peaklogNuSun = np.log(data[0]/beta)
     
     fig, ax = plt.subplots()
     image = ax.imshow(pgrid.T, origin='lower',
-              extent = (laRArr[0], laRArr[-1], lazArr[0], lazArr[-1]),
+              extent = (aRArr[0], aRArr[-1], azArr[0], azArr[-1]),
               aspect='auto')
-    ax.axvline(np.log(aR_forplot-sigmas[1]), color='C0', alpha=0.5)
-    ax.axvline(np.log(aR_forplot+sigmas[1]), color='C0', alpha=0.5)
-    ax.axhline(np.log(az_forplot-sigmas[2]), color='C0', alpha=0.5)
-    ax.axhline(np.log(az_forplot+sigmas[2]), color='C0', alpha=0.5)
+    ax.axvline(aR_forplot-sigmas[1], color='C0', alpha=0.5)
+    ax.axvline(aR_forplot+sigmas[1], color='C0', alpha=0.5)
+    ax.axhline(az_forplot-sigmas[2], color='C0', alpha=0.5)
+    ax.axhline(az_forplot+sigmas[2], color='C0', alpha=0.5)
     ax.set_title("posterior marginalised over logNuSun")
-    ax.set_xlabel('ln aR')
-    ax.set_ylabel('ln az')
+    ax.set_xlabel('aR')
+    ax.set_ylabel('az')
     fig.colorbar(image, ax=ax)
     fig.set_tight_layout(True)
     path = os.path.join(binPath, 'posterior.png')
@@ -180,11 +182,11 @@ def main():
     print("median - peak logNuSun = ", np.log(gammaincinv(data[0], 0.5)/data[0]))
     fig, ax = plt.subplots()
     image = ax.imshow(peaklogNuSun.T, origin='lower',
-              extent = (laRArr[0], laRArr[-1], lazArr[0], lazArr[-1]),
+              extent = (aRArr[0], aRArr[-1], azArr[0], azArr[-1]),
               aspect='auto')
     ax.set_title("value of logNuSun at posterior peak")
-    ax.set_xlabel('ln aR')
-    ax.set_ylabel('ln az')
+    ax.set_xlabel('aR')
+    ax.set_ylabel('az')
     fig.colorbar(image, ax=ax)
     fig.set_tight_layout(True)
     path = os.path.join(binPath, 'peaklogNuSun.png')

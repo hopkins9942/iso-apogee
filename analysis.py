@@ -87,7 +87,7 @@ def plot_scales_MgFeFeHvsFeH():
     lenFeH, lenMgFe = G_MgFeFeH.shape
     print(G_MgFeFeH.shape)
     
-    G_FeH = Galaxy.loadFromBins(['FeH',], [FeHEdges,])
+    G_FeH = Galaxy.loadFromBins(['FeH',], [FeHEdges,], noPyro=True)
     
     FeH_axis = G_MgFeFeH.labels.index('FeH')
     assert FeH_axis==0
@@ -153,8 +153,8 @@ def plot_scales_MgFeFeHvsFeH():
     fig, ax = plt.subplots()
     for i in range(lenFeH):
         if G_FeH.data[0][i]>=Nlim:
-            ax.scatter(G_FeH.midpoints[0][i], 1/G_FeH.aR[i], color='C0', alpha=0.5)
-            # ax.errorbar(G_FeH.midpoints[0][i], 1/G_FeH.aR[i], G_FeH.sig_aR[i]/G_FeH.aR[i]**2, color='C0', alpha=0.5)
+            # ax.scatter(G_FeH.midpoints[0][i], 1/G_FeH.aR[i], color='C0', alpha=0.5)
+            ax.errorbar(G_FeH.midpoints[0][i], 1/G_FeH.aR[i], G_FeH.sig_aR[i]/G_FeH.aR[i]**2, color='C0', alpha=0.5)
             for j in range(lenMgFe):
                 if G_MgFeFeH.data[0][i,j]>=Nlim:
                     # ax.scatter(G_FeH.midpoints[0][i], 1/G_MgFeFeH.aR[i,j], color='C1', alpha=0.5)
