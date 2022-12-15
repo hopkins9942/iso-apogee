@@ -27,7 +27,9 @@ print(sha)
     
 def main():
     # plotFeH()
-    plotMgFeFeH()
+    plotMgFeFeH(False)
+    plotMgFeFeH(True)
+    # plotEAGLE()
     # plotageFeH()
     # plot_scales_MgFeFeHvsFeH()
     # plot_data_MgFeFeHvsFeH()
@@ -50,7 +52,7 @@ def plot_data_MgFeFeHvsFeH():
     FeH_axis = G_MgFeFeH.labels.index('FeH')
     assert FeH_axis==0
     
-    Nlim = 3
+    Nlim = 5
     
     labels=['N','mean R', 'mean modz']
     for k in range(3):
@@ -97,7 +99,7 @@ def plot_scales_MgFeFeHvsFeH():
     print(G_FeH.midpoints[0])
     print(G_FeH.data[:,-5])
     
-    Nlim=1
+    Nlim=10
     
     
     # for i in range(lenFeH):
@@ -135,7 +137,7 @@ def plot_scales_MgFeFeHvsFeH():
     ax.set_yscale('log')
     ax.set_xlabel('[Fe/H]')
     ax.set_ylabel('Mass density at Sun per [Fe/H] per [Mg/Fe] /Msol pc^-3 dex^-2')
-    path = saveDir+'amp'
+    path = saveDir+'amp.pdf'
     fig.savefig(path, dpi=300)
             
     fig, ax = plt.subplots()
@@ -154,30 +156,32 @@ def plot_scales_MgFeFeHvsFeH():
     for i in range(lenFeH):
         if G_FeH.data[0][i]>=Nlim:
             # ax.scatter(G_FeH.midpoints[0][i], 1/G_FeH.aR[i], color='C0', alpha=0.5)
-            ax.errorbar(G_FeH.midpoints[0][i], 1/G_FeH.aR[i], G_FeH.sig_aR[i]/G_FeH.aR[i]**2, color='C0', alpha=0.5)
+            ax.errorbar(G_FeH.midpoints[0][i], 1/G_FeH.aR[i], G_FeH.sig_aR[i]/G_FeH.aR[i]**2, marker='o', color='C0', alpha=0.5)
             for j in range(lenMgFe):
                 if G_MgFeFeH.data[0][i,j]>=Nlim:
                     # ax.scatter(G_FeH.midpoints[0][i], 1/G_MgFeFeH.aR[i,j], color='C1', alpha=0.5)
-                    ax.errorbar(G_FeH.midpoints[0][i], 1/G_MgFeFeH.aR[i,j], G_MgFeFeH.sig_aR[i,j]/G_MgFeFeH.aR[i,j]**2, color='C1', alpha=0.5)
+                    ax.errorbar(G_FeH.midpoints[0][i], 1/G_MgFeFeH.aR[i,j], G_MgFeFeH.sig_aR[i,j]/G_MgFeFeH.aR[i,j]**2, marker='o', color='C1', alpha=0.5)
     # ylim = ax.get_ylim()
     # ax.fill_between(G_FeH.midpoints[0], ylim[0], ylim[0]+(ylim[1]-ylim[0])*G_FeH.data[0]/max(G_FeH.data[0]), alpha=0.2, color='C2')
-    # ax.set_yscale('log')
+    ax.set_yscale('log')
     ax.set_xlabel('[Fe/H]')
     ax.set_ylabel('scale length /kpc')
-    path = saveDir+'length'
+    path = saveDir+'length.pdf'
     fig.savefig(path, dpi=300)
         
     fig, ax = plt.subplots()
     for i in range(lenFeH):
         if G_FeH.data[0][i]>=Nlim:
-            ax.scatter(G_FeH.midpoints[0][i], 1/G_FeH.az[i], color='C0', alpha=0.5)
+            # ax.scatter(G_FeH.midpoints[0][i], 1/G_FeH.az[i], color='C0', alpha=0.5)
+            ax.errorbar(G_FeH.midpoints[0][i], 1/G_FeH.az[i], G_FeH.sig_az[i]/G_FeH.az[i]**2, marker='o', color='C0', alpha=0.5)
             for j in range(lenMgFe):
                 if G_MgFeFeH.data[0][i,j]>=Nlim:
-                    ax.scatter(G_FeH.midpoints[0][i], 1/G_MgFeFeH.az[i,j], color='C1', alpha=0.5)
-    # ax.set_yscale('log')
+                    # ax.scatter(G_FeH.midpoints[0][i], 1/G_MgFeFeH.az[i,j], color='C1', alpha=0.5)
+                    ax.errorbar(G_FeH.midpoints[0][i], 1/G_MgFeFeH.az[i,j], G_MgFeFeH.sig_az[i,j]/G_MgFeFeH.az[i,j]**2, marker='o', color='C1', alpha=0.5)
+    ax.set_yscale('log')
     ax.set_xlabel('[Fe/H]')
     ax.set_ylabel('scale height /kpc')
-    path = saveDir+'height'
+    path = saveDir+'height.pdf'
     fig.savefig(path, dpi=300)
 
     
@@ -191,10 +195,10 @@ def plotageFeH():
     
     G = Galaxy.loadFromBins(labels=['FeH', 'age'], edges=[FeHEdges, ageEdges])
     
-    Nlim = 100
+    Nlim = 50
     fig, axs = plt.subplots(ncols=5, figsize=[17, 4])
     titles = ['density at sun', 'integrated density', 'thick disk', 'aR', 'az']
-    for i, im in enumerate([G.hist(), G.integratedHist(), G.hist(R=4,z=1), np.where(G.N>=Nlim, G.aR, 0), np.where(G.N>=Nlim, G.az, 0)]):
+    for i, im in enumerate([G.hist(), G.integratedHist(), G.hist(R=4,z=1), np.where(G.data[0]>=Nlim, G.aR, 0), np.where(G.data[0]>=Nlim, G.az, 0)]):
         axs[i].imshow(im.T, vmin=0, origin='lower', aspect='auto', extent=(FeHEdges[0], FeHEdges[-1], ageEdges[0], ageEdges[-1]))
         axs[i].set_title(titles[i])
         axs[i].set_xlabel('[Fe/H]')
@@ -230,7 +234,7 @@ def plotFeH():
     dists[0].plotWith(dists[1])
     
     
-def plotMgFeFeH():
+def plotMgFeFeH(prop2Z=True):
     FeHEdges = myUtils._FeH_edges_for_MgFe
     MgFeEdges = myUtils._MgFe_edges
     # print(len(FeHEdges), len(MgFeEdges))
@@ -239,7 +243,7 @@ def plotMgFeFeH():
     G = Galaxy.loadFromBins(labels, edges, noPyro=True)
     # print(G.hist())
     
-    saveDir = f'/Users/hopkinsm/Documents/APOGEE/plots/{sha}/analysis_FeHMgFe_POLYDEG{POLYDEG}/'
+    saveDir = f'/Users/hopkinsm/Documents/APOGEE/plots/{sha}/analysis_FeHMgFe_POLYDEG{POLYDEG}_p2Z{prop2Z}/'
     os.makedirs(saveDir, exist_ok=True)
 
     
@@ -248,13 +252,13 @@ def plotMgFeFeH():
     for i, X in enumerate([G.hist(), G.integratedHist(), G.hist(R=4,z=1)]):
         image = axs[i].imshow(X.T, origin='lower', aspect='auto',
                               extent=(FeHEdges[0], FeHEdges[-1], MgFeEdges[0], MgFeEdges[-1]),
-                              cmap=cmap1)
+                              cmap=cmap1, norm=mpl.colors.LogNorm())
         axs[i].set_title(titles[i])
         axs[i].set_xlabel('[Fe/H]')
         axs[i].set_ylabel('[Mg/Fe]')
         fig.colorbar(image, ax=axs[i])
     fig.set_tight_layout(True)
-    path = saveDir+'densities'
+    path = saveDir+'densities.pdf'
     fig.savefig(path, dpi=300)
     
     
@@ -267,15 +271,15 @@ def plotMgFeFeH():
     ax.set_ylabel('[Mg/Fe]')
     fig.colorbar(image, ax=ax)
     fig.set_tight_layout(True)
-    path = saveDir+'N'
+    path = saveDir+'N.pdf'
     fig.savefig(path, dpi=300)
     
     # print(G.aR)
     # print(G.az)
-    print(np.where((G.aR==0.0)&(G.amp!=0), 1000*G.midpoints[0][:,np.newaxis]+G.midpoints[1], -1))
-    print(np.where((G.az==0.0)&(G.amp!=0), 1000*G.midpoints[0][:,np.newaxis]+G.midpoints[1], -1))
+    # print(np.where((G.aR==0.0)&(G.amp!=0), 1000*G.midpoints[0][:,np.newaxis]+G.midpoints[1], -1))
+    # print(np.where((G.az==0.0)&(G.amp!=0), 1000*G.midpoints[0][:,np.newaxis]+G.midpoints[1], -1))
     
-    Nlim = 10
+    Nlim = 100
     titles = ['scale length', 'scale height']
     fig, axs = plt.subplots(ncols=len(titles), figsize=[12, 4])
     for i, X in enumerate([np.where(G.data[0]>=Nlim, 1/G.aR, np.nan), np.where(G.data[0]>=Nlim, 1/G.az, np.nan)]):
@@ -287,17 +291,32 @@ def plotMgFeFeH():
         axs[i].set_ylabel('[Mg/Fe]')
         fig.colorbar(image, ax=axs[i])
     fig.set_tight_layout(True)
-    path = saveDir+'Bovy2012'
+    path = saveDir+'Bovy2012.pdf'
     fig.savefig(path, dpi=300)
     
-    dists = [G.FeH('local'), G.FeH('MW', integrated=True), G.FeH('R2', R=2, z=0)]
+    dists = [G.FeH('local', prop2Z=prop2Z),
+             G.FeH('MW', integrated=True, prop2Z=prop2Z),
+             G.FeH('R2', R=2, z=0, prop2Z=prop2Z)]
     
     
     for d in dists:
-        d.plot()
-    dists[0].plotWith(dists[1])
+        d.plot(saveDir)
+    dists[0].plotWith(dists[1], saveDir)
     
     
+    
+    EAGLE_data = np.loadtxt('/Users/hopkinsm/data/APOGEE/input_data/EAGLE_MW_L0025N0376_REFERENCE_ApogeeRun_30kpc_working.dat') 
+    # List of star particles
+    EAGLE_mass = EAGLE_data[:,9]
+    EAGLE_FeH = EAGLE_data[:,14]
+    EAGLEedges = myUtils.arr((-2.975, 1.025, 0.1))
+    EAGLEwidths = EAGLEedges[1:] - EAGLEedges[:-1]
+    FeHhist_EAGLE = np.histogram(EAGLE_FeH, bins=EAGLEedges, weights=EAGLE_mass/EAGLEwidths[0])[0]
+    print(FeHhist_EAGLE)
+    
+    EAGLEdist = Distributions(FeHhist_EAGLE, EAGLEedges, 'EAGLE', G.binType, perVolume=False, prop2Z=prop2Z)
+    
+    G.FeH('MW', integrated=True, prop2Z=prop2Z).plotWith(EAGLEdist, saveDir)
     
     
 
@@ -380,7 +399,8 @@ class Galaxy:
     
     def integratedHist(self, Rlim=None, zlim=None, normalised=False):
         """integrates R=0 to R and z=-z to z, with default of whole galaxy"""
-        hist = np.where(self.amp!=0, 4*np.pi*self.amp*np.exp(self.aR*myUtils.R_Sun)/(self.aR**2 * self.az), 0)
+        hist = np.where((self.aR>0)&(self.az>0), 4*np.pi*self.amp*np.exp(self.aR*myUtils.R_Sun)/(self.aR**2 * self.az), 0)
+        # volume technically infinite for negative a, this only occurs when negligible stars in bin
         if Rlim!=None:
             hist *= (1 - (1+self.aR*Rlim)*np.exp(-self.aR*Rlim))
         if zlim!=None:
@@ -391,7 +411,7 @@ class Galaxy:
         else:
             return hist/sum(self.vols*self.integratedHist())
         
-    def FeH(self, name, R=myUtils.R_Sun, z=myUtils.z_Sun, integrated=False, Rlim=None, zlim=None, normalised=False):
+    def FeH(self, name, R=myUtils.R_Sun, z=myUtils.z_Sun, integrated=False, Rlim=None, zlim=None, normalised=False, prop2Z=True):
         FeHaxis = self.labels.index('FeH')
         FeHwidths = self.widths[FeHaxis]
         FeHedges = self.edges[FeHaxis]
@@ -409,7 +429,7 @@ class Galaxy:
         axes = tuple(axes)
         FeHhist = (hist * self.vols).sum(axis=axes)/FeHwidths
         print(FeHhist)
-        return Distributions(FeHhist, FeHedges, name, self.binType, perVolume, normalised)
+        return Distributions(FeHhist, FeHedges, name, self.binType, perVolume, normalised, prop2Z)
 
 
 
@@ -420,7 +440,7 @@ class Distributions:
     
     alpha = 1
     
-    def __init__(self, FeHhist, FeHedges, name, binType, perVolume, normalised=False):
+    def __init__(self, FeHhist, FeHedges, name, binType, perVolume, normalised=False, prop2Z=True):
         self.FeHedges = FeHedges
         self.FeHwidths = self.FeHedges[1:] - self.FeHedges[:-1]
         self.FeHmidpoints = (self.FeHedges[1:] + self.FeHedges[:-1])/2
@@ -431,6 +451,7 @@ class Distributions:
             self.FeHhist = FeHhist
         else:
             self.FeHhist = FeHhist/np.sum(self.FeHwidths*FeHhist)
+        self.prop2Z = prop2Z
         
         y = np.append(0, np.cumsum(self.FeHwidths*self.FeHhist))
         dist = scipy.interpolate.CubicSpline(self.FeHedges, y, bc_type='clamped', extrapolate=True).derivative()
@@ -439,7 +460,10 @@ class Distributions:
         self.FeHdist = FeHdistFunc
         
         def ISOsPerFeH(FeH):
-            return self.alpha*(10**FeH)*self.FeHdist(FeH)
+            if prop2Z:
+                return self.alpha*(10**FeH)*self.FeHdist(FeH)
+            else:
+                return self.alpha*self.FeHdist(FeH) #check this
         
         lowerCount = scipy.integrate.quad(ISOsPerFeH, FeHhigh, 3, limit=200)[0]
         middleCount = scipy.integrate.quad(ISOsPerFeH, FeHlow, FeHhigh, limit=200)[0]
@@ -454,10 +478,10 @@ class Distributions:
         
     def butNormalised(self):
         """returns a seperate Distributions with normalised=True"""
-        return self.__class__(self.FeHhist, self.FeHedges, self.name, self. binType, self.perVolume, normalised=True)
+        return self.__class__(self.FeHhist, self.FeHedges, self.name, self. binType, self.perVolume, normalised=True, prop2Z=self.prop2Z)
         
-    def plot(self):
-        saveDir = f'/Users/hopkinsm/Documents/APOGEE/plots/{sha}/analysis_{self.binType}_POLYDEG{POLYDEG}/'
+    def plot(self, path):
+        saveDir = path #f'/Users/hopkinsm/Documents/APOGEE/plots/{sha}/analysis_{self.binType}_POLYDEG{POLYDEG}/'
         os.makedirs(saveDir, exist_ok=True)
         
         
@@ -499,18 +523,18 @@ class Distributions:
         
         fig.suptitle(self.name)
         fig.set_tight_layout(True)
-        path = os.path.join(saveDir, self.name)
+        path = os.path.join(saveDir, self.name + '.pdf')
         fig.savefig(path, dpi=300)    
         
         
 
-    def plotWith(self, dists2):
+    def plotWith(self, dists2, path):
         assert self.binType==dists2.binType
         
         dists1 = self.butNormalised()
         dists2 = dists2.butNormalised()
         
-        saveDir = f'/Users/hopkinsm/Documents/APOGEE/plots/{sha}/analysis_{self.binType}_POLYDEG{POLYDEG}/'
+        saveDir = path #f'/Users/hopkinsm/Documents/APOGEE/plots/{sha}/analysis_{self.binType}_POLYDEG{POLYDEG}/'
         os.makedirs(saveDir, exist_ok=True)
         
         FeHunit=''
@@ -544,7 +568,7 @@ class Distributions:
                   dists2.counts, alpha=0.5, label=dists2.name)
         axs[2].legend()
         
-        figname = f'{self.name} vs {dists2.name}'
+        figname = f'{self.name} vs {dists2.name}.pdf'
         fig.suptitle(figname)
         fig.set_tight_layout(True)
         path = os.path.join(saveDir, figname)
