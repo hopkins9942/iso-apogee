@@ -7,8 +7,10 @@ import astropy.units as u
 # paths - edit to match machines used
 # Assumes makeBins.py, calcEffSelFunct.py and doFit.py are run on a cluster,
 # data directory is scp-ed to local machine then analysis.py is run there
-clusterDataDir = '/data/phys-galactic-isos/sjoh4701/APOGEE/' # used by makeBins.py, calcEffSelFunct.py and doFit.py
-localDataDir = '/Users/hopkinsm/data/APOGEE/' # used by analysis.py and 
+# clusterDataDir = '/data/phys-galactic-isos/sjoh4701/APOGEE/' # used by makeBins.py, calcEffSelFunct.py and doFit.py
+# localDataDir = '/Users/hopkinsm/data/APOGEE/' # used by analysis.py and 
+
+dataDir = '/Users/hopkinsm/data/APOGEE/' # '/data/phys-galactic-isos/sjoh4701/APOGEE/'
 
 GC_frame = coord.Galactocentric() #adjust parameters here if needed
 z_Sun = GC_frame.z_sun.to(u.kpc).value # .value removes unit, which causes problems with pytorch

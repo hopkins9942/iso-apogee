@@ -2,37 +2,33 @@ import os
 import pickle
 
 import numpy as np
-import apogee.select as apsel
-import apogee.tools.read as apread
 
-from myUtils import clusterDataDir, localDataDir
+from myUtils import dataDir
 #sticking with .pth file method as allows files to be reached interactively and relative imports only work in subpackages
 
 # each funct either loads file or calculates and saves it if it is not created already. onCluster affects only where files are looked for, I don't expect to use this
 
-if __name__ == '__main__':
-    # call module as script to ensure all pickles are created
-    get_apo()
-    get_allStar()
-    get_allStar_statIndx()
 
 
-def get_apo(onCluster=True):
+def get_apo():
     """
     """
-    dataDir = clusterDataDir if onCluster else localDataDir
     path = os.path.join(dataDir, 'input_data', 'apodr16_csf.dat')
-    if os.path.exists(path):
-        with open(path, 'rb') as f:
-            apo = pickle.load(f)
-    else:
-        apo = apsel.apogeeCombinedSelect()
-        with open(path, 'wb') as f:
-            pickle.dump(apo, f)
-    # maybe add del line here or later if I have memory problems
+    with open(path, 'rb') as f:
+        apo = pickle.load(f)
     return apo
 
-def get_allStar(onCluster=True):
+def get_apo_lite():
+    """
+    """
+    path = os.path.join(dataDir, 'input_data', 'apodr16_csf_lite.dat')
+    with open(path, 'rb') as f:
+        apo_lite = pickle.load(f)
+    return apo_lite
+
+
+
+def get_allStar():
     """
     uses a pickle with options:
         rmcommissioning=True,
@@ -43,41 +39,22 @@ def get_allStar(onCluster=True):
         use_astroNN_ages=True,
         rmdups=True
     """
-    dataDir = clusterDataDir if onCluster else localDataDir
     path = os.path.join(dataDir, 'input_data', 'dr16allStar.dat')
-    if os.path.exists(path):
-        with open(path, 'rb') as f:
-            allStar = pickle.load(f)
-    else:
-        print('WARNING: calculating allStar')
-        allStar = apread.allStar(
-            rmcommissioning=True,
-            main=True,
-            exclude_star_bad=True,
-            exclude_star_warn=True,
-            use_astroNN_distances=True,
-            use_astroNN_ages=True,
-            rmdups=True)
-        with open(path, 'wb') as f:
-            pickle.dump(allStar, f)
+    with open(path, 'rb') as f:
+        allStar = pickle.load(f)
     assert len(allStar) == 211051
     return allStar
 
-def get_allStar_statIndx(onCluster=True):
+def get_allStar_statIndx():
     """
     returns both as whenever statIndx is needed, allStar is too
     """
     allStar = get_allStar()
-    dataDir = clusterDataDir if onCluster else localDataDir
     statIndxPath = os.path.join(dataDir, 'input_data', 'dr16statIndx.dat')
-    if os.path.exists(statIndxPath):
-        with open(statIndxPath, 'rb') as f:
-            statIndx = pickle.load(f)
-    else:
-        print('WARNING: calculating statIndx')
-        apo = get_apo()
-        statIndx = apo.determine_statistical(allStar)
-        with open(path, 'wb') as f:
-            pickle.dump(statIndx, f)
+    with open(statIndxPath, 'rb') as f:
+        statIndx = pickle.load(f)
     assert np.count_nonzero(statIndx)==165768
     return (allStar, statIndx)
+
+    
+    
