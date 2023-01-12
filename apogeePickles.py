@@ -187,17 +187,24 @@ def make_all():
     """
     Makes all pickles
     """
+    print("making apo")
     make_apo()
+    print("making apo_lite")
     make_apo_lite()
+    print("making locations_solidAngles")
     make_locations_solidAngles()
+    print("making allStar")
     make_allStar()
+    print("making statIndx")
     make_statIndx()
+    print("making statSample")
     make_statSample()
+    print("done!")
     
     
 
 if __name__ == '__main__':
-    pass
+    make_all()
 
 
 
