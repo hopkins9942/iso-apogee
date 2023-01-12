@@ -2,6 +2,7 @@ import os
 import pickle
 import numpy as np
 
+from putStuffHere import dataDir
 
 def get_locations():
     path = os.path.join(dataDir, 'input_data', 'locations.dat')

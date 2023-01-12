@@ -204,7 +204,10 @@ def make_all():
     
 
 if __name__ == '__main__':
-    make_all()
+    print('\nindx\n')
+    make_statIndx()
+    print('\nsample\n')
+    make_statSample()
 
 
 
