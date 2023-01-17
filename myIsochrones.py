@@ -18,7 +18,7 @@ def Kroupa(M):
     additional factor to match int_IMF, doesn't affect results
     """
     weights = 0.84*np.where(M>=0.5, (M/0.5)**-2.3, (M/0.5)**-1.3)
-    return weights*1.24
+    return weights*1.235
 
 
 def Chab(M):
@@ -44,7 +44,7 @@ def calcWeights(isogrid, returnIso=False):
     MH_logAge_vals, indices  = extractIsochrones(isogrid)
     diff = np.zeros(len(isogrid))
     diff[1:] = isogrid['int_IMF'][1:]-isogrid['int_IMF'][:-1]
-    diff[indices] = isogrid['int_IMF'][indices]
+    diff[indices] = 0#isogrid['int_IMF'][indices] - np.array([integrate.quad(Kroupa, 0.0315, m)[0] for m in isogrid['Mini'][indices]])
     if returnIso:
         return diff, MH_logAge_vals, indices
     else:
@@ -103,7 +103,7 @@ def test():
     
     saveDir = os.path.join(dataDir,'outputs','myIsochrones')
     
-    for i in np.random.randint(0, len(indx), 3): #100 random isochrones
+    for i in np.random.randint(0, len(indx), 10): #pick random isochrones
         MH, logAge = MH_logAge[i]
         if i<len(indx)-1:
             isoMask = np.arange(indx[i], indx[i+1])
@@ -126,23 +126,31 @@ def test():
         bins = np.logspace(np.log10(iso['Mini'].min()/1.001), np.log10(iso['Mini'].max()*1.001), 10)
         binWidths = bins[1:]-bins[:-1]
         
-        # fig, ax = plt.subplots()
-        # ax.hist(iso['Mini'], weights=weights[isoMask]/(binWidths[np.digitize(iso['Mini'], bins)-1]), bins=bins)
-        # ax.plot(iso['Mini'], Kroupa(iso['Mini']))
+        fracerror = (np.histogram(iso['Mini'], bins)[0])**-0.5
+        hist = np.histogram(iso['Mini'], bins, weights = weights[isoMask]/(binWidths[np.digitize(iso['Mini'],bins)-1]))[0]
+        
+        fig, ax = plt.subplots()
+        ax.hist(iso['Mini'], weights=weights[isoMask]/(binWidths[np.digitize(iso['Mini'],bins)-1]),
+        bins=bins)
+        ax.plot(iso['Mini'], Kroupa(iso['Mini']))
+        ax.plot(iso['Mini'], np.zeros_like(iso['Mini']),  '.')
         # ax.set_yscale('log')
-        # ax.set_xscale('log')
-        # ax.set_ylabel('IMF')
-        # ax.set_xlabel('Mini')
-        # ax.set_title(f'MH={MH}, logAge={logAge}')
-        # # path = os.path.join(saveDir,f'IMF_{MH}_{logAge}.png')
-        # # fig.savefig(path, dpi=200)
+        ax.set_xscale('log')
+        ax.set_ylabel('IMF')
+        ax.set_xlabel('Mini')
+        ax.set_title(f'MH={MH}, logAge={logAge}')
+        # Note: first bar here almost always underestimates as is sum only of weights of points in bin
+        # Meaning vlaue of bin is achieved by integrating Kroupa part-way across, then dividing by full width of bin
+        # graph below shows it works
+        # path = os.path.join(saveDir,f'IMF_{MH}_{logAge}.png')
+        # fig.savefig(path, dpi=200)
         
         # Better way
         fig, ax = plt.subplots()
         ax.plot(iso['Mini'], np.cumsum(weights[isoMask]))
-        ax.plot(iso['Mini'], [integrate.quad(Kroupa, 0.0315, m)[0] for m in iso['Mini']])
-        ax.plot(iso['Mini'], iso['int_IMF'], alpha=0.5)
-        ax.set_yscale('log')
+        ax.plot(iso['Mini'], [integrate.quad(Kroupa, iso['Mini'].min(), m)[0] for m in iso['Mini']])
+        ax.plot(iso['Mini'], iso['int_IMF']-iso['int_IMF'][0], alpha=0.5)
+        # ax.set_yscale('log')
         ax.set_xscale('log')
         ax.set_ylabel('int_IMF')
         ax.set_xlabel('Mini')
@@ -152,6 +160,7 @@ def test():
     
     
 if __name__=='__main__':
+    test()
     pass
     
     
