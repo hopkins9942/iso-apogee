@@ -1,3 +1,8 @@
+import os
+import pickle
+import numpy as np
+
+from putStuffHere import dataDir
 
 def get_locations():
     path = os.path.join(dataDir, 'input_data', 'locations.dat')
@@ -51,7 +56,7 @@ def get_statSample():
      'J', 'J_ERR', 'H', 'H_ERR', 'K', 'K_ERR',
      'GLON', 'GLAT',
      'TEFF', 'TEFF_ERR', 'LOGG', 'LOGG_ERR',
-     'M_H', 'M_H_ERR', 'ALPHA_M', 'ALPHA_M_ERR'
+     'M_H', 'M_H_ERR', 'ALPHA_M', 'ALPHA_M_ERR',
      'O_FE', 'MG_FE', 'SI_FE', 'S_FE', 'CA_FE', 'FE_H', 
      'O_FE_ERR', 'MG_FE_ERR', 'SI_FE_ERR', 'S_FE_ERR', 'CA_FE_ERR', 'FE_H_ERR',
      'weighted_dist', 'weighted_dist_error',
@@ -64,3 +69,10 @@ def get_statSample():
     assert len(statSample)==165768
     assert len(statSample.dtype)==38
     return statSample
+
+if __name__=='__main__':
+    get_locations()
+    get_solidAngles()
+    get_allStar()
+    get_statIndx()
+    get_statSample()
