@@ -39,7 +39,6 @@ def get_apo():
 def make_apo():
     """
     """
-    print("Making apo")
     path = os.path.join(dataDir, 'input_data', 'apodr16_csf.dat')
     apo = apsel.apogeeCombinedSelect()
     with open(path, 'wb') as f:
@@ -56,7 +55,7 @@ def get_apo_lite():
     return apo_lite
 
 
-def make_apo_lite(remake = True, recursive=False):
+def make_apo_lite():
     """
     """
     path = os.path.join(dataDir, 'input_data', 'apodr16_csf_lite.dat')
