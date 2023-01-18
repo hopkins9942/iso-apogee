@@ -6,8 +6,8 @@ import astropy.coordinates as coord
 import astropy.units as u
 
 
-dataDir = '/Users/hopkinsm/data/APOGEE/'
-
+#dataDir = '/Users/hopkinsm/data/APOGEE/'
+dataDir = '/data/phys-galactic-isos/sjoh4701/APOGEE/'
 
 GC_frame = coord.Galactocentric() #adjust parameters here if needed
 z_Sun = GC_frame.z_sun.to(u.kpc).value # .value removes unit, which causes problems with pytorch
