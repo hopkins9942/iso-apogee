@@ -1,4 +1,6 @@
+import os
 from math import isclose
+
 import numpy as np
 import astropy.coordinates as coord
 import astropy.units as u
@@ -12,7 +14,7 @@ z_Sun = GC_frame.z_sun.to(u.kpc).value # .value removes unit, which causes probl
 R_Sun = np.sqrt(GC_frame.galcen_distance.to(u.kpc).value**2 - z_Sun**2)
 
 
-muMin = 4.0
+muMin = 7.0 # only one RG below 7.0
 muMax = 17.0
 muStep = 0.1
 muGridParams = (muMin, muMax, muStep)
@@ -30,15 +32,32 @@ def binName(binDict):
     #Note: python list comprehensions are cool
     
     
-binsChoice = 0
-# use this in other script to extract default bins
-#Leaves option to access other sets of bins if wanted
-# eg:
-# FeHEdges, MgFeEdges, dicts = binsPossibilities[binsChoice]
-binsPossibilities = [
-    arr((-1.975, 0.725, 0.1))
-    
-    ]
+
+# actual
+# FeHEdges = arr((-2.0, 0.7, 0.1))
+# aFeEdges = arr((-0.2, 0.5, 0.1))
+
+#for testing
+FeHEdges = arr((-1.0, 0.0, 0.1)) 
+aFeEdges = arr((-0.2,0.5, 0.35)) 
 
 
-#Reminder: kroupa isochrones are at MH = -1.975, -1.925, -1.875, ..., 0.625
+binList = [
+    {
+    'FeH': (FeHEdges[i], FeHEdges[i+1]),
+    'aFe': (aFeEdges[j], aFeEdges[j+1])
+    } for i in range(len(FeHEdges)-1) for j in range(len(aFeEdges)-1)]
+#this is not general, but I'm only doing one thing
+
+
+#Reminder: kroupa isochrones are at MH = -1.975, -1.925, -1.875, ..., 0.675
+
+
+if __name__=='__main__':
+    for binDict in binList:
+        # creates bin directory
+        name = binName(binDict)
+        print(name)
+        path = os.path.join(dataDir, 'bins', name)
+        if not os.path.exists(path):
+            os.makedirs(path)

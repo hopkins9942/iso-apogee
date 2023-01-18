@@ -69,6 +69,9 @@ def loadGrid():
     return ascii.read(path, guess=True)
 
 
+def makeRGmask(isogrid):
+    return ((1<=isogrid['logg']) & (isogrid['logg']<3) & (isogrid['Jmag']-isogrid['Ksmag']>0.3))
+
 
 def NRG2SMM(isogrid):
     """
@@ -77,7 +80,7 @@ def NRG2SMM(isogrid):
     they are whole and ordered correctly
     """
     weights = calcWeights(isogrid)
-    RGmask = ((1<=isogrid['logg']) & (isogrid['logg']<3) & (isogrid['Jmag']-isogrid['Ksmag']>0.3))
+    RGmask = makeRGmask(isogrid)
     weightinRG = weights[RGmask].sum()
     
     return meanMini*weightPerIsochrone/weightinRG
