@@ -8,7 +8,7 @@ import astropy.units as u
 import apogee.select as apsel
 import apogee.tools.read as apread
 
-from putStuffHere import dataDir
+from mySet import dataDir
 from pickleGetters import get_allStar, get_statIndx
 
 # This file is for pickling the objects and data which require apogee.

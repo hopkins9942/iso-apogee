@@ -11,14 +11,25 @@ from mySetup import dataDir
 import matplotlib.pyplot as plt
 
 
+minMini = 0.09
+maxMini = 5.3535 
+# taken from Kroupa isogrid
+
 def Kroupa(M):
     """
     Returns relative Kroupa number IMF at mass M
     0.84 calculated numerically to have integrated mass = 1 Sun
-    additional factor to match int_IMF, doesn't affect results
+    additional factor to match int_IMF, doesn't affect results.
+    
     """
     weights = 0.84*np.where(M>=0.5, (M/0.5)**-2.3, (M/0.5)**-1.3)
-    return weights*1.235
+    return weights*1.23
+
+minMini = 0.09
+maxMini = 5.3535 
+# taken from Kroupa isogrid, used for integrals
+weightPerIsochrone = integrate.quad(Kroupa, minMini, maxMini)[0]
+meanMini = integrate.quad(lambda m:m*Kroupa(m), minMini, maxMini)[0]/weightPerIsochrone
 
 
 def Chab(M):
@@ -37,13 +48,13 @@ def extractIsochrones(isogrid):
 def calcWeights(isogrid):
     """
     Weight of each point is proportional to number of stars on isochrone
-    between previous mass point and this one. for first mass point, just equal to int_IMF
-    despite fact that Kroupa IMF is not integrable to 0
+    between previous mass point and this one. for first mass point, equal to Kroupa
+    integrated from lowest Mini in isogrid
     """
     MH_logAge_vals, indices  = extractIsochrones(isogrid)
     diff = np.zeros(len(isogrid))
     diff[1:] = isogrid['int_IMF'][1:]-isogrid['int_IMF'][:-1]
-    diff[indices] = 0#isogrid['int_IMF'][indices] - np.array([integrate.quad(Kroupa, 0.0315, m)[0] for m in isogrid['Mini'][indices]])
+    diff[indices] = np.array([integrate.quad(Kroupa, minMini, m)[0] for m in isogrid['Mini'][indices]])
     return diff
 
 
@@ -67,10 +78,9 @@ def NRG2SMM(isogrid):
     """
     weights = calcWeights(isogrid)
     RGmask = ((1<=isogrid['logg']) & (isogrid['logg']<3) & (isogrid['Jmag']-isogrid['Ksmag']>0.3))
+    weightinRG = weights[RGmask].sum()
     
-    numberRatio = weights.sum()/weights[RGmask].sum()
-    meanMini = np.average(isogrid['Mini'], weights=weights)
-    return meanMini*numberRatio
+    return meanMini*weightPerIsochrone/weightinRG
     
 
 def test():
@@ -113,13 +123,15 @@ def test():
     
     saveDir = os.path.join(dataDir,'outputs','myIsochrones')
     
-    for i in np.random.randint(0, len(indx), 1): #pick random isochrones
+    for i in np.random.randint(0, len(indx), 10): #pick random isochrones
         MH, logAge = MH_logAge[i]
         if i<len(indx)-1:
             isoMask = np.arange(indx[i], indx[i+1])
         else:
             isoMask = np.arange(indx[i],len(isogrid))
         iso = isogrid[isoMask]
+        
+        print(f'NRG2SMM: {NRG2SMM(iso)}, age={10**(MH_logAge[i,1]-9)}')
         
         # plot Isochrone
         fig, ax = plt.subplots()
@@ -136,8 +148,8 @@ def test():
         bins = np.logspace(np.log10(iso['Mini'].min()/1.001), np.log10(iso['Mini'].max()*1.001), 10)
         binWidths = bins[1:]-bins[:-1]
         
-        fracerror = (np.histogram(iso['Mini'], bins)[0])**-0.5
-        hist = np.histogram(iso['Mini'], bins, weights = weights[isoMask]/(binWidths[np.digitize(iso['Mini'],bins)-1]))[0]
+        # fracerror = (np.histogram(iso['Mini'], bins)[0])**-0.5
+        # hist = np.histogram(iso['Mini'], bins, weights = weights[isoMask]/(binWidths[np.digitize(iso['Mini'],bins)-1]))[0]
         
         fig, ax = plt.subplots()
         ax.hist(iso['Mini'], weights=weights[isoMask]/(binWidths[np.digitize(iso['Mini'],bins)-1]),
@@ -158,10 +170,9 @@ def test():
         # Better way
         fig, ax = plt.subplots()
         ax.plot(iso['Mini'], np.cumsum(weights[isoMask]))
-        ax.plot(iso['Mini'], [integrate.quad(Kroupa, iso['Mini'].min(), m)[0] for m in iso['Mini']])
-        ax.plot(iso['Mini'], iso['int_IMF']-iso['int_IMF'][0], alpha=0.5)
+        ax.plot(iso['Mini'], [integrate.quad(Kroupa, minMini, m)[0] for m in iso['Mini']], alpha=0.5)
         # ax.set_yscale('log')
-        ax.set_xscale('log')
+        # ax.set_xscale('log')
         ax.set_ylabel('int_IMF')
         ax.set_xlabel('Mini')
         ax.set_title(f'MH={MH}, logAge={logAge}')
@@ -181,6 +192,7 @@ def test():
     # as every field has either (J-Ks)0>0.3 or 0.5
     # NB: upper segment of this distribution is entirely youngest population of stars (therefore most massive) 
     # This may make ESFs quite age dependent - something I should test
+    
     
         
     
