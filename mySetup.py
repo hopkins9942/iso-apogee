@@ -51,7 +51,7 @@ binList = [
 
 
 #Reminder: kroupa isochrones are at MH = -1.975, -1.925, -1.875, ..., 0.675
-
+# and logAge = 
 
 if __name__=='__main__':
     for binDict in binList:
