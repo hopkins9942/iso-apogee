@@ -30,9 +30,9 @@ def main():
         isoIndices = np.arange(indices[jobIndex], indices[jobIndex+1]) 
     else:
         isoIndices = np.arange(indices[jobIndex], len(isogrid))
-    isochroneMask = np.zeros(len(isogrid))
+    isochroneMask = np.zeros(len(isogrid), dtype=bool)
     isochroneMask[isoIndices] = True
-        
+    
         
         
     RGmask = myIsochrones.makeRGmask(isogrid)
