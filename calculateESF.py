@@ -25,10 +25,15 @@ def main():
     
     MH_logAge, indices = myIsochrones.extractIsochrones(isogrid)
     MH, logAge = MH_logAge[jobIndex]
+    
     if jobIndex<len(indices):
-        isochroneMask = np.arange(indices[jobIndex], indices[jobIndex+1]) 
+        isoIndices = np.arange(indices[jobIndex], indices[jobIndex+1]) 
     else:
-        isochroneMask = np.arange(indices[jobIndex], len(isogrid))
+        isoIndices = np.arange(indices[jobIndex], len(isogrid))
+    isochroneMask = np.zeros(len(isogrid))
+    isochroneMask[isoIndices] = True
+        
+        
         
     RGmask = myIsochrones.makeRGmask(isogrid)
     

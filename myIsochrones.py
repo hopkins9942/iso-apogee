@@ -129,10 +129,10 @@ def test():
     for i in np.random.randint(0, len(indx), 10): #pick random isochrones
         MH, logAge = MH_logAge[i]
         if i<len(indx)-1:
-            isoMask = np.arange(indx[i], indx[i+1])
+            isoIndices = np.arange(indx[i], indx[i+1])
         else:
-            isoMask = np.arange(indx[i],len(isogrid))
-        iso = isogrid[isoMask]
+            isoIndices = np.arange(indx[i],len(isogrid))
+        iso = isogrid[isoIndices]
         
         print(f'NRG2SMM: {NRG2SMM(iso)}, age={10**(MH_logAge[i,1]-9)}')
         
@@ -152,10 +152,10 @@ def test():
         binWidths = bins[1:]-bins[:-1]
         
         # fracerror = (np.histogram(iso['Mini'], bins)[0])**-0.5
-        # hist = np.histogram(iso['Mini'], bins, weights = weights[isoMask]/(binWidths[np.digitize(iso['Mini'],bins)-1]))[0]
+        # hist = np.histogram(iso['Mini'], bins, weights = weights[isoIndices]/(binWidths[np.digitize(iso['Mini'],bins)-1]))[0]
         
         fig, ax = plt.subplots()
-        ax.hist(iso['Mini'], weights=weights[isoMask]/(binWidths[np.digitize(iso['Mini'],bins)-1]),
+        ax.hist(iso['Mini'], weights=weights[isoIndices]/(binWidths[np.digitize(iso['Mini'],bins)-1]),
         bins=bins)
         ax.plot(iso['Mini'], Kroupa(iso['Mini']))
         ax.plot(iso['Mini'], np.zeros_like(iso['Mini']),  '.')
@@ -172,7 +172,7 @@ def test():
         
         # Better way
         fig, ax = plt.subplots()
-        ax.plot(iso['Mini'], np.cumsum(weights[isoMask]))
+        ax.plot(iso['Mini'], np.cumsum(weights[isoIndices]))
         ax.plot(iso['Mini'], [integrate.quad(Kroupa, minMini, m)[0] for m in iso['Mini']], alpha=0.5)
         # ax.set_yscale('log')
         # ax.set_xscale('log')
