@@ -5,7 +5,7 @@ from scipy import integrate
 # from scipy.interpolate import interp1d
 from astropy.io import ascii
 
-from putStuffHere import dataDir
+from mySetup import dataDir
 
 #just for testing
 import matplotlib.pyplot as plt
@@ -26,6 +26,7 @@ def Chab(M):
     # 
     return 0.95*weight/0.0628 # integrated seperately, gives total mass =1 sun
 
+
 def extractIsochrones(isogrid):
     """finds values of MH and age at which isochrones calculated,
     and frst index of each"""
@@ -33,9 +34,7 @@ def extractIsochrones(isogrid):
     return np.unique(MH_logAge, return_index=True, axis=0)
     
     
-    
-    
-def calcWeights(isogrid, returnIso=False):
+def calcWeights(isogrid):
     """
     Weight of each point is proportional to number of stars on isochrone
     between previous mass point and this one. for first mass point, just equal to int_IMF
@@ -45,10 +44,7 @@ def calcWeights(isogrid, returnIso=False):
     diff = np.zeros(len(isogrid))
     diff[1:] = isogrid['int_IMF'][1:]-isogrid['int_IMF'][:-1]
     diff[indices] = 0#isogrid['int_IMF'][indices] - np.array([integrate.quad(Kroupa, 0.0315, m)[0] for m in isogrid['Mini'][indices]])
-    if returnIso:
-        return diff, MH_logAge_vals, indices
-    else:
-        return diff
+    return diff
 
 
 def loadOldGrid():
@@ -61,7 +57,20 @@ def loadGrid():
     path = os.path.join(dataDir, 'input_data', 'PARSEC_Kroupa_isochrones.dat')
     return ascii.read(path, guess=True)
 
-# def converseion?
+
+
+def NRG2SMM(isogrid):
+    """
+    Returns ratio between the  sine morte mass and red giant number in isogrid
+    isogrid can be swapped for a single or multiple whole isochrones, as long as
+    they are whole and ordered correctly
+    """
+    weights = calcWeights(isogrid)
+    RGmask = ((1<=isogrid['logg']) & (isogrid['logg']<3) & (isogrid['Jmag']-isogrid['Ksmag']>0.3))
+    
+    numberRatio = weights.sum()/weights[RGmask].sum()
+    meanMini = np.average(isogrid['Mini'], weights=weights)
+    return meanMini*numberRatio
     
 
 def test():
@@ -97,13 +106,14 @@ def test():
     ax.set_title('Showing new scheme matches old')
     
     
-    # Full test:
+    # individiual isochrones:
     isogrid = loadGrid()
-    weights, MH_logAge, indx = calcWeights(isogrid, returnIso=True)
+    MH_logAge, indx = extractIsochrones(isogrid)
+    weights = calcWeights(isogrid)
     
     saveDir = os.path.join(dataDir,'outputs','myIsochrones')
     
-    for i in np.random.randint(0, len(indx), 10): #pick random isochrones
+    for i in np.random.randint(0, len(indx), 1): #pick random isochrones
         MH, logAge = MH_logAge[i]
         if i<len(indx)-1:
             isoMask = np.arange(indx[i], indx[i+1])
@@ -158,6 +168,21 @@ def test():
         # path = os.path.join(saveDir,f'cumIMF_{MH}_{logAge}.png')
         # fig.savefig(path, dpi=200)
     
+    
+    # Test Red giantsample looks right:
+    RGmask = ((1<=isogrid['logg']) & (isogrid['logg']<3) & (isogrid['Jmag']-isogrid['Ksmag']>0.3))
+    fig, ax = plt.subplots()
+    ax.scatter(isogrid[RGmask]['Jmag']-isogrid[RGmask]['Ksmag'], isogrid[RGmask]['Hmag'], s=0.1)
+    ax.set_ylabel('H')
+    ax.invert_yaxis()
+    ax.set_xlabel('J-Ks')
+    ax.set_title('Red giants')
+    #NB: colour cut in mask cuts white dwarfs and any stars which would not be in any apogee fields
+    # as every field has either (J-Ks)0>0.3 or 0.5
+    # NB: upper segment of this distribution is entirely youngest population of stars (therefore most massive) 
+    # This may make ESFs quite age dependent - something I should test
+    
+        
     
 if __name__=='__main__':
     test()
