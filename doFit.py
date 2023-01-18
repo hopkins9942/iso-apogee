@@ -11,22 +11,18 @@ import scipy.optimize
 from scipy.special import gammaincinv
 
 
-import myUtils
-import pickleGetters
+import mySetup
+# import pickleGetters
 
 
 def main():
     print(f"Starting! {datetime.datetime.now()}")
     
-    apo = pickleGetters.get_apo()
-
     binNum = int(sys.argv[1])
-
-    binList = myUtils.binsToUse
-
+    binList = mySetup.binsToUse
     binDict = binList[binNum]
     
-    binPath = os.path.join(myUtils.clusterDataDir, 'bins', myUtils.binName(binDict))
+    binPath = os.path.join(mySetup.dataDir, 'bins', mySetup.binName(binDict))
     
     with open(os.path.join(binPath, 'data.dat'), 'rb') as f:
         data = pickle.load(f)
@@ -35,19 +31,15 @@ def main():
     if data[0]==0:
         # No stars in bin
         print("No stars")
-        with open(os.path.join(binPath, 'noPyro_fit_results.dat'), 'wb') as f:
+        with open(os.path.join(binPath, 'fit_results.dat'), 'wb') as f:
             pickle.dump([-999, -999, -999], f)
-        with open(os.path.join(binPath, 'noPyro_fit_sigmas.dat'), 'wb') as f:
+        with open(os.path.join(binPath, 'fit_sigmas.dat'), 'wb') as f:
             pickle.dump([-999, -999, -999], f)
         return 0
     
-    # mu, D, R, modz, solidAngles, gLon, gLat, x, y, z = calc_coords(apo)
-    # effSelFunc = get_effSelFunc(binDict)
-    # multiplier = (solidAngles*(D**3)*(mu[1]-mu[0])*effSelFunc*np.log(10)/5)
+   
     
-    # R_modz_multiplier = (R, modz, multiplier)
-    
-    print("bin: ", myUtils.binName(binDict))
+    print("bin: ", mySetup.binName(binDict))
     print("data: ", data)
     
     mu, D, R, modz, solidAngles, gLon, gLat, x, y, z = calc_coords(apo)
@@ -56,7 +48,7 @@ def main():
     
     
     def B(aR, az):
-        return multiplier*np.exp(-aR*(R-myUtils.R_Sun) -az*modz)
+        return multiplier*np.exp(-aR*(R-mySetup.R_Sun) -az*modz)
     
     def fun(x):
         """equal to stuff - ln(p), where p can be either value of total
@@ -66,7 +58,7 @@ def main():
          NOTE although input is aR,az, this is for posterior with unifrm priors
          in and distributed in logaR and logaz"""
         aR, az = x
-        return np.log(B(aR,az).sum()) + aR*(data[1] - myUtils.R_Sun) + az*data[2]
+        return np.log(B(aR,az).sum()) + aR*(data[1] - mySetup.R_Sun) + az*data[2]
     
     def jac(x):
         aR, az = x
@@ -236,17 +228,6 @@ def get_effSelFunc(binDict):
 
 if __name__=='__main__':
     main()
-Footer
-© 2023 GitHub, Inc.
-Footer navigation
-Terms
-Privacy
-Security
-Status
-Docs
-Contact GitHub
-Pricing
-API
-Training
-Blog
-About
+
+
+
