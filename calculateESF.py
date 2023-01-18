@@ -42,7 +42,7 @@ def main():
     
     mu = mySetup.arr(mySetup.muGridParams)
     print(mu)
-    D = 10**(-2 + 0.2*mu)
+    D = mySetup.mu2D(mu)
     
     locations = pickleGetters.get_locations()
     

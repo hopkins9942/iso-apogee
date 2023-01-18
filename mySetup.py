@@ -31,7 +31,12 @@ def binName(binDict):
     return '_'.join(['_'.join([key, f'{limits[0]:.3f}', f'{limits[1]:.3f}']) for key,limits in binDict.items()])
     #Note: python list comprehensions are cool
     
+def D2mu(D):
+    return 10+5*np.log10(D)
     
+def mu2D(mu):
+    return 10**(-2+0.2*mu)
+
 
 # actual
 # FeHEdges = arr((-2.0, 0.7, 0.1))
