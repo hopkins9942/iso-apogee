@@ -3,6 +3,7 @@ import pickle
 import os
 import sys
 from functools import partial
+import datetime
 
 import numpy as np
 import apogee.select as apsel
@@ -26,7 +27,7 @@ def main():
     MH_logAge, indices = myIsochrones.extractIsochrones(isogrid)
     MH, logAge = MH_logAge[jobIndex]
     
-    if jobIndex<len(indices):
+    if jobIndex+1<len(indices):
         isoIndices = np.arange(indices[jobIndex], indices[jobIndex+1]) 
     else:
         isoIndices = np.arange(indices[jobIndex], len(isogrid))
@@ -54,12 +55,14 @@ def main():
     
     effSelFunc_mapper = partial(effSelFunc_helper, apof, D, locations)
     print("about to start multiprocessing")
+    print(datetime.datetime.now())
     with multiprocessing.Pool(Ncpus) as p:
         print(f"parent: {os.getppid()}, child: {os.getpid()}")
         temp_effSelFunc = list(p.map(effSelFunc_mapper, range(len(locations)), chunksize=int(len(locations)/(4*Ncpus))))
     effSelFunc = np.array(temp_effSelFunc)
     
     print("Finished multiprocessing")
+    print(datetime.datetime.now())
     
     filePath = os.path.join(mySetup.dataDir, 'ESF', f'MH_{MH:.3f}_logAge_{logAge:.3f}.dat')
     print(filePath)
