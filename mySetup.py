@@ -6,8 +6,8 @@ import astropy.coordinates as coord
 import astropy.units as u
 
 
-#dataDir = '/Users/hopkinsm/data/APOGEE/'
-dataDir = '/data/phys-galactic-isos/sjoh4701/APOGEE/'
+dataDir = '/Users/hopkinsm/data/APOGEE/'
+# dataDir = '/data/phys-galactic-isos/sjoh4701/APOGEE/'
 
 GC_frame = coord.Galactocentric() #adjust parameters here if needed
 z_Sun = GC_frame.z_sun.to(u.kpc).value # .value removes unit, which causes problems with pytorch
@@ -39,12 +39,9 @@ def mu2D(mu):
 
 
 # actual
-# FeHEdges = arr((-2.0, 0.7, 0.1))
-# aFeEdges = arr((-0.2, 0.5, 0.1))
+FeHEdges = arr((-2.0, 0.7, 0.1))
+aFeEdges = arr((-0.2, 0.5, 0.1))
 
-#for testing
-FeHEdges = arr((-1.0, 0.0, 0.1)) 
-aFeEdges = arr((-0.2,0.5, 0.35)) 
 
 
 binList = [

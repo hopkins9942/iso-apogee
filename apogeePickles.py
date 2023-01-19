@@ -69,7 +69,7 @@ def make_apo_lite():
 # none apogee objects
 
 
-def make_locations_solidAngles_GlonGlat():
+def make_locations_solidAngles_gLongLat():
     """
     """
     apo = get_apo_lite()
@@ -200,7 +200,7 @@ def make_all():
     print("making apo_lite")
     make_apo_lite()
     print("making make_locations_solidAngles_GlonGlat")
-    make_locations_solidAngles_GlonGlat()
+    make_locations_solidAngles_gLongLat()
     print("making allStar")
     make_allStar()
     print("making statIndx")
@@ -212,4 +212,4 @@ def make_all():
     
 
 if __name__ == '__main__':
-    make_locations_solidAngles_GlonGlat()
+    make_all()

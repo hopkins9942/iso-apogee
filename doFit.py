@@ -16,20 +16,21 @@ import myIsochrones
 import pickleGetters
 
 
-def main():
+def main(binNum, ESFweightingNum):
     print(f"Starting! {datetime.datetime.now()}")
     
-    binNum = int(sys.argv[1])
-    binList = mySetup.binsToUse
-    binDict = binList[binNum]
+    # binNum = 20# int(sys.argv[1])
+    binDict = mySetup.binList[binNum]
     
-    ESFweightingNum = int(sys.argv[2])
+    # ESFweightingNum =0#int(sys.argv[2])
     
     binPath = os.path.join(mySetup.dataDir, 'bins', mySetup.binName(binDict))
     
     with open(os.path.join(binPath, 'data.dat'), 'rb') as f:
         data = pickle.load(f)
     
+    print("bin: ", mySetup.binName(binDict))
+    print("data: ", data)
     
     if data[0]==0:
         # No stars in bin
@@ -40,49 +41,61 @@ def main():
             pickle.dump([-999, -999, -999], f)
         return 0
     
-   
-    
-    print("bin: ", mySetup.binName(binDict))
-    print("data: ", data)
     
     
-    isogrid = myIsochrones.loadGrid()
-    MH_logAge = myIsochrones.extractIsochrones(isogrid)
     
-    MHvals = np.unique(MH_logAge[:,0])
-    logAgevals = np.unique(MH_logAge[:,1])
+    MH_logAge = myIsochrones.extractIsochrones(myIsochrones.loadGrid())[0]
     
-    isochroneMask = np.where_nonzero((binDict['FeH'][0] <= MH_logAge[:,0])&(MH_logAge[:,0] < binDict['FeH'][1]))[0]
+    print(MH_logAge)
+    # MHvals = np.unique(MH_logAge[:,0])
+    # logAgevals = np.unique(MH_logAge[:,1])
+    
+    isochroneMask = ((binDict['FeH'][0] <= MH_logAge[:,0])&(MH_logAge[:,0] < binDict['FeH'][1]))
+    # isochroneIndices = np.arange(len(isochroneMask))[isochroneMask]
+    print(np.arange(len(MH_logAge))[isochroneMask])
     assert np.count_nonzero(isochroneMask) == 28    
     
-    ESFweightingNum = int(sys.argv[2])
+    weighting = np.zeros(len(MH_logAge))
     if ESFweightingNum==0:
         #uniform
-        weighting = np.ones(len(logAgevals))
-    if ESFweightingNum==1:
+        weighting[isochroneMask] = 1
+        
+    elif ESFweightingNum==1:
         #young - weight proportional to 13.9-age/Gyr
-        weighting = 13.9-10**(MH_logAge[isochroneMask,1]-9)
-    if ESFweightingNum==2:
+        weighting[isochroneMask] =  13.9-10**(MH_logAge[isochroneMask,1]-9)
+        
+    elif ESFweightingNum==2:
         #old - weight proportional t0 age
-        weighting = 10**(MH_logAge[isochroneMask,1]-9)
+        weighting[isochroneMask] =  10**(MH_logAge[isochroneMask,1]-9)
+        
     else:
         raise NotImplementedError('define weighting')
     weighting/=weighting.sum()
+    print(weighting)
+    
+    
+    
+    
+    
     
     locations = pickleGetters.get_locations()
     mu = mySetup.arr(mySetup.muGridParams)
     meanESF = np.zeros((len(locations),len(mu)))
-    for i in range(np.count_nonzero(isochroneMask)):
-        ESF = get_effSelFunc(MH_logAge[i][0], MH_logAge[i][1])
+    for i in np.arange(len(MH_logAge))[isochroneMask]:
+        ESF = get_effSelFunc(MH_logAge[i,0], MH_logAge[i,1])
         
         fig,ax = plt.subplots()
-        ax.imshow(ESF)
-        meanESF += ESF*weighting
+        ax.imshow(ESF.T, origin='lower', aspect='auto')
+        ax.set_title(MH_logAge[i])
+        
+        meanESF += ESF*weighting[i]
+        
     fig,ax = plt.subplots()
-    ax.imshow(meanESF)
+    ax.imshow(meanESF.T, origin='lower', aspect='auto')
+    ax.set_title('mean')
 
     D = mySetup.mu2D(mu)
-    solidAngles = pickleGetters.get_solidAngles()
+    solidAngles = np.array(pickleGetters.get_solidAngles()).reshape((-1,1))
     multiplier = (solidAngles*(D**3)*(mySetup.muStep)*meanESF*np.log(10)/5)
     
     gLongLat = pickleGetters.get_gLongLat()
@@ -269,6 +282,7 @@ def main():
 
 def get_effSelFunc(MH, logAge):
     path = os.path.join(mySetup.dataDir, 'ESF', f'MH_{MH:.3f}_logAge_{logAge:.3f}.dat')
+    print(path)
     if os.path.exists(path):
         with open(path, 'rb') as f:
             effSelFunc = pickle.load(f)
@@ -280,7 +294,8 @@ def get_effSelFunc(MH, logAge):
 
 
 if __name__=='__main__':
-    main()
+    main(162,0)
+    # main(int(sys.argv[1]), int(sys.argv[2]))
 
 
 
