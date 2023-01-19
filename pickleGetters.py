@@ -17,6 +17,12 @@ def get_solidAngles():
         solidAngles = pickle.load(f)
     return solidAngles
 
+def get_gLongLat():
+    path = os.path.join(dataDir, 'input_data', 'gLongLat.dat')
+    with open(path, 'rb') as f:
+        gLongLat = pickle.load(f)
+    return gLongLat
+
 
 def get_allStar():
     """
@@ -73,6 +79,7 @@ def get_statSample():
 if __name__=='__main__':
     get_locations()
     get_solidAngles()
+    get_gLongLat()
     get_allStar()
     get_statIndx()
     get_statSample()

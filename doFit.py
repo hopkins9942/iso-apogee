@@ -23,6 +23,8 @@ def main():
     binList = mySetup.binsToUse
     binDict = binList[binNum]
     
+    ESFweightingNum = int(sys.argv[2])
+    
     binPath = os.path.join(mySetup.dataDir, 'bins', mySetup.binName(binDict))
     
     with open(os.path.join(binPath, 'data.dat'), 'rb') as f:
@@ -44,21 +46,57 @@ def main():
     print("data: ", data)
     
     
-    effSelFunc = get_effSelFunc(MH, logAge)
+    isogrid = myIsochrones.loadGrid()
+    MH_logAge = myIsochrones.extractIsochrones(isogrid)
+    
+    MHvals = np.unique(MH_logAge[:,0])
+    logAgevals = np.unique(MH_logAge[:,1])
+    
+    isochroneMask = np.where_nonzero((binDict['FeH'][0] <= MH_logAge[:,0])&(MH_logAge[:,0] < binDict['FeH'][1]))[0]
+    assert np.count_nonzero(isochroneMask) == 28    
     
     ESFweightingNum = int(sys.argv[2])
     if ESFweightingNum==0:
         #uniform
-        weighting = np.ones(len(logAgeVals))
-    meanESF = 
+        weighting = np.ones(len(logAgevals))
+    if ESFweightingNum==1:
+        #young - weight proportional to 13.9-age/Gyr
+        weighting = 13.9-10**(MH_logAge[isochroneMask,1]-9)
+    if ESFweightingNum==2:
+        #old - weight proportional t0 age
+        weighting = 10**(MH_logAge[isochroneMask,1]-9)
+    else:
+        raise NotImplementedError('define weighting')
+    weighting/=weighting.sum()
     
-    
-    
+    locations = pickleGetters.get_locations()
     mu = mySetup.arr(mySetup.muGridParams)
+    meanESF = np.zeros((len(locations),len(mu)))
+    for i in range(np.count_nonzero(isochroneMask)):
+        ESF = get_effSelFunc(MH_logAge[i][0], MH_logAge[i][1])
+        
+        fig,ax = plt.subplots()
+        ax.imshow(ESF)
+        meanESF += ESF*weighting
+    fig,ax = plt.subplots()
+    ax.imshow(meanESF)
+
     D = mySetup.mu2D(mu)
     solidAngles = pickleGetters.get_solidAngles()
     multiplier = (solidAngles*(D**3)*(mySetup.muStep)*meanESF*np.log(10)/5)
     
+    gLongLat = pickleGetters.get_gLongLat()
+    gLon = gLongLat[:,0].reshape((-1,1))
+    gLat = gLongLat[:,1].reshape((-1,1)) # allows fancy shit in SkyCoord
+    
+    gCoords = coord.SkyCoord(l=gLon*u.deg, b=gLat*u.deg, distance=D*u.kpc, frame='galactic')
+    gCentricCoords = gCoords.transform_to(mySetup.GC_frame)
+    x = gCentricCoords.x.to(u.kpc).value
+    y = gCentricCoords.y.to(u.kpc).value
+    z = gCentricCoords.z.to(u.kpc).value
+    R = np.sqrt(x**2 + y**2)
+    modz = np.abs(z)
+    assert R.shape==(len(locations),len(mu))
     
     def B(aR, az):
         return multiplier*np.exp(-aR*(R-mySetup.R_Sun) -az*modz)
@@ -200,32 +238,34 @@ def main():
     
     
     
-def calc_coords(apo):
-    """makes mu, D, R, modz, solidAngles, gLon gLat, and galacticentric
-    x, y, and z arrays, for ease of use
-    units are kpc, and R and modz is for central angle of field.
-    rows are for fields, columns are for mu values"""
-    locations = apo.list_fields(cohort='all')
-    Nfields = len(locations)
-    # locations is list of ids of fields with at least completed cohort of
-    #  any type, therefore some stars in statistical sample
-    mu = myUtils.arr(myUtils.muGridParams)
-    D = 10**(-2+0.2*mu)
-    gLon = np.zeros((Nfields, 1))
-    gLat = np.zeros((Nfields, 1))
-    solidAngles = np.zeros((Nfields, 1))
-    # This shape allows clever broadcasting in coord.SkyCoord
-    for loc_index, loc in enumerate(locations):
-        gLon[loc_index,0], gLat[loc_index,0] = apo.glonGlat(loc)
-        solidAngles[loc_index,0] = apo.area(loc)*(np.pi/180)**2 # converts deg^2 to steradians
-    gCoords = coord.SkyCoord(l=gLon*u.deg, b=gLat*u.deg, distance=D*u.kpc, frame='galactic')
-    gCentricCoords = gCoords.transform_to(myUtils.GC_frame)
-    x = gCentricCoords.x.value
-    y = gCentricCoords.y.value
-    z = gCentricCoords.z.value
-    R = np.sqrt(x**2 + y**2)
-    modz = np.abs(z)
-    return mu, D, R, modz, solidAngles, gLon, gLat, x, y, z
+# def calc_coords(apo):
+#     """makes mu, D, R, modz, solidAngles, gLon gLat, and galacticentric
+#     x, y, and z arrays, for ease of use
+#     units are kpc, and R and modz is for central angle of field.
+#     rows are for fields, columns are for mu values"""
+#     locations = apo.list_fields(cohort='all')
+#     Nfields = len(locations)
+#     # locations is list of ids of fields with at least completed cohort of
+#     #  any type, therefore some stars in statistical sample
+#     mu = myUtils.arr(myUtils.muGridParams)
+#     D = 10**(-2+0.2*mu)
+#     gLon = np.zeros((Nfields, 1))
+#     gLat = np.zeros((Nfields, 1))
+#     solidAngles = np.zeros((Nfields, 1))
+#     # This shape allows clever broadcasting in coord.SkyCoord
+#     for loc_index, loc in enumerate(locations):
+#         gLon[loc_index,0], gLat[loc_index,0] = apo.glonGlat(loc)
+#         solidAngles[loc_index,0] = apo.area(loc)*(np.pi/180)**2 # converts deg^2 to steradians
+#     gCoords = coord.SkyCoord(l=gLon*u.deg, b=gLat*u.deg, distance=D*u.kpc, frame='galactic')
+#     gCentricCoords = gCoords.transform_to(myUtils.GC_frame)
+#     x = gCentricCoords.x.value
+#     y = gCentricCoords.y.value
+#     z = gCentricCoords.z.value
+#     R = np.sqrt(x**2 + y**2)
+#     modz = np.abs(z)
+#     return mu, D, R, modz, solidAngles, gLon, gLat, x, y, z
+
+
 
 def get_effSelFunc(MH, logAge):
     path = os.path.join(mySetup.dataDir, 'ESF', f'MH_{MH:.3f}_logAge_{logAge:.3f}.dat')

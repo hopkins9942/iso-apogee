@@ -69,19 +69,27 @@ def make_apo_lite():
 # none apogee objects
 
 
-def make_locations_solidAngles():
+def make_locations_solidAngles_GlonGlat():
     """
     """
     apo = get_apo_lite()
     locations = apo.list_fields(cohort='all') # list
     solidAngles = [apo.area(loc)*(np.pi/180)**2 for loc in locations]
+    gLongLat = np.zeros((len(locations), 0))
+    for loc_index, loc in enumerate(locations):
+        gLongLat[loc_index,:] = apo.glonGlat(loc)
+    
     locpath = os.path.join(dataDir, 'input_data', 'locations.dat')
     sApath = os.path.join(dataDir, 'input_data', 'solidAngles.dat')
+    gLongLatpath = os.path.join(dataDir, 'input_data', 'gLongLat.dat')
     with open(locpath, 'wb') as f:
         pickle.dump(locations, f)
     with open(sApath, 'wb') as f:
         pickle.dump(solidAngles, f)
-    return (locations, solidAngles)
+    with open(gLongLatpath, 'wb') as f:
+        pickle.dump(gLongLat, f)
+    return (locations, solidAngles, gLongLat)
+
 
 def make_allStar():
     """
@@ -191,8 +199,8 @@ def make_all():
     make_apo()
     print("making apo_lite")
     make_apo_lite()
-    print("making locations_solidAngles")
-    make_locations_solidAngles()
+    print("making make_locations_solidAngles_GlonGlat")
+    make_locations_solidAngles_GlonGlat()
     print("making allStar")
     make_allStar()
     print("making statIndx")
