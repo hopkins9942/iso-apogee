@@ -43,7 +43,7 @@ def tests():
     fig, ax = plt.subplots()
     ax.hist2d(FeH[goodFe&goodAlpha], aFe[goodFe&goodAlpha], bins=50)
     
-    mu = 10+5*np.log10(S['weighted_dist']/1000)
+    mu = mySetup.D2mu(S['weighted_dist']/1000) #10+5*np.log10(S['weighted_dist']/1000)
     goodMu = (mySetup.muMin<=mu) & (mu<mySetup.muMax)
     goodLogg = (1<=S['LOGG']) & (S['LOGG']<3)
     
@@ -102,7 +102,7 @@ def calculateData():
     
     goodLogg = (1<=S['LOGG']) & (S['LOGG']<3)
     D = S['weighted_dist']/1000 # kpc
-    mu = 10+5*np.log10(D)
+    mu = mySetup.D2mu(D)
     goodMu = (mySetup.muMin<=mu) & (mu<mySetup.muMax)
     
     goodCombined = goodAlpha & goodFe & goodLogg & goodMu

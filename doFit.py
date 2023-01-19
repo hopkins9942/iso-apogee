@@ -12,7 +12,8 @@ from scipy.special import gammaincinv
 
 
 import mySetup
-# import pickleGetters
+import myIsochrones
+import pickleGetters
 
 
 def main():
@@ -42,9 +43,21 @@ def main():
     print("bin: ", mySetup.binName(binDict))
     print("data: ", data)
     
-    mu, D, R, modz, solidAngles, gLon, gLat, x, y, z = calc_coords(apo)
-    effSelFunc = get_effSelFunc(binDict)
-    multiplier = (solidAngles*(D**3)*(mu[1]-mu[0])*effSelFunc*np.log(10)/5)
+    
+    effSelFunc = get_effSelFunc(MH, logAge)
+    
+    ESFweightingNum = int(sys.argv[2])
+    if ESFweightingNum==0:
+        #uniform
+        weighting = np.ones(len(logAgeVals))
+    meanESF = 
+    
+    
+    
+    mu = mySetup.arr(mySetup.muGridParams)
+    D = mySetup.mu2D(mu)
+    solidAngles = pickleGetters.get_solidAngles()
+    multiplier = (solidAngles*(D**3)*(mySetup.muStep)*meanESF*np.log(10)/5)
     
     
     def B(aR, az):
@@ -214,8 +227,8 @@ def calc_coords(apo):
     modz = np.abs(z)
     return mu, D, R, modz, solidAngles, gLon, gLat, x, y, z
 
-def get_effSelFunc(binDict):
-    path = os.path.join(myUtils.clusterDataDir, 'bins', myUtils.binName(binDict), 'effSelFunc.dat')
+def get_effSelFunc(MH, logAge):
+    path = os.path.join(mySetup.dataDir, 'ESF', f'MH_{MH:.3f}_logAge_{logAge:.3f}.dat')
     if os.path.exists(path):
         with open(path, 'rb') as f:
             effSelFunc = pickle.load(f)

@@ -11,9 +11,6 @@ from mySetup import dataDir
 import matplotlib.pyplot as plt
 
 
-minMini = 0.09
-maxMini = 5.3535 
-# taken from Kroupa isogrid
 
 def Kroupa(M):
     """
