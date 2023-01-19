@@ -75,7 +75,7 @@ def make_locations_solidAngles_GlonGlat():
     apo = get_apo_lite()
     locations = apo.list_fields(cohort='all') # list
     solidAngles = [apo.area(loc)*(np.pi/180)**2 for loc in locations]
-    gLongLat = np.zeros((len(locations), 0))
+    gLongLat = np.zeros((len(locations), 2))
     for loc_index, loc in enumerate(locations):
         gLongLat[loc_index,:] = apo.glonGlat(loc)
     
@@ -212,4 +212,4 @@ def make_all():
     
 
 if __name__ == '__main__':
-    make_all()
+    make_locations_solidAngles_GlonGlat()
