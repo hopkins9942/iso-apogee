@@ -86,7 +86,7 @@ def main(binNum, ESFweightingNum):
         
         fig,ax = plt.subplots()
         ax.imshow(ESF.T, origin='lower', aspect='auto')
-        ax.set_title(MH_logAge[i])
+        ax.set_title(str(MH_logAge[i,:]))
         
         meanESF += ESF*weighting[i]
         
@@ -298,8 +298,8 @@ def get_effSelFunc(MH, logAge):
 
 
 if __name__=='__main__':
-    #main(142,0)
-    main(int(sys.argv[1]), int(sys.argv[2]))
+    main(142,0)
+    # main(int(sys.argv[1]), int(sys.argv[2]))
 
 
 
