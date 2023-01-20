@@ -157,7 +157,7 @@ def calculateData():
     
 
 if __name__=='__main__':
-    tests()
+    calculateData()
     pass
 
 
