@@ -93,7 +93,7 @@ def main(binNum, ESFweightingNum):
     fig,ax = plt.subplots()
     ax.imshow(meanESF.T, origin='lower', aspect='auto')
     ax.set_title('mean')
-    path = os.path.join(binPath, 'f'w{ESFweightingNum}meanESF.png')
+    path = os.path.join(binPath, f'w{ESFweightingNum}meanESF.png')
     fig.savefig(path, dpi=300)
 
     D = mySetup.mu2D(mu)
@@ -239,7 +239,7 @@ def main(binNum, ESFweightingNum):
     ax.set_ylabel('az')
     fig.colorbar(image, ax=ax)
     fig.set_tight_layout(True)
-    path = os.path.join(binPath, 'f'w{ESFweightingNum}peaklogNuSun.png')
+    path = os.path.join(binPath, f'w{ESFweightingNum}peaklogNuSun.png')
     fig.savefig(path, dpi=300)
     
     # print(pgrid)
