@@ -10,7 +10,8 @@ import matplotlib.pyplot as plt
 from matplotlib import cm
 import scipy
 
-import myUtils
+import mySetup
+import myIsochrones
 
 
 cmap1 = mpl.colormaps['Blues']
@@ -52,23 +53,19 @@ class Galaxy:
         self.data = data
         
         self.shape = self.amp.shape
-        self.FeHwidths = FeHEdges[1:] - FeHEdges[:-1]
-        self.FeHmidpoints = (FeHEdges[1:] + FeHEdges[:-1])/2
-        self.aFewidths = aFeEdges[1:] - aFeEdges[:-1]
-        self.aFemidpoints = (aFeEdges[1:] + aFeEdges[:-1])/2
-        self.vols = FeHnp.
+        self.FeHWidths = FeHEdges[1:] - FeHEdges[:-1]
+        self.FeHMidpoints = (FeHEdges[1:] + FeHEdges[:-1])/2
+        self.aFeWidths = aFeEdges[1:] - aFeEdges[:-1]
+        self.aFeMidpoints = (aFeEdges[1:] + aFeEdges[:-1])/2
+        self.vols = self.FeHWidths.reshape(-1,1) * self.aFeWidths
+        assert self.vols.shape==self.amp.shape
         
     @classmethod
-    def loadFromBins(cls, labels, edges, noPyro=True):
+    def loadFromBins(cls, weightingNum, FeHEdges=mySetup.FeHEdges, aFeEdges=mySetup.aFeEdges):
         """
-        edges[i] is list of np.array edges of ith dimention
-        labels[i] should be string of ith quantity
-         """
-        sortIndices = np.argsort(labels)
-        labels = [labels[si] for si in sortIndices]
-        edges = [edges[si] for si in sortIndices] # ensures labels are sorted for consistency
         
-        shape = tuple((len(edges[i])-1) for i in range(len(labels)))
+        """
+        shape = (len(FeHEdges)-1, len(aFeEdges)-1)
         amp = np.zeros(shape)
         aR = np.zeros(shape)
         az = np.zeros(shape)
@@ -77,26 +74,28 @@ class Galaxy:
         sig_az = np.zeros(shape)
         data = np.zeros((3, *shape))
         
-        for binNum in range(amp.size):
-            multiIndex = np.unravel_index(binNum, shape)
-            limits = np.array([[edges[i][multiIndex[i]], edges[i][multiIndex[i]+1]] for i in range(len(labels))])
-            binDir  = os.path.join(myUtils.localDataDir, 'bins', binName(labels, limits))
-            with open(os.path.join(binDir, 'data.dat'), 'rb') as f0:
-                data[0][multiIndex], data[1][multiIndex], data[2][multiIndex] = pickle.load(f0)
-            
-            if noPyro:
+        for i in range(shape[0]):
+            for j in range(shape[1]):
+                binDir  = os.path.join(mySetup.dataDir, 'bins', f'FeH_{FeHEdges[i]}_{FeHEdges[i+1]}_aFe_{aFeEdges[j]}_{aFeEdges[i+1]}')
+                
+                PUT WEIGHT IN HERE
+                
+                multiIndex = np.unravel_index(binNum, shape)
+                limits = np.array([[edges[i][multiIndex[i]], edges[i][multiIndex[i]+1]] for i in range(len(labels))])
+                binDir  = os.path.join(myUtils.localDataDir, 'bins', binName(labels, limits))
+                with open(os.path.join(binDir, 'data.dat'), 'rb') as f0:
+                    data[:,i,j] = np.array(pickle.load(f0))
+                
                 with open(os.path.join(binDir, 'noPyro_fit_results.dat'), 'rb') as f1:
-                    logA, aR[multiIndex], az[multiIndex] = pickle.load(f1)
+                    logA, aR[i,j], az[i,j] = pickle.load(f1)
+                    
                 with open(os.path.join(binDir, 'noPyro_fit_sigmas.dat'), 'rb') as f1:
-                    sig_logNuSun[multiIndex], sig_aR[multiIndex], sig_az[multiIndex] = pickle.load(f1)
-            else:
-                with open(os.path.join(binDir, 'fit_results.dat'), 'rb') as f1:
-                    logA, aR[multiIndex], az[multiIndex] = pickle.load(f1)
-                
-            with open(os.path.join(binDir, 'NRG2mass.dat'), 'rb') as f2:
-                NRG2Mass = pickle.load(f2)
-                
-            amp[multiIndex] = NRG2Mass*np.exp(logA)/(np.prod(limits[:,1]-limits[:,0]))
+                    sig_logNuSun[i,j], sig_aR[i,j], sig_az[i,j] = pickle.load(f1)
+                    
+                with open(os.path.join(binDir, 'NRG2mass.dat'), 'rb') as f2:
+                    NRG2Mass = pickle.load(f2)
+                    
+                amp[multiIndex] = NRG2Mass*np.exp(logA)/(np.prod(limits[:,1]-limits[:,0]))
         return cls(labels, edges, amp, aR, az, sig_logNuSun, sig_aR, sig_az, data)
     
     

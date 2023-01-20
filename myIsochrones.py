@@ -26,6 +26,7 @@ minMini = 0.09
 maxMini = 5.3535 
 # taken from Kroupa isogrid, used for integrals
 weightPerIsochrone = integrate.quad(Kroupa, minMini, maxMini)[0]
+# Can't just add weights on each isochrone as older isochrones have a lower maximum mass point
 meanMini = integrate.quad(lambda m:m*Kroupa(m), minMini, maxMini)[0]/weightPerIsochrone
 
 
@@ -70,17 +71,51 @@ def makeRGmask(isogrid):
     return ((1<=isogrid['logg']) & (isogrid['logg']<3) & (isogrid['Jmag']-isogrid['Ksmag']>0.3))
 
 
-def NRG2SMM(isogrid):
+def NRG2SMM(isogrid, ageWeightingNum):
     """
     Returns ratio between the  sine morte mass and red giant number in isogrid
     isogrid can be swapped for a single or multiple whole isochrones, as long as
     they are whole and ordered correctly
+    
+    ageWeighting uses same scheme as ESF - weight calculated per isochrone not per
+    point as there are more points on some isochrones
     """
-    weights = calcWeights(isogrid)
+    
+    MH_logAge, indices = extractIsochrones(isogrid)
+    
+    # MHvals = np.unique(MH_logAge[:,0])
+    # logAgevals = np.unique(MH_logAge[:,1])
+    
+    # isochroneMask = ((binDict['FeH'][0] <= MH_logAge[:,0])&(MH_logAge[:,0] < binDict['FeH'][1]))
+    if ageWeightingNum==0:
+        #uniform
+        ageWeighting = np.ones(len(indices))
+        
+    elif ageWeightingNum==1:
+        #young - weight proportional to 13.9-age/Gyr
+        ageWeighting =  13.9-10**(MH_logAge[:,1]-9)
+        
+    elif ageWeightingNum==2:
+        #old - weight proportional t0 age
+        ageWeighting =  10**(MH_logAge[:,1]-9)
+        
+    else:
+        raise NotImplementedError('define weighting')
+    ageWeighting/=ageWeighting.sum() # one weight for each isochrone
+    
+    weights = calcWeights(isogrid)*ageWeighting[np.digitize(np.arange(len(isogrid)), indices)-1]
+    # multiplicatively increases isopoint weight by the age weighting for that point's isochrone
+    # digitize takes arange 0,...,len(isogrid)-1, then for each works out index of isochrone 
+    
+    
+    
     RGmask = makeRGmask(isogrid)
     weightinRG = weights[RGmask].sum()
     
-    return meanMini*weightPerIsochrone/weightinRG
+    # sine morte distribution requires weightPerIsochrone*len(indices),
+    # not sum of weights as old isochrones lack high-mass, dead points
+    return meanMini*weightPerIsochrone*len(indices)/weightinRG
+
     
 
 def test():
