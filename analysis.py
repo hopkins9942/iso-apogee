@@ -32,36 +32,31 @@ def main():
     # plotageFeH()
     # plot_scales_MgFeFeHvsFeH()
     # plot_data_MgFeFeHvsFeH()
-    
+    pass
 
 
 
 class Galaxy:
-    def __init__(self, labels, edges, amp, aR, az, sig_logNuSun, sig_aR, sig_az, data):
+    def __init__(self, FeHEdges, aFeEdges, amp, aR, az, sig_logNuSun, sig_aR, sig_az, data):
         """
-        edges[i] is array of edges of ith dimention
-        amp, aR and az each have element corresponding to bin
+        amp etc are arrays with [FeH index, aFe index]
         """
-        sortIndices = np.argsort(labels)
-        self.labels = [labels[si] for si in sortIndices]
-        self.binType = ''.join(self.labels)
-        self.edges = [edges[si] for si in sortIndices] # ensures labels are sorted for consistency
+        self.FeHEdges = FeHEdges
+        self.aFeEdges = aFeEdges
         self.amp = amp
         self.aR = aR
         self.az = az
-        #self.over100 = over100
         self.sig_logNuSun = sig_logNuSun # unsure if useful
         self.sig_aR = sig_aR
         self.sig_az = sig_az
         self.data = data
         
         self.shape = self.amp.shape
-        self.widths = [(self.edges[i][1:] - self.edges[i][:-1]) for i in range(len(self.shape))]
-        self.midpoints = [(self.edges[i][1:] + self.edges[i][:-1])/2 for i in range(len(self.shape))]
-        self.vols = np.zeros(self.shape)
-        for binNum in range(np.prod(self.shape)):
-            multiIndex = np.unravel_index(binNum, self.shape)
-            self.vols[multiIndex] = np.prod([self.widths[i][multiIndex[i]] for i in range(len(self.shape))])
+        self.FeHwidths = FeHEdges[1:] - FeHEdges[:-1]
+        self.FeHmidpoints = (FeHEdges[1:] + FeHEdges[:-1])/2
+        self.aFewidths = aFeEdges[1:] - aFeEdges[:-1]
+        self.aFemidpoints = (aFeEdges[1:] + aFeEdges[:-1])/2
+        self.vols = FeHnp.
         
     @classmethod
     def loadFromBins(cls, labels, edges, noPyro=True):
