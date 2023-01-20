@@ -35,9 +35,9 @@ def main(binNum, ESFweightingNum):
     if data[0]==0:
         # No stars in bin
         print("No stars")
-        with open(os.path.join(binPath, 'fit_results.dat'), 'wb') as f:
+        with open(os.path.join(binPath, f'w{ESFweightingNum}fit_results.dat'), 'wb') as f:
             pickle.dump([-999, -999, -999], f)
-        with open(os.path.join(binPath, 'fit_sigmas.dat'), 'wb') as f:
+        with open(os.path.join(binPath, f'w{ESFweightingNum}fit_sigmas.dat'), 'wb') as f:
             pickle.dump([-999, -999, -999], f)
         return 0
     
@@ -93,6 +93,8 @@ def main(binNum, ESFweightingNum):
     fig,ax = plt.subplots()
     ax.imshow(meanESF.T, origin='lower', aspect='auto')
     ax.set_title('mean')
+    path = os.path.join(binPath, 'f'w{ESFweightingNum}meanESF.png')
+    fig.savefig(path, dpi=300)
 
     D = mySetup.mu2D(mu)
     solidAngles = np.array(pickleGetters.get_solidAngles()).reshape((-1,1))
@@ -152,9 +154,9 @@ def main(binNum, ESFweightingNum):
     print("What's saved:")
     print([logNuSun, aR, az])
     print(sigmas)
-    with open(os.path.join(binPath, 'noPyro_fit_results.dat'), 'wb') as f:
+    with open(os.path.join(binPath, f'w{ESFweightingNum}fit_results.dat'), 'wb') as f:
         pickle.dump([logNuSun, aR, az], f)
-    with open(os.path.join(binPath, 'noPyro_fit_sigmas.dat'), 'wb') as f:
+    with open(os.path.join(binPath, f'w{ESFweightingNum}fit_sigmas.dat'), 'wb') as f:
         pickle.dump(sigmas, f)
     
     
@@ -210,7 +212,7 @@ def main(binNum, ESFweightingNum):
     ax.set_ylabel('az')
     fig.colorbar(image, ax=ax)
     fig.set_tight_layout(True)
-    path = os.path.join(binPath, 'posterior.png')
+    path = os.path.join(binPath, f'w{ESFweightingNum}posterior.png')
     fig.savefig(path, dpi=300)
     
     # fig, ax = plt.subplots()
@@ -237,13 +239,13 @@ def main(binNum, ESFweightingNum):
     ax.set_ylabel('az')
     fig.colorbar(image, ax=ax)
     fig.set_tight_layout(True)
-    path = os.path.join(binPath, 'peaklogNuSun.png')
+    path = os.path.join(binPath, 'f'w{ESFweightingNum}peaklogNuSun.png')
     fig.savefig(path, dpi=300)
     
     # print(pgrid)
     
     # human readable text file
-    path = os.path.join(binPath, 'results.txt')
+    path = os.path.join(binPath, f'results_w={}.txt')
     with open(path, 'w') as f:
         out = f"data: {data}\n\nresult: \n{res}\n\nsigmas: \n{sigmas}\n\nhess: \n{hess}\n\nwidths: \n{widths}\n\nWhat's saved:\n{[logNuSun, aR, az]}\n\nmedian - peak logNuSun = {np.log(gammaincinv(data[0], 0.5)/data[0])}"
         if isSuccess:
