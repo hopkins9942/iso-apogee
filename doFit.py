@@ -136,6 +136,7 @@ def main(binNum, ESFweightingNum):
     print(res.x)
     
     aR, az = res.x
+    isSuccess = res.success
     
     logNuSun = np.log(data[0]/B(aR,az).sum())
     
@@ -244,8 +245,11 @@ def main(binNum, ESFweightingNum):
     # human readable text file
     path = os.path.join(binPath, 'results.txt')
     with open(path, 'w') as f:
-        f.write(f"data: {data}\n\nresult: \n{res}\n\nsigmas: \n{sigmas}\n\nhess: \n{hess}\n\nwidths: \n{widths}\n\nWhat's saved:\n{[logNuSun, aR, az]}\n\nmedian - peak logNuSun = {np.log(gammaincinv(data[0], 0.5)/data[0])}")
-    
+        out = f"data: {data}\n\nresult: \n{res}\n\nsigmas: \n{sigmas}\n\nhess: \n{hess}\n\nwidths: \n{widths}\n\nWhat's saved:\n{[logNuSun, aR, az]}\n\nmedian - peak logNuSun = {np.log(gammaincinv(data[0], 0.5)/data[0])}")
+        if isSuccess:
+            f.write()
+        else:
+            f.write("AAAARGH IT FAILED!") # easily noticible 
     
     
     
@@ -294,7 +298,7 @@ def get_effSelFunc(MH, logAge):
 
 
 if __name__=='__main__':
-    main(162,0)
+    main(142,0)
     # main(int(sys.argv[1]), int(sys.argv[2]))
 
 
