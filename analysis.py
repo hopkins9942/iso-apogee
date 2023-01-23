@@ -23,6 +23,8 @@ sha = repo.head.object.hexsha[:7]
 print(repo)
 print(sha)
 
+plotDir = f'/Users/hopkinsm/Documents/APOGEE/plots/{sha}/'
+
 
 
 def main():
@@ -99,8 +101,8 @@ class Galaxy:
         return cls(FeHEdges, aFeEdges, amp, aR, az, sig_logNuSun, sig_aR, sig_az, data)
     
     
-    def hist(self, R=myUtils.R_Sun, z=myUtils.z_Sun, normalised=False):
-        hist = self.amp*np.exp( - self.aR*(R-myUtils.R_Sun) - self.az*np.abs(z))
+    def hist(self, R=mySetup.R_Sun, z=mySetup.z_Sun, normalised=False):
+        hist = self.amp*np.exp( - self.aR*(R-mySetup.R_Sun) - self.az*np.abs(z))
         if not normalised:
             return hist
         else:
@@ -108,7 +110,7 @@ class Galaxy:
     
     def integratedHist(self, Rlim=None, zlim=None, normalised=False):
         """integrates R=0 to R and z=-z to z, with default of whole galaxy"""
-        hist = np.where((self.aR>0)&(self.az>0), 4*np.pi*self.amp*np.exp(self.aR*myUtils.R_Sun)/(self.aR**2 * self.az), 0)
+        hist = np.where((self.aR>0)&(self.az>0), 4*np.pi*self.amp*np.exp(self.aR*mySetup.R_Sun)/(self.aR**2 * self.az), 0)
         # volume technically infinite for negative a, this only occurs when negligible stars in bin
         if Rlim!=None:
             hist *= (1 - (1+self.aR*Rlim)*np.exp(-self.aR*Rlim))
@@ -120,25 +122,56 @@ class Galaxy:
         else:
             return hist/sum(self.vols*self.integratedHist())
         
-    def FeH(self, name, R=myUtils.R_Sun, z=myUtils.z_Sun, integrated=False, Rlim=None, zlim=None, normalised=False, prop2Z=True):
-        FeHaxis = self.labels.index('FeH')
-        FeHwidths = self.widths[FeHaxis]
-        FeHedges = self.edges[FeHaxis]
-        
-        if integrated==False:
-            #at point
-            hist = self.hist(R, z, normalised)
-            perVolume = True
+    def zintegratedHist(self, R=mySetup.R_Sun, zlim=None, normalised=False):
+        """integrates z=-z to z at given R, with default of whole vertical range"""
+        hist = np.where((self.az>0), 2*self.amp*np.exp(-self.aR*(R-mySetup.R_Sun))/(self.az), 0)
+        # volume technically infinite for negative a, this only occurs when negligible stars in bin
+        if zlim!=None:
+            hist *= (1 - np.exp(-self.az*zlim))
+        if not normalised:
+            return hist
         else:
-            hist = self.integratedHist(Rlim, zlim, normalised)
-            perVolume = False
+            return hist/sum(self.vols*self.zintegratedHist())
         
-        axes = list(range(len(self.widths)))
-        axes.remove(FeHaxis)
-        axes = tuple(axes)
-        FeHhist = (hist * self.vols).sum(axis=axes)/FeHwidths
-        print(FeHhist)
-        return Distributions(FeHhist, FeHedges, name, self.binType, perVolume, normalised, prop2Z)
+        
+    def FeH(self, name, hist, integrated=False, Rlim=None, zlim=None, normalised=False, prop2Z=True):
+        """
+        Makes Distribution object from hist
+        """
+        pass
+        
+    #     if integrated==False:
+    #         #at point
+    #         hist = self.hist(R, z, normalised)
+    #         perVolume = True
+    #     else:
+    #         hist = self.integratedHist(Rlim, zlim, normalised)
+    #         perVolume = False
+        
+    #     axes = list(range(len(self.widths)))
+    #     axes.remove(FeHaxis)
+    #     axes = tuple(axes)
+    #     FeHhist = (hist * self.vols).sum(axis=axes)/FeHwidths
+    #     print(FeHhist)
+    #     return Distributions(FeHhist, FeHedges, name, self.binType, perVolume, n
+    
+    # def FeH(self, name, R=mySetup.R_Sun, z=mySetup.z_Sun, integrated=False, Rlim=None, zlim=None, normalised=False, prop2Z=True):
+        
+        
+    #     if integrated==False:
+    #         #at point
+    #         hist = self.hist(R, z, normalised)
+    #         perVolume = True
+    #     else:
+    #         hist = self.integratedHist(Rlim, zlim, normalised)
+    #         perVolume = False
+        
+    #     axes = list(range(len(self.widths)))
+    #     axes.remove(FeHaxis)
+    #     axes = tuple(axes)
+    #     FeHhist = (hist * self.vols).sum(axis=axes)/FeHwidths
+    #     print(FeHhist)
+    #     return Distributions(FeHhist, FeHedges, name, self.binType, perVolume, normalised, prop2Z)
 
 
 
@@ -149,30 +182,27 @@ class Distributions:
     
     alpha = 1
     
-    def __init__(self, FeHhist, FeHedges, name, binType, perVolume, normalised=False, prop2Z=True):
-        self.FeHedges = FeHedges
-        self.FeHwidths = self.FeHedges[1:] - self.FeHedges[:-1]
-        self.FeHmidpoints = (self.FeHedges[1:] + self.FeHedges[:-1])/2
+    def __init__(self, name, FeHHist, FeHEdges=mySetup.FeHEdges, perVolume=True, normalised=False, powerIndex=1):
+        self.FeHEdges = FeHEdges
+        self.FeHWidths = self.FeHEdges[1:] - self.FeHEdges[:-1]
+        self.FeHMidpoints = (self.FeHEdges[1:] + self.FeHEdges[:-1])/2
         self.name = name
-        self.binType = binType
         self.perVolume = perVolume
         if not normalised:
-            self.FeHhist = FeHhist
+            self.FeHHist = FeHHist
         else:
-            self.FeHhist = FeHhist/np.sum(self.FeHwidths*FeHhist)
-        self.prop2Z = prop2Z
+            self.FeHHist = FeHHist/np.sum(self.FeHWidths*FeHHist)
+        self.powerIndex = powerIndex
         
-        y = np.append(0, np.cumsum(self.FeHwidths*self.FeHhist))
-        dist = scipy.interpolate.CubicSpline(self.FeHedges, y, bc_type='clamped', extrapolate=True).derivative()
+        y = np.append(0, np.cumsum(self.FeHWidths*self.FeHHist))
+        dist = scipy.interpolate.CubicSpline(self.FeHEdges, y, bc_type='clamped', extrapolate=True).derivative()
         def FeHdistFunc(FeH):
-            return np.where((self.FeHedges[0]<=FeH)&(FeH<self.FeHedges[-1]), dist(FeH), 0)
+            # sets dist to zero outside range
+            return np.where((self.FeHEdges[0]<=FeH)&(FeH<self.FeHEdges[-1]), dist(FeH), 0)
         self.FeHdist = FeHdistFunc
         
         def ISOsPerFeH(FeH):
-            if prop2Z:
-                return self.alpha*(10**FeH)*self.FeHdist(FeH)
-            else:
-                return self.alpha*self.FeHdist(FeH) #check this
+            return self.alpha*(10**(powerIndex*FeH))*self.FeHdist(FeH)
         
         lowerCount = scipy.integrate.quad(ISOsPerFeH, FeHhigh, 3, limit=200)[0]
         middleCount = scipy.integrate.quad(ISOsPerFeH, FeHlow, FeHhigh, limit=200)[0]
@@ -187,10 +217,10 @@ class Distributions:
         
     def butNormalised(self):
         """returns a seperate Distributions with normalised=True"""
-        return self.__class__(self.FeHhist, self.FeHedges, self.name, self. binType, self.perVolume, normalised=True, prop2Z=self.prop2Z)
+        # could this be cls() instead?
+        return self.__class__(self.name, self.FeHHist, self.FeHEdges, self.perVolume, normalised=True, powerIndex=self.powerIndex)
         
-    def plot(self, path):
-        saveDir = path #f'/Users/hopkinsm/Documents/APOGEE/plots/{sha}/analysis_{self.binType}_POLYDEG{POLYDEG}/'
+    def plot(self, saveDir=plotDir):
         os.makedirs(saveDir, exist_ok=True)
         
         
@@ -213,37 +243,42 @@ class Distributions:
         FeHplotPoints = np.linspace(self.FeHedges[0], self.FeHedges[-1], 10*len(self.FeHwidths))
         fH2OplotPoints = np.linspace(fH2Olow+0.0001, fH2Ohigh-0.0001)
         
-        fig, axs = plt.subplots(ncols=3, figsize=[12, 4])
-        axs[0].bar(self.FeHmidpoints, self.FeHhist, width = self.FeHwidths, alpha=0.5)
-        axs[0].plot(FeHplotPoints, self.FeHdist(FeHplotPoints), color='C1')
-        axs[0].vlines(-0.4, 0, self.FeHdist(0), color='C2', alpha=0.5)
-        axs[0].vlines( 0.4, 0, self.FeHdist(0), color='C2', alpha=0.5)
-        axs[0].set_xlabel(r'[Fe/H]')
-        axs[0].set_ylabel(f'Stellar mass distribution ({FeHunit})')
-        
-        axs[1].plot(fH2OplotPoints, self.fH2Odist(fH2OplotPoints))
-        axs[1].set_ylim(bottom=0)
-        axs[1].set_xlabel(r'$f_\mathrm{H_2O}$')
-        axs[1].set_ylabel(f'ISO distribution ({fH2Ounit})')
-        
-        axs[2].bar([r'$f_\mathrm{H_2O}<0.07$', 'mid', r'$f_\mathrm{H_2O}>0.51$'],
-                  self.counts)
-        axs[2].set_ylabel(f'ISO distribution ({fH2OintUnit})')
-        
-        fig.suptitle(self.name)
-        fig.set_tight_layout(True)
-        path = os.path.join(saveDir, self.name + '.pdf')
+        fig, ax = plt.subplots()
+        ax.bar(self.FeHmidpoints, self.FeHhist, width = self.FeHwidths, alpha=0.5)
+        ax.plot(FeHplotPoints, self.FeHdist(FeHplotPoints), color='C1')
+        ax.vlines(-0.4, 0, self.FeHdist(0), color='C2', alpha=0.5)
+        ax.vlines( 0.4, 0, self.FeHdist(0), color='C2', alpha=0.5)
+        ax.set_xlabel(r'[Fe/H]')
+        ax.set_ylabel(f'Stellar mass distribution ({FeHunit})')
+        ax.set_title(self.name)
+        path = os.path.join(saveDir, self.name + '_FeH' + '.pdf')
         fig.savefig(path, dpi=300)    
+        
+        fig, ax = plt.subplots()
+        ax.plot(fH2OplotPoints, self.fH2Odist(fH2OplotPoints))
+        ax.set_ylim(bottom=0)
+        ax.set_xlabel(r'$f_\mathrm{H_2O}$')
+        ax.set_ylabel(f'ISO distribution ({fH2Ounit})')
+        ax.set_title(self.name)
+        path = os.path.join(saveDir, self.name + '_fH2O' + '.pdf')
+        fig.savefig(path, dpi=300)    
+        
+        fig, ax = plt.subplots()
+        ax.bar([r'$f_\mathrm{H_2O}<0.07$', 'mid', r'$f_\mathrm{H_2O}>0.51$'],
+                  self.counts)
+        ax.set_ylabel(f'ISO distribution ({fH2OintUnit})')
+        ax.set_title(self.name)
+        path = os.path.join(saveDir, self.name + '_bar' + '.pdf')
+        fig.savefig(path, dpi=300)
+          
         
         
 
-    def plotWith(self, dists2, path):
-        assert self.binType==dists2.binType
+    def plotWith(self, dists2, saveDir=plotDir):
         
         dists1 = self.butNormalised()
         dists2 = dists2.butNormalised()
         
-        saveDir = path #f'/Users/hopkinsm/Documents/APOGEE/plots/{sha}/analysis_{self.binType}_POLYDEG{POLYDEG}/'
         os.makedirs(saveDir, exist_ok=True)
         
         FeHunit=''
@@ -255,33 +290,38 @@ class Distributions:
                                     10*max(len(dists1.FeHwidths), len(dists2.FeHwidths)))
         fH2OplotPoints = np.linspace(fH2Olow+0.0001, fH2Ohigh-0.0001)
         
-        fig, axs = plt.subplots(ncols=3, figsize=[12, 4])
-        axs[0].plot(FeHplotPoints, dists1.FeHdist(FeHplotPoints), label=self.name)
-        axs[0].plot(FeHplotPoints, dists2.FeHdist(FeHplotPoints), label=dists2.name)
-        axs[0].vlines(-0.4, 0, dists1.FeHdist(0), color='C2', alpha=0.5)
-        axs[0].vlines( 0.4, 0, dists1.FeHdist(0), color='C2', alpha=0.5)
-        axs[0].legend()
-        axs[0].set_xlabel(r'[Fe/H]')
-        axs[0].set_ylabel(f'Stellar mass distribution ({FeHunit})')
+        names = f'{self.name}+{dists2.name}'
         
-        axs[1].plot(fH2OplotPoints, dists1.fH2Odist(fH2OplotPoints), label=self.name)
-        axs[1].plot(fH2OplotPoints, dists2.fH2Odist(fH2OplotPoints), label=dists2.name)
-        axs[1].set_ylim(bottom=0)
-        axs[1].legend()
-        axs[1].set_xlabel(r'$f_\mathrm{H_2O}$')
-        axs[1].set_ylabel(f'ISO distribution ({fH2Ounit})')
+        fig, ax = plt.subplots()
+        ax.plot(FeHplotPoints, dists1.FeHdist(FeHplotPoints), label=self.name)
+        ax.plot(FeHplotPoints, dists2.FeHdist(FeHplotPoints), label=dists2.name)
+        ax.vlines(-0.4, 0, dists1.FeHdist(0), color='C2', alpha=0.5)
+        ax.vlines( 0.4, 0, dists1.FeHdist(0), color='C2', alpha=0.5)
+        ax.legend()
+        ax.set_xlabel(r'[Fe/H]')
+        ax.set_ylabel(f'Stellar mass distribution ({FeHunit})')
+        ax.set_title(names)
+        path = os.path.join(saveDir, names + '_FeH' + '.pdf')
+        fig.savefig(path, dpi=300)
         
-        axs[2].bar([r'$f_\mathrm{H_2O}<0.07$', 'mid', r'$f_\mathrm{H_2O}>0.51$'],
+        ax.plot(fH2OplotPoints, dists1.fH2Odist(fH2OplotPoints), label=self.name)
+        ax.plot(fH2OplotPoints, dists2.fH2Odist(fH2OplotPoints), label=dists2.name)
+        ax.set_ylim(bottom=0)
+        ax.legend()
+        ax.set_xlabel(r'$f_\mathrm{H_2O}$')
+        ax.set_ylabel(f'ISO distribution ({fH2Ounit})')
+        ax.set_title(names)
+        path = os.path.join(saveDir, names + '_fH2O' + '.pdf')
+        fig.savefig(path, dpi=300)
+        
+        ax.bar([r'$f_\mathrm{H_2O}<0.07$', 'mid', r'$f_\mathrm{H_2O}>0.51$'],
                   dists1.counts, alpha=0.5, label=dists1.name)
-        axs[2].bar([r'$f_\mathrm{H_2O}<0.07$', 'mid', r'$f_\mathrm{H_2O}>0.51$'],
+        ax.bar([r'$f_\mathrm{H_2O}<0.07$', 'mid', r'$f_\mathrm{H_2O}>0.51$'],
                   dists2.counts, alpha=0.5, label=dists2.name)
-        axs[2].legend()
-        
-        figname = f'{self.name} vs {dists2.name}.pdf'
-        fig.suptitle(figname)
-        fig.set_tight_layout(True)
-        path = os.path.join(saveDir, figname)
-        fig.savefig(path, dpi=300)    
+        ax.legend()
+        ax.set_title(names)
+        path = os.path.join(saveDir, names + '_bar' + '.pdf')
+        fig.savefig(path, dpi=300)
         
                     
         
@@ -290,7 +330,7 @@ class Distributions:
 # Defining comp:
 FeH_p = np.array([-0.4, -0.3, -0.2, -0.1, 0.0, 0.1, 0.2, 0.3, 0.4])
 fH2O_p = np.array([0.5098, 0.4905, 0.4468, 0.4129, 0.3563, 0.2918, 0.2173, 0.1532, 0.06516])
-compPoly = np.polynomial.polynomial.Polynomial.fit(FeH_p, fH2O_p, POLYDEG)
+compPoly = np.polynomial.polynomial.Polynomial.fit(FeH_p, fH2O_p, 3)
 FeHlow = FeH_p[0]
 FeHhigh = FeH_p[-1]
 fH2Olow = compPoly(FeH_p[-1])
@@ -301,7 +341,7 @@ def comp(FeH):
                                           fH2Olow), fH2Ohigh)
     
 def compInv(fH2O):
-    """inv mayn't work with array inputs"""
+    """inv may not work with array inputs"""
     if np.ndim(fH2O)==0:
         val = fH2O
         if fH2Olow<=val<fH2Ohigh:
@@ -330,3 +370,15 @@ def compDeriv(FeH):
 
 for x in [-0.4+0.0001, -0.2, 0, 0.2, 0.4-0.0001]:
     assert np.isclose(compInv(comp(x)), x) #checks inverse works
+    
+    
+    
+    
+if __name__=='__main__':
+    pass
+    
+    
+    
+    
+    
+    
