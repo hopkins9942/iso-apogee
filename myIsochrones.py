@@ -51,8 +51,8 @@ def calcWeights(isogrid):
     """
     MH_logAge_vals, indices  = extractIsochrones(isogrid)
     diff = np.zeros(len(isogrid))
-    diff[1:] = isogrid['int_IMF'][1:]-isogrid['int_IMF'][:-1]
-    diff[indices] = np.array([integrate.quad(Kroupa, minMini, m)[0] for m in isogrid['Mini'][indices]])
+    diff[1:] = isogrid['int_IMF'][1:]-isogrid['int_IMF'][:-1]#all points except lowest m in each isochrone
+    diff[indices] = np.array([integrate.quad(Kroupa, minMini, m)[0] for m in isogrid['Mini'][indices]]) #lowest mass in each isochrone
     return diff
 
 
@@ -105,16 +105,18 @@ def NRG2SMM(isogrid, ageWeightingNum):
     
     weights = calcWeights(isogrid)*ageWeighting[np.digitize(np.arange(len(isogrid)), indices)-1]
     # multiplicatively increases isopoint weight by the age weighting for that point's isochrone
-    # digitize takes arange 0,...,len(isogrid)-1, then for each works out index of isochrone 
-    
+    # digitize takes arange 0,...,len(isogrid)-1, then for each works out index of isochrone .
     
     
     RGmask = makeRGmask(isogrid)
     weightinRG = weights[RGmask].sum()
+    # Since ageWeighting is normalised, weightinRG is the weighted mean of the IMF-weight  
+    # in each isochrone in the RG region
     
-    # sine morte distribution requires weightPerIsochrone*len(indices),
+    
+    # sine morte distribution requires weightPerIsochrone,
     # not sum of weights as old isochrones lack high-mass, dead points
-    return meanMini*weightPerIsochrone*len(indices)/weightinRG
+    return meanMini*weightPerIsochrone/weightinRG
 
     
 

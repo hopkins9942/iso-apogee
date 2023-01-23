@@ -74,15 +74,17 @@ class Galaxy:
         sig_az = np.zeros(shape)
         data = np.zeros((3, *shape))
         
+        FeHWidths = FeHEdges[1:] - FeHEdges[:-1]
+        aFeWidths = aFeEdges[1:] - aFeEdges[:-1]
+        vols = FeHWidths.reshape(-1,1) * aFeWidths
+        
         for i in range(shape[0]):
             for j in range(shape[1]):
                 binDir  = os.path.join(mySetup.dataDir, 'bins', f'FeH_{FeHEdges[i]}_{FeHEdges[i+1]}_aFe_{aFeEdges[j]}_{aFeEdges[i+1]}')
                 
-                PUT WEIGHT IN HERE
+                isogrid = myIsochrones.loadGrid()
+                NRG2SMM = myIsochrones.NRG2SMM(isogrid, weightingNum)
                 
-                multiIndex = np.unravel_index(binNum, shape)
-                limits = np.array([[edges[i][multiIndex[i]], edges[i][multiIndex[i]+1]] for i in range(len(labels))])
-                binDir  = os.path.join(myUtils.localDataDir, 'bins', binName(labels, limits))
                 with open(os.path.join(binDir, 'data.dat'), 'rb') as f0:
                     data[:,i,j] = np.array(pickle.load(f0))
                 
@@ -92,11 +94,9 @@ class Galaxy:
                 with open(os.path.join(binDir, 'noPyro_fit_sigmas.dat'), 'rb') as f1:
                     sig_logNuSun[i,j], sig_aR[i,j], sig_az[i,j] = pickle.load(f1)
                     
-                with open(os.path.join(binDir, 'NRG2mass.dat'), 'rb') as f2:
-                    NRG2Mass = pickle.load(f2)
                     
-                amp[multiIndex] = NRG2Mass*np.exp(logA)/(np.prod(limits[:,1]-limits[:,0]))
-        return cls(labels, edges, amp, aR, az, sig_logNuSun, sig_aR, sig_az, data)
+                amp[i,j] = NRG2SMM*np.exp(logA)/vols
+        return cls(FeHEdges, aFeEdges, amp, aR, az, sig_logNuSun, sig_aR, sig_az, data)
     
     
     def hist(self, R=myUtils.R_Sun, z=myUtils.z_Sun, normalised=False):
