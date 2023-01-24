@@ -36,6 +36,8 @@ def main():
     for wn in range(3):
         Zindex=1 # num proportional to Z metallicity
         makePlots(wn,wn,Zindex)
+        
+    
     
     
     # old:
@@ -55,12 +57,15 @@ def makePlots(ESFwn=0, SMMwn=0, Zindex=1):
     localD = Distributions('local', G.FeH(G.hist()), ISONumZIndex=Zindex)
     MWD = Distributions('MW', G.FeH(G.integratedHist()), perVolume=False, ISONumZIndex=Zindex)
     EAGLED = Distributions('EAGLE', EAGLE_FeHHist, FeHEdges=EAGLEEdges, perVolume=False, ISONumZIndex=Zindex)
+    
     localD.plot(extra=f'ESFwn{ESFwn}SMMwn{SMMwn}Zindex{Zindex}')
     MWD.plot(extra=f'ESFwn{ESFwn}SMMwn{SMMwn}Zindex{Zindex}')
     EAGLED.plot(extra=f'ESFwn{ESFwn}SMMwn{SMMwn}Zindex{Zindex}')
     localD.plotWith(MWD, extra=f'ESFwn{ESFwn}SMMwn{SMMwn}Zindex{Zindex}')
     MWD.plotWith(EAGLED, extra=f'ESFwn{ESFwn}SMMwn{SMMwn}Zindex{Zindex}', plotLim=(-2,1))
+    
     plotOverR(G, extra=f'ESFwn{ESFwn}SMMwn{SMMwn}Zindex{Zindex}')
+    plotFit(G, extra=f'ESFwn{ESFwn}SMMwn{SMMwn}')
 
 def getEAGLE_hist_edges():
     EAGLE_data = np.loadtxt(os.path.join(mySetup.dataDir,
