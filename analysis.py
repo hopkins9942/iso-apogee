@@ -30,18 +30,12 @@ plotDir = f'/Users/hopkinsm/Documents/APOGEE/plots/{sha}/'
 
 def main():
     
-    G = Galaxy.loadFromBins(ESFweightingNum=2, NRG2SMMweightingNum=0)
-    plotFit(G, extra='testing')
-    plotData(G, extra='testing')
-    makePlots(2,0,1)
-    print(np.where(G.data[0,:,:]>=50, G.aR, 0))
-    
     
     #for paper:
-    # makePlots(0,0,0)
-    # for wn in range(3):
-    #     Zindex=1 # num proportional to Z metallicity
-    #     makePlots(wn,wn,Zindex)
+    makePlots(0,0,0)
+    for wn in range(3):
+        Zindex=1 # num proportional to Z metallicity
+        makePlots(wn,wn,Zindex)
     
     
     # old:
