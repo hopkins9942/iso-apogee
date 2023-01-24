@@ -30,24 +30,21 @@ plotDir = f'/Users/hopkinsm/Documents/APOGEE/plots/{sha}/'
 
 def main():
     
-    for wn in range(3):
-        G = Galaxy.loadFromBins(ESFweightingNum=wn, NRG2SMMweightingNum=wn)
-        localD = Distributions('local', G.FeH(G.hist()))
-        MWD = Distributions('MW', G.FeH(G.integratedHist()), perVolume=False)
-        EAGLED = getEAGLED()
-        
-        localD.plot(extra=str(wn))
-        MWD.plot(extra=str(wn))
-        EAGLED.plot(extra=str(wn))
-        localD.plotWith(MWD, extra=str(wn))
-        MWD.plotWith(EAGLED, extra=str(wn), plotLim=(-2,1))
-        
-        plotOverR(G, extra=str(wn))
+    G = Galaxy.loadFromBins(ESFweightingNum=2, NRG2SMMweightingNum=0)
+    plotFit(G, extra='testing')
+    plotData(G, extra='testing')
+    makePlots(2,0,1)
+    print(np.where(G.data[0,:,:]>=50, G.aR, 0))
     
     
+    #for paper:
+    # makePlots(0,0,0)
+    # for wn in range(3):
+    #     Zindex=1 # num proportional to Z metallicity
+    #     makePlots(wn,wn,Zindex)
     
     
-    
+    # old:
     # plotFeH()
     # plotMgFeFeH(False)
     # plotMgFeFeH(True)
@@ -55,9 +52,23 @@ def main():
     # plotageFeH()
     # plot_scales_MgFeFeHvsFeH()
     # plot_data_MgFeFeHvsFeH()
-    pass
+    return 0
 
-def getEAGLED():
+
+def makePlots(ESFwn=0, SMMwn=0, Zindex=1):
+    EAGLE_FeHHist, EAGLEEdges = getEAGLE_hist_edges()
+    G = Galaxy.loadFromBins(ESFweightingNum=ESFwn, NRG2SMMweightingNum=SMMwn)
+    localD = Distributions('local', G.FeH(G.hist()), ISONumZIndex=Zindex)
+    MWD = Distributions('MW', G.FeH(G.integratedHist()), perVolume=False, ISONumZIndex=Zindex)
+    EAGLED = Distributions('EAGLE', EAGLE_FeHHist, FeHEdges=EAGLEEdges, perVolume=False, ISONumZIndex=Zindex)
+    localD.plot(extra=f'ESFwn{ESFwn}SMMwn{SMMwn}Zindex{Zindex}')
+    MWD.plot(extra=f'ESFwn{ESFwn}SMMwn{SMMwn}Zindex{Zindex}')
+    EAGLED.plot(extra=f'ESFwn{ESFwn}SMMwn{SMMwn}Zindex{Zindex}')
+    localD.plotWith(MWD, extra=f'ESFwn{ESFwn}SMMwn{SMMwn}Zindex{Zindex}')
+    MWD.plotWith(EAGLED, extra=f'ESFwn{ESFwn}SMMwn{SMMwn}Zindex{Zindex}', plotLim=(-2,1))
+    plotOverR(G, extra=f'ESFwn{ESFwn}SMMwn{SMMwn}Zindex{Zindex}')
+
+def getEAGLE_hist_edges():
     EAGLE_data = np.loadtxt(os.path.join(mySetup.dataDir,
                             'input_data', 'EAGLE_MW_L0025N0376_REFERENCE_ApogeeRun_30kpc_working.dat'))
     # List of star particles
@@ -67,7 +78,7 @@ def getEAGLED():
     EAGLEWidths = EAGLEEdges[1:] - EAGLEEdges[:-1]
     EAGLE_FeHHist = np.histogram(EAGLE_FeH, bins=EAGLEEdges, weights=EAGLE_mass/EAGLEWidths[0])[0]
     
-    return Distributions( 'EAGLE', EAGLE_FeHHist, FeHEdges=EAGLEEdges, perVolume=False)
+    return (EAGLE_FeHHist, EAGLEEdges)
     
 
 def plotData(G, extra=''):
@@ -309,7 +320,7 @@ class Distributions:
     
     alpha = 1
     
-    def __init__(self, name, FeHHist, FeHEdges=mySetup.FeHEdges, perVolume=True, normalised=False, powerIndex=1):
+    def __init__(self, name, FeHHist, FeHEdges=mySetup.FeHEdges, perVolume=True, normalised=False, ISONumZIndex=1):
         self.FeHEdges = FeHEdges
         self.FeHWidths = self.FeHEdges[1:] - self.FeHEdges[:-1]
         self.FeHMidpoints = (self.FeHEdges[1:] + self.FeHEdges[:-1])/2
@@ -319,7 +330,7 @@ class Distributions:
             self.FeHHist = FeHHist
         else:
             self.FeHHist = FeHHist/np.sum(self.FeHWidths*FeHHist)
-        self.powerIndex = powerIndex
+        self.ISONumZIndex = ISONumZIndex
         
         y = np.append(0, np.cumsum(self.FeHWidths*self.FeHHist))
         dist = scipy.interpolate.CubicSpline(self.FeHEdges, y, bc_type='clamped', extrapolate=True).derivative()
@@ -329,7 +340,7 @@ class Distributions:
         self.FeHDist = FeHDistFunc
         
         def ISOsPerFeH(FeH):
-            return self.alpha*(10**(powerIndex*FeH))*self.FeHDist(FeH)
+            return self.alpha*(((10**FeH)/(1+2.78*0.0207*(10**FeH)))**ISONumZIndex)*self.FeHDist(FeH)
         
         lowerCount = scipy.integrate.quad(ISOsPerFeH, FeHHigh, 3, limit=200)[0]
         middleCount = scipy.integrate.quad(ISOsPerFeH, FeHLow, FeHHigh, limit=200)[0]
@@ -345,7 +356,7 @@ class Distributions:
     def butNormalised(self):
         """returns a seperate Distributions with normalised=True"""
         # could this be cls() instead? No, that's for class methods, where cls is the first argument
-        return self.__class__(self.name, self.FeHHist, self.FeHEdges, self.perVolume, normalised=True, powerIndex=self.powerIndex)
+        return self.__class__(self.name, self.FeHHist, self.FeHEdges, self.perVolume, normalised=True, ISONumZIndex=self.ISONumZIndex)
         
     def plot(self, extra='', plotLim=(None,None), saveDir=plotDir):
         os.makedirs(saveDir, exist_ok=True)

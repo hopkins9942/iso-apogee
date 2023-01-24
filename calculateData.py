@@ -6,6 +6,10 @@ import matplotlib.pyplot as plt
 import astropy.coordinates as coord
 import astropy.units as u
 
+
+import matplotlib as mpl
+cmap1 = mpl.colormaps['Blues']
+
 import mySetup
 import pickleGetters as pg
 
@@ -39,7 +43,7 @@ def tests():
     goodFe = (FeH>-9999)
     
     fig, ax = plt.subplots()
-    ax.hist2d(FeH[goodFe&goodAlpha], aFe[goodFe&goodAlpha], bins=50)
+    nPerBin=ax.hist2d(FeH[goodFe&goodAlpha], aFe[goodFe&goodAlpha], bins=50)[0]
     
     mu = mySetup.D2mu(S['weighted_dist']/1000) #10+5*np.log10(S['weighted_dist']/1000)
     goodMu = (mySetup.muMin<=mu) & (mu<mySetup.muMax)
@@ -68,6 +72,36 @@ def tests():
     ax.hist(S['H'][goodLogg], bins=100)
     # all H good though some JK0<0.3 - probably to do with dereddening
     
+    fig, ax = plt.subplots()
+    totalMHperBin, FeHEdges, aFeEdges, *_ =ax.hist2d(FeH[goodFe&goodAlpha],
+                    aFe[goodFe&goodAlpha], bins=50,
+              weights=S[goodFe&goodAlpha]['M_H'],
+              cmap=cmap1)
+    
+    fig, ax = plt.subplots(2,1)
+    image=ax[1].imshow((totalMHperBin/nPerBin).T, origin='lower', aspect='auto',
+                    extent=(FeHEdges[0], FeHEdges[-1], aFeEdges[0], aFeEdges[-1]), 
+              cmap=cmap1)
+    fig.colorbar(image, cax=ax[0], orientation='horizontal')
+    # M_H correlated pretty much exactly with FE_H, with no varience with alpha/FE
+    
+    
+    fig, ax = plt.subplots()
+    totalALPHAperBin, FeHEdges, aFeEdges, *_ =ax.hist2d(FeH[goodFe&goodAlpha],
+                    aFe[goodFe&goodAlpha], bins=50,
+              weights=S[goodFe&goodAlpha]['ALPHA_M'],
+              cmap=cmap1)
+    
+    fig, ax = plt.subplots()
+    image=ax.imshow((totalALPHAperBin/nPerBin).T, origin='lower', aspect='auto',
+                    extent=(FeHEdges[0], FeHEdges[-1], aFeEdges[0], aFeEdges[-1]), 
+              cmap=cmap1)
+    fig.colorbar(image)
+    # Not quite as strict as M_H vs Fe_H
+    # makes sence given ASPCAP procedure - find params fitting whole spectrum with 
+    # solar scaled [M/H] and [alpha/M], then for each element vary these only 
+    # considereing spectral features sensitive to element in question. Fe has 
+    # lots of features so fit well just be [M/H], alpha elements have fewer
     
 
 def calculateAlphaFe(S):
