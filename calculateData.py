@@ -37,8 +37,6 @@ def tests():
         
     FeH = S['FE_H']
     goodFe = (FeH>-9999)
-    fig, ax = plt.subplots()
-    ax.hist(FeH[goodFe], bins=100)
     
     fig, ax = plt.subplots()
     ax.hist2d(FeH[goodFe&goodAlpha], aFe[goodFe&goodAlpha], bins=50)
@@ -48,6 +46,12 @@ def tests():
     goodLogg = (1<=S['LOGG']) & (S['LOGG']<3)
     
     # Logg cut removes dwarves:
+    
+    fig, ax = plt.subplots()
+    ax.hist(FeH[goodFe], bins=100)
+    ax.hist(FeH[goodFe & goodLogg], bins=100)
+    # removing dwarfs reduces sharpness of peak in BB20 range
+    
     fig, ax = plt.subplots()
     ax.hist(mu, bins=100)
     fig, ax = plt.subplots()
@@ -157,7 +161,7 @@ def calculateData():
     
 
 if __name__=='__main__':
-    calculateData()
+    tests()
     pass
 
 
