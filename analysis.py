@@ -205,7 +205,7 @@ def medianFeH(D):
     assert D.isNormalised
     def func(m):
         return scipy.integrate.quad(D.FeHDist, D.FeHEdges[0], m)-0.5
-    sol = scipy.optimise.root_scalar(func, x0=0.0)
+    sol = scipy.optimize.root_scalar(func, x0=0.0)
     return sol.root
 
 def medianfH2O(D):
@@ -213,7 +213,7 @@ def medianfH2O(D):
     if (D.counts[0]<0.5)and(D.counts[0]+D.counts[1]>0.5):
         def func(m):
             return D.counts[0]+scipy.integrate.quad(D.fH2ODist, fH2OLow, m)-0.5
-        sol = scipy.optimise.root_scalar(func, x0=0.0)
+        sol = scipy.optimize.root_scalar(func, x0=0.0)
         return sol.root
     else:
         # median not in middle range
