@@ -65,6 +65,7 @@ def makePlots(ESFwn=0, SMMwn=0, Zindex=1):
     MWD.plotWith(EAGLED, extra=f'ESFwn{ESFwn}SMMwn{SMMwn}Zindex{Zindex}', plotLim=(-2,1))
     
     plotOverR(G, extra=f'ESFwn{ESFwn}SMMwn{SMMwn}Zindex{Zindex}')
+    plotMedianOverR(G, extra=f'ESFwn{ESFwn}SMMwn{SMMwn}Zindex{Zindex}')
     plotFit(G, extra=f'ESFwn{ESFwn}SMMwn{SMMwn}')
 
 def getEAGLE_hist_edges():
@@ -172,7 +173,51 @@ def plotOverR(G, extra=''):
     ax.set_ylabel(r'fH2O distribution')
     path = os.path.join(plotDir,str(extra)+'fH2OR.pdf')
     fig.savefig(path, dpi=300)
+    
+    
 
+def plotMedianOverR(G, extra=''):
+    R = np.linspace(0,20,101)
+    R = (R[:-1]+R[1:])/2
+    FeH = np.zeros(len(R))
+    fH2O = np.zeros(len(R))
+    
+    for i, r in enumerate(R):
+        D = Distributions(f'r={r}', G.FeH(G.zintegratedHist(r)), normalised=True)
+        FeH[i] = medianFeH(D)
+        fH2O[i] = medianfH2O(D)
+    
+    fig, ax = plt.subplots()
+    ax.plot(R, FeH)
+    ax.set_xlabel('R/kpc')
+    ax.set_ylabel(r'FeH median')
+    path = os.path.join(plotDir,str(extra)+'FeHMedianR.pdf')
+    fig.savefig(path, dpi=300)
+    
+    fig, ax = plt.subplots()
+    ax.plot(R, FeH)
+    ax.set_xlabel('R/kpc')
+    ax.set_ylabel(r'fH2O median')
+    path = os.path.join(plotDir,str(extra)+'fH2OMedianR.pdf')
+    fig.savefig(path, dpi=300)
+    
+def medianFeH(D):
+    assert D.isNormalised
+    def func(m):
+        return scipy.integrate.quad(D.FeHDist, D.FeHEdges[0], m)-0.5
+    sol = scipy.optimise.root_scalar(func, x0=0.0)
+    return sol.root
+
+def medianfH2O(D):
+    assert D.isNormalised
+    if (D.counts[0]<0.5)and(D.counts[0]+D.counts[1]>0.5):
+        def func(m):
+            return D.counts[0]+scipy.integrate.quad(D.fH2ODist, fH2OLow, m)-0.5
+        sol = scipy.optimise.root_scalar(func, x0=0.0)
+        return sol.root
+    else:
+        # median not in middle range
+        return np.nan #for now
 
 class Galaxy:
     def __init__(self, FeHEdges, aFeEdges, amp, aR, az, sig_logNuSun, sig_aR, sig_az, data):
@@ -325,6 +370,7 @@ class Distributions:
         self.FeHMidpoints = (self.FeHEdges[1:] + self.FeHEdges[:-1])/2
         self.name = name
         self.perVolume = perVolume
+        self.isNormalised = normalised
         if not normalised:
             self.FeHHist = FeHHist
         else:
