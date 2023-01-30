@@ -1,4 +1,5 @@
 # Goal is unified, easy plotting of any combination of bins
+import time 
 
 import numpy as np
 import os
@@ -28,6 +29,11 @@ print(sha)
 
 plotDir = f'/Users/hopkinsm/Documents/APOGEE/plots/{sha}/'
 
+
+
+
+# really should sort integral warnings
+
 def main():
     
     
@@ -37,7 +43,16 @@ def main():
         Zindex=1 # num proportional to Z metallicity
         makePlots(wn,wn,Zindex)
         
+    #tests
+    # G = Galaxy.loadFromBins(ESFweightingNum=0, NRG2SMMweightingNum=0)
+    # R = np.linspace(0,20,11)
+    # R = (R[:-1]+R[1:])/2
     
+    # for r in R:
+    #     print(r)
+    #     D = Distributions(f'r={r}', G.FeH(G.zintegratedHist(r)), normalised=True, ISONumZIndex=1)
+    #     D.plot()
+        
     
     
     # old:
@@ -55,15 +70,21 @@ def makePlots(ESFwn=0, SMMwn=0, Zindex=1):
     EAGLE_FeHHist, EAGLEEdges = getEAGLE_hist_edges()
     G = Galaxy.loadFromBins(ESFweightingNum=ESFwn, NRG2SMMweightingNum=SMMwn)
     localD = Distributions('local', G.FeH(G.hist()), ISONumZIndex=Zindex)
+    print("made localD")
     MWD = Distributions('MW', G.FeH(G.integratedHist()), perVolume=False, ISONumZIndex=Zindex)
+    print("made MWD")
     EAGLED = Distributions('EAGLE', EAGLE_FeHHist, FeHEdges=EAGLEEdges, perVolume=False, ISONumZIndex=Zindex)
-    
+    print("made EAGLED")
     localD.plot(extra=f'ESFwn{ESFwn}SMMwn{SMMwn}Zindex{Zindex}')
+    print("done local")
     MWD.plot(extra=f'ESFwn{ESFwn}SMMwn{SMMwn}Zindex{Zindex}')
+    print("done MW")
     EAGLED.plot(extra=f'ESFwn{ESFwn}SMMwn{SMMwn}Zindex{Zindex}')
+    print("done EAGLE")
     localD.plotWith(MWD, extra=f'ESFwn{ESFwn}SMMwn{SMMwn}Zindex{Zindex}')
+    print("done localMW")
     MWD.plotWith(EAGLED, extra=f'ESFwn{ESFwn}SMMwn{SMMwn}Zindex{Zindex}', plotLim=(-2,1))
-    
+    print("done EAGLEMW")
     plotOverR(G, extra=f'ESFwn{ESFwn}SMMwn{SMMwn}Zindex{Zindex}')
     plotMedianOverR(G, extra=f'ESFwn{ESFwn}SMMwn{SMMwn}Zindex{Zindex}')
     plotFit(G, extra=f'ESFwn{ESFwn}SMMwn{SMMwn}')
@@ -177,7 +198,7 @@ def plotOverR(G, extra=''):
     
 
 def plotMedianOverR(G, extra=''):
-    R = np.linspace(0,20,101)
+    R = np.linspace(0,20,11)
     R = (R[:-1]+R[1:])/2
     FeH = np.zeros(len(R))
     fH2O = np.zeros(len(R))
@@ -195,7 +216,7 @@ def plotMedianOverR(G, extra=''):
     fig.savefig(path, dpi=300)
     
     fig, ax = plt.subplots()
-    ax.plot(R, FeH)
+    ax.plot(R, fH2O)
     ax.set_xlabel('R/kpc')
     ax.set_ylabel(r'fH2O median')
     path = os.path.join(plotDir,str(extra)+'fH2OMedianR.pdf')
@@ -204,16 +225,16 @@ def plotMedianOverR(G, extra=''):
 def medianFeH(D):
     assert D.isNormalised
     def func(m):
-        return scipy.integrate.quad(D.FeHDist, D.FeHEdges[0], m)-0.5
-    sol = scipy.optimize.root_scalar(func, x0=0.0)
+        return scipy.integrate.quad(D.FeHDist, D.FeHEdges[0], m)[0]-0.5
+    sol = scipy.optimize.root_scalar(func, bracket=(D.FeHEdges[0], D.FeHEdges[-1]))
     return sol.root
 
 def medianfH2O(D):
     assert D.isNormalised
     if (D.counts[0]<0.5)and(D.counts[0]+D.counts[1]>0.5):
         def func(m):
-            return D.counts[0]+scipy.integrate.quad(D.fH2ODist, fH2OLow, m)-0.5
-        sol = scipy.optimize.root_scalar(func, x0=0.0)
+            return D.counts[0]+scipy.integrate.quad(D.fH2ODist, fH2OLow, m)[0]-0.5
+        sol = scipy.optimize.root_scalar(func, bracket=(fH2OLow, fH2OHigh))
         return sol.root
     else:
         # median not in middle range
@@ -307,8 +328,11 @@ class Galaxy:
         
     def zintegratedHist(self, R=mySetup.R_Sun, zlim=None, normalised=False):
         """integrates z=-z to z at given R, with default of whole vertical range"""
-        hist = np.where((self.az>0), 2*self.amp*np.exp(-self.aR*(R-mySetup.R_Sun))/(self.az), 0)
+        arg = np.where((self.az>0), -self.aR*(R-mySetup.R_Sun), 0)
+        hist = np.where((self.az>0), 2*self.amp*np.exp(arg)/(self.az), 0)
         # volume technically infinite for negative a, this only occurs when negligible stars in bin
+        # werid split here to avoid warnings
+        
         if zlim!=None:
             hist *= (1 - np.exp(-self.az*zlim))
         if not normalised:
@@ -385,13 +409,19 @@ class Distributions:
         self.FeHDist = FeHDistFunc
         
         def ISOsPerFeH(FeH):
-            return self.alpha*(((10**FeH)/(1+2.78*0.0207*(10**FeH)))**ISONumZIndex)*self.FeHDist(FeH)
-        
-        lowerCount = scipy.integrate.quad(ISOsPerFeH, FeHHigh, 3, limit=200)[0]
-        middleCount = scipy.integrate.quad(ISOsPerFeH, FeHLow, FeHHigh, limit=200)[0]
-        upperCount = scipy.integrate.quad(ISOsPerFeH, -3, FeHLow, limit=200)[0]
+            return self.alpha*(10**(FeH*ISONumZIndex))*self.FeHDist(FeH)
+            # return self.alpha*(((10**FeH)/(1+2.78*0.0207*(10**FeH)))**ISONumZIndex)*self.FeHDist(FeH)
+        print(f"starting with {self.name}")
+        time.sleep(2)
+        lowerCount = scipy.integrate.quad(ISOsPerFeH, FeHHigh, self.FeHEdges[-1])[0] 
+        middleCount = scipy.integrate.quad(ISOsPerFeH, FeHLow, FeHHigh)[0]
+        upperCount = scipy.integrate.quad(ISOsPerFeH, self.FeHEdges[0], FeHLow)[0]
         normFactor = (lowerCount+middleCount+upperCount) if normalised else 1
+        #Assumes bins entirely capture all stars
         
+        time.sleep(2)
+        print(f"ending with {self.name}, norm={self.isNormalised}")
+        # quad has problem with EAGLE and some rs
         def fH2ODistFunc(fH2O):
             return ISOsPerFeH(compInv(fH2O))/(normFactor*np.abs(compDeriv(compInv(fH2O))))
         
@@ -535,9 +565,9 @@ def compInv(fH2O):
     """inv may not work with array inputs"""
     if np.ndim(fH2O)==0:
         val = fH2O
-        if fH2OLow<=val<fH2OHigh:
+        if fH2OLow<=val<=fH2OHigh:
             allroots = (compPoly-val).roots()
-            myroot = allroots[(FeH_p[0]<=allroots)&(allroots<FeH_p[-1])]
+            myroot = allroots[(FeH_p[0]<=allroots)&(allroots<=FeH_p[-1])]
             assert len(myroot)==1 # checks not multiple roots
             assert np.isreal(myroot[0])
             return np.real(myroot[0])
