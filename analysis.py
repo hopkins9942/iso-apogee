@@ -1,5 +1,6 @@
 # Goal is unified, easy plotting of any combination of bins
-import time 
+import time
+from math import isclose
 
 import numpy as np
 import os
@@ -38,15 +39,25 @@ def main():
     
     
     #for paper:
-    makePlots(0,0,0)
-    for wn in range(3):
-        Zindex=1 # num proportional to Z metallicity
-        makePlots(wn,wn,Zindex)
+    # makePlots(0,0,0)
+    # for wn in range(3):
+    #     Zindex=1 # num proportional to Z metallicity
+    #     makePlots(wn,wn,Zindex)
         
     #tests
-    # G = Galaxy.loadFromBins(ESFweightingNum=0, NRG2SMMweightingNum=0)
+    G = Galaxy.loadFromBins(ESFweightingNum=0, NRG2SMMweightingNum=0)
     # R = np.linspace(0,20,11)
     # R = (R[:-1]+R[1:])/2
+    # FeH = np.zeros(len(R))
+    # fH2O = np.zeros(len(R))
+    
+    # for i, r in enumerate(R):
+    #     D = Distributions(f'r={r}median', G.FeH(G.zintegratedHist(r)), normalised=True)
+    #     FeH[i] = medianFeH(D)
+    #     fH2O[i] = medianfH2O(D)
+    # print(FeH)
+    # print(fH2O)
+    plotMedianOverR(G, extra=f'ESFwn{0}SMMwn{0}Zindex{1}')
     
     # for r in R:
     #     print(r)
@@ -70,22 +81,14 @@ def makePlots(ESFwn=0, SMMwn=0, Zindex=1):
     EAGLE_FeHHist, EAGLEEdges = getEAGLE_hist_edges()
     G = Galaxy.loadFromBins(ESFweightingNum=ESFwn, NRG2SMMweightingNum=SMMwn)
     localD = Distributions('local', G.FeH(G.hist()), ISONumZIndex=Zindex)
-    print("made localD")
     MWD = Distributions('MW', G.FeH(G.integratedHist()), perVolume=False, ISONumZIndex=Zindex)
-    print("made MWD")
     EAGLED = Distributions('EAGLE', EAGLE_FeHHist, FeHEdges=EAGLEEdges, perVolume=False, ISONumZIndex=Zindex)
-    print("made EAGLED")
     localD.plot(extra=f'ESFwn{ESFwn}SMMwn{SMMwn}Zindex{Zindex}')
-    print("done local")
     MWD.plot(extra=f'ESFwn{ESFwn}SMMwn{SMMwn}Zindex{Zindex}')
-    print("done MW")
     EAGLED.plot(extra=f'ESFwn{ESFwn}SMMwn{SMMwn}Zindex{Zindex}')
-    print("done EAGLE")
     localD.plotWith(MWD, extra=f'ESFwn{ESFwn}SMMwn{SMMwn}Zindex{Zindex}')
-    print("done localMW")
     MWD.plotWith(EAGLED, extra=f'ESFwn{ESFwn}SMMwn{SMMwn}Zindex{Zindex}', plotLim=(-2,1))
-    print("done EAGLEMW")
-    plotOverR(G, extra=f'ESFwn{ESFwn}SMMwn{SMMwn}Zindex{Zindex}')
+    # plotOverR(G, extra=f'ESFwn{ESFwn}SMMwn{SMMwn}Zindex{Zindex}')
     plotMedianOverR(G, extra=f'ESFwn{ESFwn}SMMwn{SMMwn}Zindex{Zindex}')
     plotFit(G, extra=f'ESFwn{ESFwn}SMMwn{SMMwn}')
 
@@ -198,13 +201,13 @@ def plotOverR(G, extra=''):
     
 
 def plotMedianOverR(G, extra=''):
-    R = np.linspace(0,20,11)
+    R = np.linspace(5,15,11)
     R = (R[:-1]+R[1:])/2
     FeH = np.zeros(len(R))
     fH2O = np.zeros(len(R))
     
     for i, r in enumerate(R):
-        D = Distributions(f'r={r}', G.FeH(G.zintegratedHist(r)), normalised=True)
+        D = Distributions(f'r={r}median', G.FeH(G.zintegratedHist(r)), normalised=True)
         FeH[i] = medianFeH(D)
         fH2O[i] = medianfH2O(D)
     
@@ -225,8 +228,9 @@ def plotMedianOverR(G, extra=''):
 def medianFeH(D):
     assert D.isNormalised
     def func(m):
-        return scipy.integrate.quad(D.FeHDist, D.FeHEdges[0], m)[0]-0.5
-    sol = scipy.optimize.root_scalar(func, bracket=(D.FeHEdges[0], D.FeHEdges[-1]))
+        return D.integrateFeH(D.FeHEdges[0], m)[0]-0.5
+    sol = scipy.optimize.root_scalar(func, bracket=(-0.4,0.4))
+    #assumes this range, error will be thrown if not though
     return sol.root
 
 def medianfH2O(D):
@@ -234,6 +238,7 @@ def medianfH2O(D):
     if (D.counts[0]<0.5)and(D.counts[0]+D.counts[1]>0.5):
         def func(m):
             return D.counts[0]+scipy.integrate.quad(D.fH2ODist, fH2OLow, m)[0]-0.5
+        # quad can be dodgy, fix if warnings are given
         sol = scipy.optimize.root_scalar(func, bracket=(fH2OLow, fH2OHigh))
         return sol.root
     else:
@@ -411,17 +416,31 @@ class Distributions:
         def ISOsPerFeH(FeH):
             return self.alpha*(10**(FeH*ISONumZIndex))*self.FeHDist(FeH)
             # return self.alpha*(((10**FeH)/(1+2.78*0.0207*(10**FeH)))**ISONumZIndex)*self.FeHDist(FeH)
-        print(f"starting with {self.name}")
-        time.sleep(2)
-        lowerCount = scipy.integrate.quad(ISOsPerFeH, FeHHigh, self.FeHEdges[-1])[0] 
-        middleCount = scipy.integrate.quad(ISOsPerFeH, FeHLow, FeHHigh)[0]
-        upperCount = scipy.integrate.quad(ISOsPerFeH, self.FeHEdges[0], FeHLow)[0]
+        
+        
+        # print(f"starting with {self.name}")
+        # time.sleep(2)
+        # lowerCount = scipy.integrate.quad(ISOsPerFeH, FeHHigh, self.FeHEdges[-1])[0] 
+        # middleCount = scipy.integrate.quad(ISOsPerFeH, FeHLow, FeHHigh)[0]
+        # upperCount = scipy.integrate.quad(ISOsPerFeH, self.FeHEdges[0], FeHLow)[0]
+        # normFactor = (lowerCount+middleCount+upperCount) if normalised else 1
+        # #Assumes bins entirely capture all stars
+        # time.sleep(2)
+        # print(f"ending with {self.name}, norm={self.isNormalised}")
+        # # quad has problem with EAGLE and some rs
+        
+        
+        lowerCount = self.integrateFeH(FeHHigh, self.FeHEdges[-1])[0] 
+        middleCount = self.integrateFeH(FeHLow, FeHHigh)[0]
+        upperCount = self.integrateFeH(self.FeHEdges[0], FeHLow)[0]
+        assert isclose((lowerCount+middleCount+upperCount),
+                       self.integrateFeH(self.FeHEdges[0], self.FeHEdges[-1]))
+        
         normFactor = (lowerCount+middleCount+upperCount) if normalised else 1
         #Assumes bins entirely capture all stars
-        
-        time.sleep(2)
-        print(f"ending with {self.name}, norm={self.isNormalised}")
         # quad has problem with EAGLE and some rs
+        
+        
         def fH2ODistFunc(fH2O):
             return ISOsPerFeH(compInv(fH2O))/(normFactor*np.abs(compDeriv(compInv(fH2O))))
         
@@ -432,7 +451,40 @@ class Distributions:
         """returns a seperate Distributions with normalised=True"""
         # could this be cls() instead? No, that's for class methods, where cls is the first argument
         return self.__class__(self.name, self.FeHHist, self.FeHEdges, self.perVolume, normalised=True, ISONumZIndex=self.ISONumZIndex)
-        
+    
+    def integrateFeH(self, x1, x2):
+        """integrates SM mass between two FeH values
+        Needed as quad had problems, and all information is there in bins"""
+
+        masses = self.FeHHist * self.FeHWidths
+        bindices = np.arange(len(masses))
+            
+        if (self.FeHEdges[0]<x1)and(x2<self.FeHEdges[-1]):
+            bin1 = np.digitize(x1, self.FeHEdges)-1
+            bin2 = np.digitize(x2, self.FeHEdges)-1
+            
+            mass = np.sum(masses[(bin1<bindices)&(bindices<bin2)])
+            mass += scipy.integrate.quad(self.FeHDist, x1, self.FeHEdges[bin1+1])
+            mass += scipy.integrate.quad(self.FeHDist, self.FeHEdges[bin2], x2)
+            
+        elif ((self.FeHEdges[0]<x1)and(self.FeHEdges[-1]<=x2)):
+            bin1 = np.digitize(x1, self.FeHEdges)-1
+            
+            mass = np.sum(masses[(bin1<bindices)])
+            mass += scipy.integrate.quad(self.FeHDist, x1, self.FeHEdges[bin1+1])
+            
+        elif ((x1<=self.FeHEdges[0])and(x2<self.FeHEdges[-1])):
+            bin2 = np.digitize(x2, self.FeHEdges)-1
+            
+            mass = np.sum(masses[(bindices<bin2)])
+            mass += scipy.integrate.quad(self.FeHDist, self.FeHEdges[bin2], x2)
+        elif ((x1<=self.FeHEdges[0])and(self.FeHEdges[-1]<=x2)):
+            mass = np.sum(masses)
+            
+        else:
+            raise ValueError("Something has gone wrong")
+        return mass
+    
     def plot(self, extra='', plotLim=(None,None), saveDir=plotDir):
         os.makedirs(saveDir, exist_ok=True)
         
