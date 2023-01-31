@@ -29,7 +29,7 @@ print(repo)
 print(sha)
 
 plotDir = f'/Users/hopkinsm/Documents/APOGEE/plots/{sha}/'
-
+os.makedirs(plotDir, exist_ok=True)
 
 
 
@@ -38,14 +38,20 @@ plotDir = f'/Users/hopkinsm/Documents/APOGEE/plots/{sha}/'
 def main():
     
     
-    #for paper:
+    # for paper:
     # makePlots(0,0,0)
     # for wn in range(3):
     #     Zindex=1 # num proportional to Z metallicity
     #     makePlots(wn,wn,Zindex)
+    
+    G = Galaxy.loadFromBins(ESFweightingNum=0, NRG2SMMweightingNum=0)
+    D = Distributions('local', G.FeH(G.zintegratedHist()), normalised=True)
+    print(optimiseBeta(D, extra=f'ESFwn{0}SMMwn{0}'))
         
     #tests
-    G = Galaxy.loadFromBins(ESFweightingNum=0, NRG2SMMweightingNum=0)
+    # G = Galaxy.loadFromBins(ESFweightingNum=0, NRG2SMMweightingNum=0)
+    # D = Distributions('local', G.FeH(G.zintegratedHist()), normalised=True)
+    # print(optimiseBeta(D))
     # R = np.linspace(0,20,11)
     # R = (R[:-1]+R[1:])/2
     # FeH = np.zeros(len(R))
@@ -57,7 +63,7 @@ def main():
     #     fH2O[i] = medianfH2O(D)
     # print(FeH)
     # print(fH2O)
-    plotMedianOverR(G, extra=f'ESFwn{0}SMMwn{0}Zindex{1}')
+    # plotMedianOverR(G, extra=f'ESFwn{0}SMMwn{0}Zindex{1}')
     
     # for r in R:
     #     print(r)
@@ -88,8 +94,9 @@ def makePlots(ESFwn=0, SMMwn=0, Zindex=1):
     EAGLED.plot(extra=f'ESFwn{ESFwn}SMMwn{SMMwn}Zindex{Zindex}')
     localD.plotWith(MWD, extra=f'ESFwn{ESFwn}SMMwn{SMMwn}Zindex{Zindex}')
     MWD.plotWith(EAGLED, extra=f'ESFwn{ESFwn}SMMwn{SMMwn}Zindex{Zindex}', plotLim=(-2,1))
-    # plotOverR(G, extra=f'ESFwn{ESFwn}SMMwn{SMMwn}Zindex{Zindex}')
-    plotMedianOverR(G, extra=f'ESFwn{ESFwn}SMMwn{SMMwn}Zindex{Zindex}')
+    print('starting over R')
+    plotOverR(G, extra=f'ESFwn{ESFwn}SMMwn{SMMwn}Zindex{Zindex}')
+    # plotMedianOverR(G, extra=f'ESFwn{ESFwn}SMMwn{SMMwn}Zindex{Zindex}')
     plotFit(G, extra=f'ESFwn{ESFwn}SMMwn{SMMwn}')
 
 def getEAGLE_hist_edges():
@@ -163,24 +170,29 @@ def plotAgeWeightingDiffs():
         
 
 def plotOverR(G, extra=''):
-    R = np.linspace(0,20,101)
+    R = np.linspace(0,15,101)
     R = (R[:-1]+R[1:])/2
     
     FeHPlotPoints = np.linspace(G.FeHEdges[0], G.FeHEdges[-1], 100)
     fH2OPlotPoints = np.linspace(fH2OLow+0.0001, fH2OHigh-0.0001, 100)
     FeHR = np.zeros((len(R), len(FeHPlotPoints)))
     fH2OR = np.zeros((len(R), len(fH2OPlotPoints)))
+    FeHMed = np.zeros(len(R))
+    fH2OMed = np.zeros(len(R))
     
     for i, r in enumerate(R):
         D = Distributions(f'r={r}', G.FeH(G.zintegratedHist(r)), normalised=True)
         FeHR[i,:] = D.FeHDist(FeHPlotPoints)
         fH2OR[i,:] = D.fH2ODist(fH2OPlotPoints)
+        FeHMed[i] = medianFeH(D)
+        fH2OMed[i] = medianfH2O(D)
         
     fig, ax = plt.subplots()
     image = ax.imshow(FeHR.T, origin='lower',
               extent=(R[0], R[-1], FeHPlotPoints[0], FeHPlotPoints[-1]),
               aspect='auto', 
               cmap=cmap1, norm=mpl.colors.Normalize())
+    ax.plot(R, FeHMed, 'r--')
     fig.colorbar(image)
     ax.set_xlabel('R/kpc')
     ax.set_ylabel(r'FeH distribution')
@@ -192,6 +204,8 @@ def plotOverR(G, extra=''):
               extent=(R[0], R[-1], fH2OPlotPoints[0], fH2OPlotPoints[-1]),
               aspect='auto', 
               cmap=cmap1, norm=mpl.colors.Normalize())
+    
+    ax.plot(R, fH2OMed, 'r--')
     fig.colorbar(image)
     ax.set_xlabel('R/kpc')
     ax.set_ylabel(r'fH2O distribution')
@@ -237,13 +251,42 @@ def medianfH2O(D):
     assert D.isNormalised
     if (D.counts[0]<0.5)and(D.counts[0]+D.counts[1]>0.5):
         def func(m):
-            return D.counts[0]+scipy.integrate.quad(D.fH2ODist, fH2OLow, m)[0]-0.5
-        # quad can be dodgy, fix if warnings are given
-        sol = scipy.optimize.root_scalar(func, bracket=(fH2OLow, fH2OHigh))
+            val = D.counts[0]+scipy.integrate.quad(D.fH2ODist, fH2OLow, m)[0]-0.5
+            return val
+        sol = scipy.optimize.root_scalar(func, bracket=(fH2OLow+0.0001, fH2OHigh-0.0001))
+        # setting bracket slightly within range stops scipy.integrate.quad errors
         return sol.root
+        
     else:
         # median not in middle range
         return np.nan #for now
+    
+    
+def optimiseBeta(D, fH2O=0.3, extra=''):
+    D = D.butNormalised()
+    def func(x):
+        newD = D.butWithBeta(x)
+        fig,ax = plt.subplots()
+        ax.plot(np.linspace(fH2OLow+0.0001, fH2OHigh-0.0001), newD.fH2ODist(np.linspace(fH2OLow+0.0001, fH2OHigh-0.0001)))
+        ax.set_title(f'beta = {newD.ISONumZIndex}')
+        return -newD.fH2ODist(fH2O)
+
+    beta = np.linspace(0.5,2.5)
+    f=[]
+    for b in beta:
+        f.append(-func(b))
+            
+    fig,ax = plt.subplots()
+    ax.plot(beta, f)
+    ax.set_xlabel('beta')
+    
+    res = scipy.optimize.minimize(func, 1)
+    
+    optD = D.butWithBeta(res.x[0])
+    optD.plot(extra=extra+f'Zindex{optD.ISONumZIndex}')
+    
+    return res
+    
 
 class Galaxy:
     def __init__(self, FeHEdges, aFeEdges, amp, aR, az, sig_logNuSun, sig_aR, sig_az, data):
@@ -414,29 +457,30 @@ class Distributions:
         self.FeHDist = FeHDistFunc
         
         def ISOsPerFeH(FeH):
-            return self.alpha*(10**(FeH*ISONumZIndex))*self.FeHDist(FeH)
-            # return self.alpha*(((10**FeH)/(1+2.78*0.0207*(10**FeH)))**ISONumZIndex)*self.FeHDist(FeH)
+            # return self.alpha*(10**(FeH*ISONumZIndex))*self.FeHDist(FeH)
+            return self.alpha*(((10**FeH)/(1+2.78*0.0207*(10**FeH)))**ISONumZIndex)*self.FeHDist(FeH)
         
         
         # print(f"starting with {self.name}")
-        # time.sleep(2)
-        # lowerCount = scipy.integrate.quad(ISOsPerFeH, FeHHigh, self.FeHEdges[-1])[0] 
-        # middleCount = scipy.integrate.quad(ISOsPerFeH, FeHLow, FeHHigh)[0]
-        # upperCount = scipy.integrate.quad(ISOsPerFeH, self.FeHEdges[0], FeHLow)[0]
-        # normFactor = (lowerCount+middleCount+upperCount) if normalised else 1
-        # #Assumes bins entirely capture all stars
-        # time.sleep(2)
+        # time.sleep(1)
+        lowerCount = scipy.integrate.quad(ISOsPerFeH, FeHHigh, self.FeHEdges[-1])[0] 
+        middleCount = scipy.integrate.quad(ISOsPerFeH, FeHLow, FeHHigh)[0]
+        upperCount = scipy.integrate.quad(ISOsPerFeH, self.FeHEdges[0], FeHLow)[0]
+        #Assumes bins entirely capture all stars
+        # time.sleep(1)
         # print(f"ending with {self.name}, norm={self.isNormalised}")
-        # # quad has problem with EAGLE and some rs
+        # # quad has problem with EAGLE and some rs, do fix warnings if they show
         
         
-        lowerCount = self.integrateFeH(FeHHigh, self.FeHEdges[-1])[0] 
-        middleCount = self.integrateFeH(FeHLow, FeHHigh)[0]
-        upperCount = self.integrateFeH(self.FeHEdges[0], FeHLow)[0]
-        assert isclose((lowerCount+middleCount+upperCount),
-                       self.integrateFeH(self.FeHEdges[0], self.FeHEdges[-1]))
+        # lowerCount = self.integrateFeH(FeHHigh, self.FeHEdges[-1])[0] 
+        # middleCount = self.integrateFeH(FeHLow, FeHHigh)[0]
+        # upperCount = self.integrateFeH(self.FeHEdges[0], FeHLow)[0]
+        # this is wrong, needs to be fH2O integral
         
-        normFactor = (lowerCount+middleCount+upperCount) if normalised else 1
+        # assert isclose((lowerCount+middleCount+upperCount),
+        #                self.integrateFeH(self.FeHEdges[0], self.FeHEdges[-1]))
+        
+        normFactor = (lowerCount+middleCount+upperCount) if self.isNormalised else 1
         #Assumes bins entirely capture all stars
         # quad has problem with EAGLE and some rs
         
@@ -451,6 +495,9 @@ class Distributions:
         """returns a seperate Distributions with normalised=True"""
         # could this be cls() instead? No, that's for class methods, where cls is the first argument
         return self.__class__(self.name, self.FeHHist, self.FeHEdges, self.perVolume, normalised=True, ISONumZIndex=self.ISONumZIndex)
+    
+    def butWithBeta(self, beta):
+        return self.__class__(self.name, self.FeHHist, self.FeHEdges, self.perVolume, normalised=self.isNormalised, ISONumZIndex=beta)
     
     def integrateFeH(self, x1, x2):
         """integrates SM mass between two FeH values
