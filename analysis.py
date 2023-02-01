@@ -33,7 +33,7 @@ os.makedirs(plotDir, exist_ok=True)
 
 
 
-# really should sort integral warnings
+# really should sort integral warnings if they appear
 
 def main():
     
@@ -44,46 +44,18 @@ def main():
     #     Zindex=1 # num proportional to Z metallicity
     #     makePlots(wn,wn,Zindex)
     
+    # print('optimising beta')
     G = Galaxy.loadFromBins(ESFweightingNum=0, NRG2SMMweightingNum=0)
-    D = Distributions('local', G.FeH(G.zintegratedHist()), normalised=True)
-    print(optimiseBeta(D, extra=f'ESFwn{0}SMMwn{0}'))
-        
-    #tests
-    # G = Galaxy.loadFromBins(ESFweightingNum=0, NRG2SMMweightingNum=0)
     # D = Distributions('local', G.FeH(G.zintegratedHist()), normalised=True)
-    # print(optimiseBeta(D))
-    # R = np.linspace(0,20,11)
-    # R = (R[:-1]+R[1:])/2
-    # FeH = np.zeros(len(R))
-    # fH2O = np.zeros(len(R))
+    # print(optimiseBeta(D, extra=f'ESFwn{0}SMMwn{0}'))
     
-    # for i, r in enumerate(R):
-    #     D = Distributions(f'r={r}median', G.FeH(G.zintegratedHist(r)), normalised=True)
-    #     FeH[i] = medianFeH(D)
-    #     fH2O[i] = medianfH2O(D)
-    # print(FeH)
-    # print(fH2O)
-    # plotMedianOverR(G, extra=f'ESFwn{0}SMMwn{0}Zindex{1}')
+    calcNumInSamples(G)
     
-    # for r in R:
-    #     print(r)
-    #     D = Distributions(f'r={r}', G.FeH(G.zintegratedHist(r)), normalised=True, ISONumZIndex=1)
-    #     D.plot()
-        
-    
-    
-    # old:
-    # plotFeH()
-    # plotMgFeFeH(False)
-    # plotMgFeFeH(True)
-    # plotEAGLE()
-    # plotageFeH()
-    # plot_scales_MgFeFeHvsFeH()
-    # plot_data_MgFeFeHvsFeH()
     return 0
 
 
 def makePlots(ESFwn=0, SMMwn=0, Zindex=1):
+    print(f'starting {ESFwn},{SMMwn},{Zindex}')
     EAGLE_FeHHist, EAGLEEdges = getEAGLE_hist_edges()
     G = Galaxy.loadFromBins(ESFweightingNum=ESFwn, NRG2SMMweightingNum=SMMwn)
     localD = Distributions('local', G.FeH(G.hist()), ISONumZIndex=Zindex)
@@ -268,7 +240,7 @@ def optimiseBeta(D, fH2O=0.3, extra=''):
         newD = D.butWithBeta(x)
         fig,ax = plt.subplots()
         ax.plot(np.linspace(fH2OLow+0.0001, fH2OHigh-0.0001), newD.fH2ODist(np.linspace(fH2OLow+0.0001, fH2OHigh-0.0001)))
-        ax.set_title(f'beta = {newD.ISONumZIndex}')
+        ax.set_title(f'beta = {newD.ISONumZIndex:.3f}')
         return -newD.fH2ODist(fH2O)
 
     beta = np.linspace(0.5,2.5)
@@ -283,10 +255,22 @@ def optimiseBeta(D, fH2O=0.3, extra=''):
     res = scipy.optimize.minimize(func, 1)
     
     optD = D.butWithBeta(res.x[0])
-    optD.plot(extra=extra+f'Zindex{optD.ISONumZIndex}')
+    optD.plot(extra=extra+f'Zindex{optD.ISONumZIndex:.3f}')
     
     return res
     
+
+def calcFracLiving():
+    pass
+
+
+def calcNumInSamples(G):
+    # len of allStar is 211051 (main, rmdups, rmcommisisioning etc)
+    # stat sample is 165768
+    # cutting on mu gives 147663
+    # cutting on log g too gives 98967
+    pass
+
 
 class Galaxy:
     def __init__(self, FeHEdges, aFeEdges, amp, aR, az, sig_logNuSun, sig_aR, sig_az, data):
@@ -465,12 +449,12 @@ class Distributions:
         # time.sleep(1)
         lowerCount = scipy.integrate.quad(ISOsPerFeH, FeHHigh, self.FeHEdges[-1])[0] 
         middleCount = scipy.integrate.quad(ISOsPerFeH, FeHLow, FeHHigh)[0]
-        upperCount = scipy.integrate.quad(ISOsPerFeH, self.FeHEdges[0], FeHLow)[0]
+        upperCount = scipy.integrate.quad(ISOsPerFeH, self.FeHEdges[0], FeHLow, limit=200)[0]
         #Assumes bins entirely capture all stars
         # time.sleep(1)
         # print(f"ending with {self.name}, norm={self.isNormalised}")
         # # quad has problem with EAGLE and some rs, do fix warnings if they show
-        
+        # limit=200 on upperCount suppresses warning on EAGLE and one other
         
         # lowerCount = self.integrateFeH(FeHHigh, self.FeHEdges[-1])[0] 
         # middleCount = self.integrateFeH(FeHLow, FeHHigh)[0]

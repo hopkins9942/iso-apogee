@@ -15,20 +15,20 @@ import matplotlib.pyplot as plt
 def Kroupa(M):
     """
     Returns relative Kroupa number IMF at mass M
-    0.84 calculated numerically to have integrated mass = 1 Sun
-    additional factor to match int_IMF, doesn't affect results.
+    additional factor to match int_IMF.
     
     """
-    weights = 0.84*np.where(M>=0.5, (M/0.5)**-2.3, (M/0.5)**-1.3)
-    return weights*1.23
+    weights = np.where(M>=0.5, (M/0.5)**-2.3, (M/0.5)**-1.3)
+    return weights*1.0308575372519622
 
 minMini = 0.09
 maxMini = 5.3535 
 # taken from Kroupa isogrid, used for integrals
 weightPerIsochrone = integrate.quad(Kroupa, minMini, maxMini)[0]
 # Can't just add weights on each isochrone as older isochrones have a lower maximum mass point
-meanMini = integrate.quad(lambda m:m*Kroupa(m), minMini, maxMini)[0]/weightPerIsochrone
 
+meanMini = integrate.quad(lambda m:m*Kroupa(m), minMini, maxMini)[0]/weightPerIsochrone
+# this is right - mass*weight/wieght.sum() actually overestimates because weight for each point comes from stars of lower mass 
 
 def Chab(M):
     weight = 0.141*(1/(M*np.log(10)))*np.exp(-0.5*((np.log10(M)-np.log10(0.1))/0.627)**2)
@@ -117,8 +117,56 @@ def NRG2SMM(isogrid, ageWeightingNum):
     # sine morte distribution requires weightPerIsochrone,
     # not sum of weights as old isochrones lack high-mass, dead points
     return meanMini*weightPerIsochrone/weightinRG
-
     
+def checkFracAlive(isogrid, bymass=False):
+    MH_logAge, indices = extractIsochrones(isogrid)
+    wArr = np.zeros(len(indices))
+    print('weight per full isochrone: ', weightPerIsochrone)
+    meanMass =np.zeros(len(indices))
+    for i in range(len(indices)):
+        start = indices[i]
+        end = (indices[i+1] if i!=len(indices)-1 else len(isogrid))
+        
+        
+        iso = isogrid[start:end]
+        massesToUse = np.zeros(len(iso))
+        massesToUse[0] = iso['Mini'][0]
+        massesToUse[1:] = (iso['Mini'][1:]+iso['Mini'][:-1])/2
+        weights = calcWeights(iso)
+        wArr[i] = weights.sum() if not bymass else (weights*massesToUse).sum()
+        meanMass[i] = wArr[i]/weights.sum()
+        # print(f'age = {10**(iso["logAge"]-9)[0]:.1f}, MH = {iso["MH"][0]}, summed weights = {weights.sum():.3f}, frac = {weights.sum()/weightPerIsochrone:.3f}')            
+    
+    print('average meanmass: ', meanMass.mean())
+    print('max meanmass: ', meanMass.max())
+    print('min meanmass: ', meanMass.min())
+    
+    weightPI = weightPerIsochrone *(1 if not bymass else meanMini)
+        
+    print('average frac: ', wArr.mean()/weightPI)
+    print('max frac: ', wArr.max()/weightPI)
+    print('min frac: ', wArr.min()/weightPI)
+    
+    yindices = MH_logAge[:,1]<8.001
+    print('young:')
+    print('average frac: ', wArr[yindices].mean()/weightPI)
+    print('max frac: ', wArr[yindices].max()/weightPI)
+    print('min frac: ', wArr[yindices].min()/weightPI)
+    
+    oindices = MH_logAge[:,1]>np.log10(13.1-0.001)+9
+    print('old:')
+    print('average frac: ', wArr[oindices].mean()/weightPI)
+    print('max frac: ', wArr[oindices].max()/weightPI)
+    print('min frac: ', wArr[oindices].min()/weightPI)
+    
+    MHindices = (MH_logAge[:,0]>0.024) & (MH_logAge[:,0]<0.026)
+    print('MH=0.025, uniform age weight:')
+    print('average frac: ', wArr[MHindices].mean()/weightPI)
+    print('max frac: ', wArr[MHindices].max()/weightPI)
+    print('min frac: ', wArr[MHindices].min()/weightPI)
+    
+    return wArr[yindices].mean()/weightPerIsochrone
+
 
 def test():
     # testing
@@ -234,7 +282,7 @@ def test():
         
     
 if __name__=='__main__':
-    test()
+    # test()
     pass
     
     

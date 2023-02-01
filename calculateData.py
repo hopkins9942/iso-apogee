@@ -188,14 +188,14 @@ def calculateData():
         meanR = R[bindices].mean() if N!=0 else 0
         meanmodz = modz[bindices].mean() if N!=0 else 0
         print(mySetup.binName(binDict), N, meanR, meanmodz)
-        with open(os.path.join(mySetup.dataDir, 'bins', mySetup.binName(binDict), 'data.dat'), 'wb') as f:
-            pickle.dump(np.array([N, meanR, meanmodz]), f)
+        # with open(os.path.join(mySetup.dataDir, 'bins', mySetup.binName(binDict), 'data.dat'), 'wb') as f:
+        #     pickle.dump(np.array([N, meanR, meanmodz]), f)
     
     
     
 
 if __name__=='__main__':
-    tests()
+    calculateData()
     pass
 
 
