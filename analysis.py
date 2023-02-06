@@ -18,6 +18,7 @@ import myIsochrones
 
 cmap1 = mpl.colormaps['Blues']
 cmap2 = mpl.colormaps['hsv']
+colourPalette = mpl.colormaps['tab10'](np.linspace(0.05, 0.95, 9))
 
 plt.rcParams.update({
     "text.usetex": True})
@@ -39,17 +40,23 @@ def main():
     
     
     # for paper:
-    # makePlots(0,0,0)
-    # for wn in range(3):
-    #     Zindex=1 # num proportional to Z metallicity
-    #     makePlots(wn,wn,Zindex)
+    makePlots(0,0,0)
+    makePlots(0,0,1)
+    G = Galaxy.loadFromBins(ESFweightingNum=0, NRG2SMMweightingNum=0)
+    D = Distributions('local', G.FeH(G.hist()))
+    res = optimiseBeta(D)
+    
     
     # print('optimising beta')
     G = Galaxy.loadFromBins(ESFweightingNum=0, NRG2SMMweightingNum=0)
     # D = Distributions('local', G.FeH(G.zintegratedHist()), normalised=True)
     # print(optimiseBeta(D, extra=f'ESFwn{0}SMMwn{0}'))
     
-    calcNumInSamples(G)
+    # for wn in range(3):
+    #     Zindex=1 # num proportional to Z metallicity
+    #     makePlots(wn,wn,Zindex)
+    
+    print(res)
     
     return 0
 
@@ -58,9 +65,9 @@ def makePlots(ESFwn=0, SMMwn=0, Zindex=1):
     print(f'starting {ESFwn},{SMMwn},{Zindex}')
     EAGLE_FeHHist, EAGLEEdges = getEAGLE_hist_edges()
     G = Galaxy.loadFromBins(ESFweightingNum=ESFwn, NRG2SMMweightingNum=SMMwn)
-    localD = Distributions('local', G.FeH(G.hist()), ISONumZIndex=Zindex)
-    MWD = Distributions('MW', G.FeH(G.integratedHist()), perVolume=False, ISONumZIndex=Zindex)
-    EAGLED = Distributions('EAGLE', EAGLE_FeHHist, FeHEdges=EAGLEEdges, perVolume=False, ISONumZIndex=Zindex)
+    localD = Distributions('local', G.FeH(G.hist()), ISONumZIndex=Zindex, normalised=True)
+    MWD = Distributions('MW', G.FeH(G.integratedHist()), perVolume=False, ISONumZIndex=Zindex, normalised=True)
+    EAGLED = Distributions('EAGLE', EAGLE_FeHHist, FeHEdges=EAGLEEdges, perVolume=False, ISONumZIndex=Zindex, normalised=True)
     localD.plot(extra=f'ESFwn{ESFwn}SMMwn{SMMwn}Zindex{Zindex}')
     MWD.plot(extra=f'ESFwn{ESFwn}SMMwn{SMMwn}Zindex{Zindex}')
     EAGLED.plot(extra=f'ESFwn{ESFwn}SMMwn{SMMwn}Zindex{Zindex}')
@@ -68,7 +75,6 @@ def makePlots(ESFwn=0, SMMwn=0, Zindex=1):
     MWD.plotWith(EAGLED, extra=f'ESFwn{ESFwn}SMMwn{SMMwn}Zindex{Zindex}', plotLim=(-2,1))
     print('starting over R')
     plotOverR(G, extra=f'ESFwn{ESFwn}SMMwn{SMMwn}Zindex{Zindex}')
-    # plotMedianOverR(G, extra=f'ESFwn{ESFwn}SMMwn{SMMwn}Zindex{Zindex}')
     plotFit(G, extra=f'ESFwn{ESFwn}SMMwn{SMMwn}')
 
 def getEAGLE_hist_edges():
@@ -164,7 +170,8 @@ def plotOverR(G, extra=''):
               extent=(R[0], R[-1], FeHPlotPoints[0], FeHPlotPoints[-1]),
               aspect='auto', 
               cmap=cmap1, norm=mpl.colors.Normalize())
-    ax.plot(R, FeHMed, 'r--')
+    
+    ax.plot(R, FeHMed, color=colourPalette[3], linestyle='dashed')
     fig.colorbar(image)
     ax.set_xlabel('R/kpc')
     ax.set_ylabel(r'FeH distribution')
@@ -177,39 +184,13 @@ def plotOverR(G, extra=''):
               aspect='auto', 
               cmap=cmap1, norm=mpl.colors.Normalize())
     
-    ax.plot(R, fH2OMed, 'r--')
+    ax.plot(R, fH2OMed, color=colourPalette[3], linestyle='dashed')
     fig.colorbar(image)
     ax.set_xlabel('R/kpc')
     ax.set_ylabel(r'fH2O distribution')
     path = os.path.join(plotDir,str(extra)+'fH2OR.pdf')
     fig.savefig(path, dpi=300)
     
-    
-
-def plotMedianOverR(G, extra=''):
-    R = np.linspace(5,15,11)
-    R = (R[:-1]+R[1:])/2
-    FeH = np.zeros(len(R))
-    fH2O = np.zeros(len(R))
-    
-    for i, r in enumerate(R):
-        D = Distributions(f'r={r}median', G.FeH(G.zintegratedHist(r)), normalised=True)
-        FeH[i] = medianFeH(D)
-        fH2O[i] = medianfH2O(D)
-    
-    fig, ax = plt.subplots()
-    ax.plot(R, FeH)
-    ax.set_xlabel('R/kpc')
-    ax.set_ylabel(r'FeH median')
-    path = os.path.join(plotDir,str(extra)+'FeHMedianR.pdf')
-    fig.savefig(path, dpi=300)
-    
-    fig, ax = plt.subplots()
-    ax.plot(R, fH2O)
-    ax.set_xlabel('R/kpc')
-    ax.set_ylabel(r'fH2O median')
-    path = os.path.join(plotDir,str(extra)+'fH2OMedianR.pdf')
-    fig.savefig(path, dpi=300)
     
 def medianFeH(D):
     assert D.isNormalised
@@ -238,12 +219,14 @@ def optimiseBeta(D, fH2O=0.3, extra=''):
     D = D.butNormalised()
     def func(x):
         newD = D.butWithBeta(x)
-        fig,ax = plt.subplots()
-        ax.plot(np.linspace(fH2OLow+0.0001, fH2OHigh-0.0001), newD.fH2ODist(np.linspace(fH2OLow+0.0001, fH2OHigh-0.0001)))
-        ax.set_title(f'beta = {newD.ISONumZIndex:.3f}')
+        
+        # fig,ax = plt.subplots()
+        # ax.plot(np.linspace(fH2OLow+0.0001, fH2OHigh-0.0001), newD.fH2ODist(np.linspace(fH2OLow+0.0001, fH2OHigh-0.0001)))
+        # ax.set_title(f'beta = {newD.ISONumZIndex:.3f}')
+        
         return -newD.fH2ODist(fH2O)
 
-    beta = np.linspace(0.5,2.5)
+    beta = np.linspace(-5,15)
     f=[]
     for b in beta:
         f.append(-func(b))
@@ -543,10 +526,10 @@ class Distributions:
         fH2OPlotPoints = np.linspace(fH2OLow+0.0001, fH2OHigh-0.0001)
         
         fig, ax = plt.subplots()
-        ax.bar(self.FeHMidpoints, self.FeHHist, width = self.FeHWidths, alpha=0.5)
-        ax.plot(FeHPlotPoints, self.FeHDist(FeHPlotPoints), color='C1')
-        ax.vlines(-0.4, 0, self.FeHDist(0), color='C2', alpha=0.5)
-        ax.vlines( 0.4, 0, self.FeHDist(0), color='C2', alpha=0.5)
+        ax.bar(self.FeHMidpoints, self.FeHHist, width = self.FeHWidths, color=colourPalette[0], alpha=0.5)
+        ax.plot(FeHPlotPoints, self.FeHDist(FeHPlotPoints), color=colourPalette[1])
+        ax.vlines(-0.4, 0, self.FeHDist(0),  color=colourPalette[2], alpha=0.5)
+        ax.vlines( 0.4, 0, self.FeHDist(0), color=colourPalette[2], alpha=0.5)
         ax.set_xlabel(r'[Fe/H]')
         ax.set_xlim(plotLim[0], plotLim[1])
         ax.set_ylabel(FeHylab)
@@ -555,7 +538,7 @@ class Distributions:
         fig.savefig(path, dpi=300)    
         
         fig, ax = plt.subplots()
-        ax.plot(fH2OPlotPoints, self.fH2ODist(fH2OPlotPoints))
+        ax.plot(fH2OPlotPoints, self.fH2ODist(fH2OPlotPoints), color=colourPalette[0])
         ax.set_ylim(bottom=0)
         ax.set_xlabel(r'$f_\mathrm{H_2O}$')
         ax.set_ylabel(fH2Oylab)
@@ -565,7 +548,7 @@ class Distributions:
         
         fig, ax = plt.subplots()
         ax.bar([r'$f_\mathrm{H_2O}<0.07$', 'mid', r'$f_\mathrm{H_2O}>0.51$'],
-                  self.counts)
+                  self.counts, color=colourPalette[0])
         ax.set_ylabel(fH2Ointylab)
         ax.set_title(self.name)
         path = os.path.join(saveDir, str(extra) + self.name + '_bar' + '.pdf')
@@ -593,10 +576,10 @@ class Distributions:
         names = f'{self.name}+{dists2.name}'
         
         fig, ax = plt.subplots()
-        ax.plot(FeHPlotPoints, dists1.FeHDist(FeHPlotPoints), label=self.name)
-        ax.plot(FeHPlotPoints, dists2.FeHDist(FeHPlotPoints), label=dists2.name)
-        ax.vlines(-0.4, 0, dists1.FeHDist(0), color='C2', alpha=0.5)
-        ax.vlines( 0.4, 0, dists1.FeHDist(0), color='C2', alpha=0.5)
+        ax.plot(FeHPlotPoints, dists1.FeHDist(FeHPlotPoints), color=colourPalette[0], label=self.name)
+        ax.plot(FeHPlotPoints, dists2.FeHDist(FeHPlotPoints), color=colourPalette[1], linestyle='dashed', label=dists2.name)
+        ax.vlines(-0.4, 0, dists1.FeHDist(0), color=colourPalette[2], alpha=0.5)
+        ax.vlines( 0.4, 0, dists1.FeHDist(0), color=colourPalette[2], alpha=0.5)
         ax.legend()
         ax.set_xlabel(r'[Fe/H]')
         ax.set_xlim(plotLim[0], plotLim[1])
@@ -606,8 +589,8 @@ class Distributions:
         fig.savefig(path, dpi=300)
         
         fig, ax = plt.subplots()
-        ax.plot(fH2OPlotPoints, dists1.fH2ODist(fH2OPlotPoints), label=self.name)
-        ax.plot(fH2OPlotPoints, dists2.fH2ODist(fH2OPlotPoints), label=dists2.name)
+        ax.plot(fH2OPlotPoints, dists1.fH2ODist(fH2OPlotPoints), color=colourPalette[0], label=self.name)
+        ax.plot(fH2OPlotPoints, dists2.fH2ODist(fH2OPlotPoints), color=colourPalette[1], linestyle='dashed', label=dists2.name)
         ax.set_ylim(bottom=0)
         ax.legend()
         ax.set_xlabel(r'$f_\mathrm{H_2O}$')
@@ -618,9 +601,9 @@ class Distributions:
         
         fig, ax = plt.subplots()
         ax.bar([r'$f_\mathrm{H_2O}<0.07$', 'mid', r'$f_\mathrm{H_2O}>0.51$'],
-                  dists1.counts, alpha=0.5, label=dists1.name)
+                  dists1.counts, color=colourPalette[0], alpha=0.5, label=dists1.name)
         ax.bar([r'$f_\mathrm{H_2O}<0.07$', 'mid', r'$f_\mathrm{H_2O}>0.51$'],
-                  dists2.counts, alpha=0.5, label=dists2.name)
+                  dists2.counts, color=colourPalette[1], alpha=0.5, label=dists2.name)
         ax.set_ylabel(fH2Ointylab)
         ax.legend()
         ax.set_title(names)
