@@ -38,14 +38,15 @@ os.makedirs(plotDir, exist_ok=True)
 
 def main():
     
+    makePlots20230208()
     
     # for paper:
-    makePlots(0,0,0)
-    makePlots(0,0,1)
-    G = Galaxy.loadFromBins(ESFweightingNum=0, NRG2SMMweightingNum=0)
-    D = Distributions('local', G.FeH(G.hist()))
-    res = optimiseBeta(D, extra=f'ESFwn{0}SMMwn{0}')
-    print(res)
+    # makePlots(0,0,0)
+    # makePlots(0,0,1)
+    # G = Galaxy.loadFromBins(ESFweightingNum=0, NRG2SMMweightingNum=0)
+    # D = Distributions('local', G.FeH(G.hist()))
+    # res = optimiseBeta(D, extra=f'ESFwn{0}SMMwn{0}')
+    # print(res)
     
     # print('optimising beta')
     # G = Galaxy.loadFromBins(ESFweightingNum=0, NRG2SMMweightingNum=0)
@@ -63,11 +64,20 @@ def makePlots20230208():
     G = Galaxy.loadFromBins(ESFweightingNum=0, NRG2SMMweightingNum=0)
     Dlist = [Distributions('localBeta1', G.FeH(G.hist()), ISONumZIndex=1, normalised=True),
                      Distributions('MWBeta1', G.FeH(G.integratedHist()), perVolume=False, ISONumZIndex=1, normalised=True),
-                     Distributions('localBeta0', G.FeH(G.hist()), ISONumZIndex=1, normalised=True),
-                     Distributions('MWBeta0', G.FeH(G.integratedHist()), perVolume=False, ISONumZIndex=1, normalised=True)]
+                     Distributions('localBeta0', G.FeH(G.hist()), ISONumZIndex=0, normalised=True),
+                     Distributions('MWBeta0', G.FeH(G.integratedHist()), perVolume=False, ISONumZIndex=0, normalised=True)]
     Dlist[0].plotWith(Dlist[1], extra='Beta1')
-    Dlist[2].plotWith(Dlist[3], extra='Beta1')
+    Dlist[2].plotWith(Dlist[3], extra='Beta0')
     
+    for d in Dlist:
+        print(d.name)
+        print(d.counts)
+        print()
+        
+    print(optimiseBeta(Dlist[0]))
+    
+    # print('starting over R')
+    # plotOverR(G, extra=f'ESFwn{0}SMMwn{0}Zindex{1}')
 
 
 def makePlots(ESFwn=0, SMMwn=0, Zindex=1):
@@ -243,7 +253,16 @@ def optimiseBeta(D, fH2O=0.3, extra=''):
     f=[]
     for b in beta:
         f.append(-func(b))
-            
+    F=np.cumsum(f)
+    F /= F[-1]
+    
+    lower = beta[np.digitize(0.05,F)]
+    upper = beta[np.digitize(0.95,F)]
+    
+    
+    print('Should be 90%: ',scipy.integrate.quad(func, lower, upper)[0]/scipy.integrate.quad(func, -5, 15)[0])
+    print('beta 90% CI limits: ',lower, upper)
+    
     fig,ax = plt.subplots()
     ax.plot(beta, f)
     ax.set_xlabel('beta')
