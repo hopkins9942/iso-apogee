@@ -18,7 +18,7 @@ import myIsochrones
 
 cmap1 = mpl.colormaps['Blues']
 cmap2 = mpl.colormaps['hsv']
-colourPalette = mpl.colormaps['tab10'](np.linspace(0.05, 0.95, 9))
+colourPalette = mpl.colormaps['tab10'](np.linspace(0.05, 0.95, 10))
 
 plt.rcParams.update({
     "text.usetex": True})
@@ -44,11 +44,11 @@ def main():
     makePlots(0,0,1)
     G = Galaxy.loadFromBins(ESFweightingNum=0, NRG2SMMweightingNum=0)
     D = Distributions('local', G.FeH(G.hist()))
-    res = optimiseBeta(D)
-    
+    res = optimiseBeta(D, extra=f'ESFwn{0}SMMwn{0}')
+    print(res)
     
     # print('optimising beta')
-    G = Galaxy.loadFromBins(ESFweightingNum=0, NRG2SMMweightingNum=0)
+    # G = Galaxy.loadFromBins(ESFweightingNum=0, NRG2SMMweightingNum=0)
     # D = Distributions('local', G.FeH(G.zintegratedHist()), normalised=True)
     # print(optimiseBeta(D, extra=f'ESFwn{0}SMMwn{0}'))
     
@@ -56,9 +56,18 @@ def main():
     #     Zindex=1 # num proportional to Z metallicity
     #     makePlots(wn,wn,Zindex)
     
-    print(res)
     
     return 0
+
+def makePlots20230208():
+    G = Galaxy.loadFromBins(ESFweightingNum=0, NRG2SMMweightingNum=0)
+    Dlist = [Distributions('localBeta1', G.FeH(G.hist()), ISONumZIndex=1, normalised=True),
+                     Distributions('MWBeta1', G.FeH(G.integratedHist()), perVolume=False, ISONumZIndex=1, normalised=True),
+                     Distributions('localBeta0', G.FeH(G.hist()), ISONumZIndex=1, normalised=True),
+                     Distributions('MWBeta0', G.FeH(G.integratedHist()), perVolume=False, ISONumZIndex=1, normalised=True)]
+    Dlist[0].plotWith(Dlist[1], extra='Beta1')
+    Dlist[2].plotWith(Dlist[3], extra='Beta1')
+    
 
 
 def makePlots(ESFwn=0, SMMwn=0, Zindex=1):
@@ -68,14 +77,18 @@ def makePlots(ESFwn=0, SMMwn=0, Zindex=1):
     localD = Distributions('local', G.FeH(G.hist()), ISONumZIndex=Zindex, normalised=True)
     MWD = Distributions('MW', G.FeH(G.integratedHist()), perVolume=False, ISONumZIndex=Zindex, normalised=True)
     EAGLED = Distributions('EAGLE', EAGLE_FeHHist, FeHEdges=EAGLEEdges, perVolume=False, ISONumZIndex=Zindex, normalised=True)
-    localD.plot(extra=f'ESFwn{ESFwn}SMMwn{SMMwn}Zindex{Zindex}')
-    MWD.plot(extra=f'ESFwn{ESFwn}SMMwn{SMMwn}Zindex{Zindex}')
-    EAGLED.plot(extra=f'ESFwn{ESFwn}SMMwn{SMMwn}Zindex{Zindex}')
-    localD.plotWith(MWD, extra=f'ESFwn{ESFwn}SMMwn{SMMwn}Zindex{Zindex}')
-    MWD.plotWith(EAGLED, extra=f'ESFwn{ESFwn}SMMwn{SMMwn}Zindex{Zindex}', plotLim=(-2,1))
+    
+    for D in [localD,MWD, EAGLED]:
+        print(f'{D.name} counts: {D.counts[0]:.3f}, {D.counts[1]:.3f}, {D.counts[2]:.3f}')
+    
+    # localD.plot(extra=f'ESFwn{ESFwn}SMMwn{SMMwn}Zindex{Zindex}')
+    # MWD.plot(extra=f'ESFwn{ESFwn}SMMwn{SMMwn}Zindex{Zindex}')
+    # EAGLED.plot(extra=f'ESFwn{ESFwn}SMMwn{SMMwn}Zindex{Zindex}')
+    # localD.plotWith(MWD, extra=f'ESFwn{ESFwn}SMMwn{SMMwn}Zindex{Zindex}')
+    # MWD.plotWith(EAGLED, extra=f'ESFwn{ESFwn}SMMwn{SMMwn}Zindex{Zindex}', plotLim=(-2,1))
     print('starting over R')
-    plotOverR(G, extra=f'ESFwn{ESFwn}SMMwn{SMMwn}Zindex{Zindex}')
-    plotFit(G, extra=f'ESFwn{ESFwn}SMMwn{SMMwn}')
+    # plotOverR(G, extra=f'ESFwn{ESFwn}SMMwn{SMMwn}Zindex{Zindex}')
+    # plotFit(G, extra=f'ESFwn{ESFwn}SMMwn{SMMwn}')
 
 def getEAGLE_hist_edges():
     EAGLE_data = np.loadtxt(os.path.join(mySetup.dataDir,
@@ -239,6 +252,7 @@ def optimiseBeta(D, fH2O=0.3, extra=''):
     
     optD = D.butWithBeta(res.x[0])
     optD.plot(extra=extra+f'Zindex{optD.ISONumZIndex:.3f}')
+    print(f'beta={res.x} counts: {optD.counts[0]:.3f}, {optD.counts[1]:.3f}, {optD.counts[2]:.3f}')
     
     return res
     
@@ -526,8 +540,8 @@ class Distributions:
         fH2OPlotPoints = np.linspace(fH2OLow+0.0001, fH2OHigh-0.0001)
         
         fig, ax = plt.subplots()
-        ax.bar(self.FeHMidpoints, self.FeHHist, width = self.FeHWidths, color=colourPalette[0], alpha=0.5)
-        ax.plot(FeHPlotPoints, self.FeHDist(FeHPlotPoints), color=colourPalette[1])
+        ax.bar(self.FeHMidpoints, self.FeHHist, width = self.FeHWidths, color=colourPalette[7], alpha=0.5)
+        ax.plot(FeHPlotPoints, self.FeHDist(FeHPlotPoints), color=colourPalette[0])
         ax.vlines(-0.4, 0, self.FeHDist(0),  color=colourPalette[2], alpha=0.5)
         ax.vlines( 0.4, 0, self.FeHDist(0), color=colourPalette[2], alpha=0.5)
         ax.set_xlabel(r'[Fe/H]')
