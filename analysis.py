@@ -617,7 +617,7 @@ class Distributions:
         ax.set_xlabel(r'[Fe/H]')
         ax.set_xlim(plotLim[0], plotLim[1])
         ax.set_ylabel(FeHylab)
-        ax.set_title(names)
+        ax.set_title('Stellar Distribution')
         path = os.path.join(saveDir, str(extra) + names + '_FeH' + '.pdf')
         fig.savefig(path, dpi=300)
         
@@ -628,7 +628,7 @@ class Distributions:
         ax.legend()
         ax.set_xlabel(r'$f_\mathrm{H_2O}$')
         ax.set_ylabel(fH2Oylab)
-        ax.set_title(names)
+        ax.set_title('ISO distribution')
         path = os.path.join(saveDir, str(extra) + names + '_fH2O' + '.pdf')
         fig.savefig(path, dpi=300)
         
@@ -695,10 +695,19 @@ for x in [-0.4+0.0001, -0.2, 0, 0.2, 0.4-0.0001]:
     
     
 if __name__=='__main__':
-    main()
+    # main()
+    # pass
     
+    G = Galaxy.loadFromBins(ESFweightingNum=0, NRG2SMMweightingNum=0)
+
+    Dlp = Distributions('Local', G.FeH(G.hist()), ISONumZIndex=1, normalised=True)
+    Dla = Distributions('Local', G.FeH(G.hist()), ISONumZIndex=0, normalised=True)
+    Dgp = Distributions('Milky Way', G.FeH(G.integratedHist()), ISONumZIndex=1, normalised=True)
+    Dga = Distributions('Milky Way', G.FeH(G.integratedHist()), ISONumZIndex=0, normalised=True)
+    Dlp2 = Distributions('gamma=1', G.FeH(G.hist()), ISONumZIndex=1, normalised=True)
+    Dlf = Distributions('gamma=1.8', G.FeH(G.hist()), ISONumZIndex=1.8, normalised=True)
     
+    Dlp.plotWith(Dgp, extra='p')
+    Dla.plotWith(Dga, extra='a')
     
-    
-    
-    
+    Dlp2.plotWith(Dlf)
