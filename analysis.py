@@ -18,7 +18,8 @@ import myIsochrones
 
 cmap1 = mpl.colormaps['Blues']
 cmap2 = mpl.colormaps['hsv']
-colourPalette = mpl.colormaps['tab10'](np.linspace(0.05, 0.95, 10))
+# colourPalette = mpl.colormaps['tab10'](np.linspace(0.05, 0.95, 10))
+colourPalette = [ 'goldenrod','darkslateblue', 'teal']
 
 plt.rcParams.update({
     "text.usetex": True})
@@ -29,7 +30,7 @@ sha = repo.head.object.hexsha[:7]
 print(repo)
 print(sha)
 
-plotDir = f'/Users/hopkinsm/Documents/APOGEE/plots/{sha}/'
+plotDir = '/home/hopkinsl/Documents/APOGEE/plots'#f'/Users/hopkinsm/Documents/APOGEE/plots/{sha}/'
 os.makedirs(plotDir, exist_ok=True)
 
 
@@ -62,10 +63,10 @@ def main():
 
 def makePlots20230208():
     G = Galaxy.loadFromBins(ESFweightingNum=0, NRG2SMMweightingNum=0)
-    Dlist = [Distributions('localBeta1', G.FeH(G.hist()), ISONumZIndex=1, normalised=True),
-                     Distributions('MWBeta1', G.FeH(G.integratedHist()), perVolume=False, ISONumZIndex=1, normalised=True),
-                     Distributions('localBeta0', G.FeH(G.hist()), ISONumZIndex=0, normalised=True),
-                     Distributions('MWBeta0', G.FeH(G.integratedHist()), perVolume=False, ISONumZIndex=0, normalised=True)]
+    Dlist = [Distributions('Local', G.FeH(G.hist()), ISONumZIndex=1, normalised=True),
+                     Distributions('Milky Way average', G.FeH(G.integratedHist()), perVolume=False, ISONumZIndex=1, normalised=True),
+                     Distributions('Local', G.FeH(G.hist()), ISONumZIndex=0, normalised=True),
+                     Distributions('Milky Way average', G.FeH(G.integratedHist()), perVolume=False, ISONumZIndex=0, normalised=True)]
     Dlist[0].plotWith(Dlist[1], extra='Beta1')
     Dlist[2].plotWith(Dlist[3], extra='Beta0')
     
@@ -74,7 +75,7 @@ def makePlots20230208():
         print(d.counts)
         print()
         
-    print(optimiseBeta(Dlist[0]))
+    print(optimiseBeta(Dlist[0], MWD=Dlist[1]))
     
     # print('starting over R')
     # plotOverR(G, extra=f'ESFwn{0}SMMwn{0}Zindex{1}')
@@ -131,11 +132,11 @@ def plotData(G, extra=''):
 
 def plotFit(G, extra=None):
     binLim = 50
-    fig, axs = plt.subplots(ncols=3, figsize=[18, 4])
     titles = ['amp', r'$a_R$', r'$a_z$']
     for i, X in enumerate([np.where(G.data[0,:,:]>=binLim, G.amp, 0),
                            np.where(G.data[0,:,:]>=binLim, G.aR, 0), 
                            np.where(G.data[0,:,:]>=binLim, G.az, 0)]):
+        fig, axs = plt.subplots()
         image = axs[i].imshow(X.T, origin='lower', aspect='auto',
                               extent=(G.FeHEdges[0], G.FeHEdges[-1], G.aFeEdges[0], G.aFeEdges[-1]),
                               cmap=cmap1, norm=mpl.colors.LogNorm())
@@ -238,7 +239,7 @@ def medianfH2O(D):
         return np.nan #for now
     
     
-def optimiseBeta(D, fH2O=0.3, extra=''):
+def optimiseBeta(D, fH2O=0.3, extra='', MWD=None):
     D = D.butNormalised()
     def func(x):
         newD = D.butWithBeta(x)
@@ -269,10 +270,15 @@ def optimiseBeta(D, fH2O=0.3, extra=''):
     
     res = scipy.optimize.minimize(func, 1)
     
-    optD = D.butWithBeta(res.x[0])
-    optD.plot(extra=extra+f'Zindex{optD.ISONumZIndex:.3f}')
-    print(f'beta={res.x} counts: {optD.counts[0]:.3f}, {optD.counts[1]:.3f}, {optD.counts[2]:.3f}')
-    
+    if MWD==None:
+        optD = D.butWithBeta(res.x[0])
+        optD.plot(extra=extra+f'Zindex{optD.ISONumZIndex:.3f}')
+        print(f'beta={res.x} counts: {optD.counts[0]:.3f}, {optD.counts[1]:.3f}, {optD.counts[2]:.3f}')
+    else:
+        optD = D.butWithBeta(res.x[0])
+        optMWD = MWD.butWithBeta(res.x[0])
+        optD.plotWith(optMWD, extra=extra+f'Zindex{optD.ISONumZIndex:.3f}')
+        print(f'beta={res.x} counts: {optD.counts[0]:.3f}, {optD.counts[1]:.3f}, {optD.counts[2]:.3f}\nMWcounts: {optMWD.counts[0]:.3f}, {optMWD.counts[1]:.3f}, {optMWD.counts[2]:.3f}')
     return res
     
 
@@ -563,10 +569,10 @@ class Distributions:
         ax.plot(FeHPlotPoints, self.FeHDist(FeHPlotPoints), color=colourPalette[0])
         ax.vlines(-0.4, 0, self.FeHDist(0),  color=colourPalette[2], alpha=0.5)
         ax.vlines( 0.4, 0, self.FeHDist(0), color=colourPalette[2], alpha=0.5)
-        ax.set_xlabel(r'[Fe/H]')
+        ax.set_xlabel(r'$\mathrm{[Fe/H]}')
         ax.set_xlim(plotLim[0], plotLim[1])
         ax.set_ylabel(FeHylab)
-        ax.set_title(self.name)
+        # ax.set_title(self.name)
         path = os.path.join(saveDir, str(extra) + self.name + '_FeH' + '.pdf')
         fig.savefig(path, dpi=300)    
         
@@ -575,7 +581,7 @@ class Distributions:
         ax.set_ylim(bottom=0)
         ax.set_xlabel(r'$f_\mathrm{H_2O}$')
         ax.set_ylabel(fH2Oylab)
-        ax.set_title(self.name)
+        # ax.set_title(self.name)
         path = os.path.join(saveDir, str(extra) + self.name + '_fH2O' + '.pdf')
         fig.savefig(path, dpi=300)    
         
@@ -583,7 +589,7 @@ class Distributions:
         ax.bar([r'$f_\mathrm{H_2O}<0.07$', 'mid', r'$f_\mathrm{H_2O}>0.51$'],
                   self.counts, color=colourPalette[0])
         ax.set_ylabel(fH2Ointylab)
-        ax.set_title(self.name)
+        # ax.set_title(self.name)
         path = os.path.join(saveDir, str(extra) + self.name + '_bar' + '.pdf')
         fig.savefig(path, dpi=300)
           
@@ -597,8 +603,8 @@ class Distributions:
         
         os.makedirs(saveDir, exist_ok=True)
         
-        FeHylab = ''
-        fH2Oylab = ''
+        FeHylab = r'$\rho(\mathrm{[Fe/H]})$'
+        fH2Oylab = r'$p(f_{\mathrm{H}_2 \mathrm{O}}\mid \beta='+ f'{self.ISONumZIndex:.1f}' +')$'
         fH2Ointylab = '' 
         
         FeHPlotPoints = np.linspace(min(dists1.FeHEdges[0], dists2.FeHEdges[0]),
@@ -614,10 +620,10 @@ class Distributions:
         ax.vlines(-0.4, 0, dists1.FeHDist(0), color=colourPalette[2], alpha=0.5)
         ax.vlines( 0.4, 0, dists1.FeHDist(0), color=colourPalette[2], alpha=0.5)
         ax.legend()
-        ax.set_xlabel(r'[Fe/H]')
+        ax.set_xlabel(r'$\mathrm{[Fe/H]}$')
         ax.set_xlim(plotLim[0], plotLim[1])
         ax.set_ylabel(FeHylab)
-        ax.set_title(names)
+        # ax.set_title(names)
         path = os.path.join(saveDir, str(extra) + names + '_FeH' + '.pdf')
         fig.savefig(path, dpi=300)
         
@@ -628,7 +634,7 @@ class Distributions:
         ax.legend()
         ax.set_xlabel(r'$f_\mathrm{H_2O}$')
         ax.set_ylabel(fH2Oylab)
-        ax.set_title(names)
+        # ax.set_title(names)
         path = os.path.join(saveDir, str(extra) + names + '_fH2O' + '.pdf')
         fig.savefig(path, dpi=300)
         
@@ -639,7 +645,7 @@ class Distributions:
                   dists2.counts, color=colourPalette[1], alpha=0.5, label=dists2.name)
         ax.set_ylabel(fH2Ointylab)
         ax.legend()
-        ax.set_title(names)
+        # ax.set_title(names)
         path = os.path.join(saveDir, str(extra) + names + '_bar' + '.pdf')
         fig.savefig(path, dpi=300)
         
