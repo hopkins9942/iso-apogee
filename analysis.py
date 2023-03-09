@@ -38,8 +38,9 @@ os.makedirs(plotDir, exist_ok=True)
 # really should sort integral warnings if they appear
 
 def main():
-    
-    makePlots20230208()
+    G = Galaxy.loadFromBins(ESFweightingNum=0, NRG2SMMweightingNum=0)
+    plotFit(G, )
+    # makePlots20230208()
     
     # for paper:
     # makePlots(0,0,0)
@@ -75,7 +76,10 @@ def makePlots20230208():
         print(d.counts)
         print()
         
-    print(optimiseBeta(Dlist[0], MWD=Dlist[1]))
+    res = optimiseBeta(Dlist[0], MWD=Dlist[1])
+    
+    print(res)
+    
     
     # print('starting over R')
     # plotOverR(G, extra=f'ESFwn{0}SMMwn{0}Zindex{1}')
@@ -132,20 +136,22 @@ def plotData(G, extra=''):
 
 def plotFit(G, extra=None):
     binLim = 50
-    titles = ['amp', r'$a_R$', r'$a_z$']
-    for i, X in enumerate([np.where(G.data[0,:,:]>=binLim, G.amp, 0),
+    fig, axs = plt.subplots(ncols=3, figsize=[18, 4])
+    titles = [r'$\exp(\mathrm{logAmp})$', r'$a_R$', r'$a_z$']
+    for i, X in enumerate([np.where(G.data[0,:,:]>=binLim, np.exp(G.logAmp), 0),
                            np.where(G.data[0,:,:]>=binLim, G.aR, 0), 
                            np.where(G.data[0,:,:]>=binLim, G.az, 0)]):
-        fig, axs = plt.subplots()
+        
         image = axs[i].imshow(X.T, origin='lower', aspect='auto',
                               extent=(G.FeHEdges[0], G.FeHEdges[-1], G.aFeEdges[0], G.aFeEdges[-1]),
                               cmap=cmap1, norm=mpl.colors.LogNorm())
         axs[i].set_title(titles[i])
         axs[i].set_xlabel(r'$\mathrm{[Fe/H]}$')
         axs[i].set_ylabel(r'$\mathrm{[\alpha/Fe]}$')
-        fig.colorbar(image, ax=axs[i])
+        cbar = fig.colorbar(image, ax=axs[i])
+        cbar.set_label('' if i==0 else r'$\mathrm{kpc}^{-1}$')
     fig.set_tight_layout(True)
-    path = plotDir+str(extra)+'fit.pdf'
+    path = plotDir+'/'+str(extra)+'fit.pdf'
     fig.savefig(path, dpi=300)
 
 def plotAgeWeightingDiffs():
@@ -295,7 +301,7 @@ def calcNumInSamples(G):
 
 
 class Galaxy:
-    def __init__(self, FeHEdges, aFeEdges, amp, aR, az, sig_logNuSun, sig_aR, sig_az, data):
+    def __init__(self, FeHEdges, aFeEdges, amp, aR, az, sig_logNuSun, sig_aR, sig_az, data, logAmp):
         """
         amp etc are arrays with [FeH index, aFe index]
         """
@@ -308,6 +314,7 @@ class Galaxy:
         self.sig_aR = sig_aR
         self.sig_az = sig_az
         self.data = data
+        self.logAmp = logAmp
         
         self.shape = self.amp.shape
         self.FeHWidths = FeHEdges[1:] - FeHEdges[:-1]
@@ -323,7 +330,8 @@ class Galaxy:
         Note, can have different weighting in NRG2SMM and ESF for fit
         """
         shape = (len(FeHEdges)-1, len(aFeEdges)-1)
-        amp = np.zeros(shape)
+        amp = np.zeros(shape)#amp of rho
+        logAmp = np.zeros(shape)#log amp of numbr of giants
         aR = np.zeros(shape)
         az = np.zeros(shape)
         sig_logNuSun = np.zeros(shape)
@@ -349,14 +357,14 @@ class Galaxy:
                     data[:,i,j] = np.array(pickle.load(f0))
                 
                 with open(os.path.join(binDir, f'w{ESFweightingNum}fit_results.dat'), 'rb') as f1:
-                    logA, aR[i,j], az[i,j] = pickle.load(f1)
+                    logAmp[i,j], aR[i,j], az[i,j] = pickle.load(f1)
                     
                 with open(os.path.join(binDir, f'w{ESFweightingNum}fit_sigmas.dat'), 'rb') as f1:
                     sig_logNuSun[i,j], sig_aR[i,j], sig_az[i,j] = pickle.load(f1)
                     
                     
-                amp[i,j] = NRG2SMM*np.exp(logA)/vols[i,j]
-        return cls(FeHEdges, aFeEdges, amp, aR, az, sig_logNuSun, sig_aR, sig_az, data)
+                amp[i,j] = NRG2SMM*np.exp(logAmp[i,j])/vols[i,j]
+        return cls(FeHEdges, aFeEdges, amp, aR, az, sig_logNuSun, sig_aR, sig_az, data, logAmp)
     
     
     def hist(self, R=mySetup.R_Sun, z=mySetup.z_Sun, normalised=False):
