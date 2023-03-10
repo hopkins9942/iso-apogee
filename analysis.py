@@ -15,11 +15,11 @@ import scipy
 import mySetup
 import myIsochrones
 
-
-cmap1 = mpl.colormaps['Blues']
+cmap0 = mpl.colormaps['Blues']
+cmap1 = mpl.colormaps['Purples']#mpl.colormaps['Blues']
 cmap2 = mpl.colormaps['hsv']
 # colourPalette = mpl.colormaps['tab10'](np.linspace(0.05, 0.95, 10))
-colourPalette = [ 'goldenrod','darkslateblue', 'teal']
+colourPalette = [ 'goldenrod','darkslateblue', 'teal', 'red']
 
 plt.rcParams.update({
     "text.usetex": True})
@@ -39,8 +39,9 @@ os.makedirs(plotDir, exist_ok=True)
 
 def main():
     G = Galaxy.loadFromBins(ESFweightingNum=0, NRG2SMMweightingNum=0)
-    plotFit(G, )
-    # makePlots20230208()
+    plotFit(G)
+    plotOverR(G)
+    makePlots20230208()
     
     # for paper:
     # makePlots(0,0,0)
@@ -144,7 +145,7 @@ def plotFit(G, extra=None):
         
         image = axs[i].imshow(X.T, origin='lower', aspect='auto',
                               extent=(G.FeHEdges[0], G.FeHEdges[-1], G.aFeEdges[0], G.aFeEdges[-1]),
-                              cmap=cmap1, norm=mpl.colors.LogNorm())
+                              cmap=cmap0, norm=mpl.colors.LogNorm())
         axs[i].set_title(titles[i])
         axs[i].set_xlabel(r'$\mathrm{[Fe/H]}$')
         axs[i].set_ylabel(r'$\mathrm{[\alpha/Fe]}$')
@@ -203,8 +204,8 @@ def plotOverR(G, extra=''):
     
     ax.plot(R, FeHMed, color=colourPalette[3], linestyle='dashed')
     fig.colorbar(image)
-    ax.set_xlabel('R/kpc')
-    ax.set_ylabel(r'FeH distribution')
+    ax.set_xlabel(r'$R/\mathrm{kpc}$')
+    ax.set_ylabel(r'$\mathrm{[Fe/H]}$')
     path = os.path.join(plotDir,str(extra)+'FeHR.pdf')
     fig.savefig(path, dpi=300)
     
@@ -216,8 +217,8 @@ def plotOverR(G, extra=''):
     
     ax.plot(R, fH2OMed, color=colourPalette[3], linestyle='dashed')
     fig.colorbar(image)
-    ax.set_xlabel('R/kpc')
-    ax.set_ylabel(r'fH2O distribution')
+    ax.set_xlabel(r'$R/\mathrm{kpc}$')
+    ax.set_ylabel(r'$f_\mathrm{H_2O}$')
     path = os.path.join(plotDir,str(extra)+'fH2OR.pdf')
     fig.savefig(path, dpi=300)
     
@@ -611,7 +612,7 @@ class Distributions:
         
         os.makedirs(saveDir, exist_ok=True)
         
-        FeHylab = r'$\rho(\mathrm{[Fe/H]})$'
+        FeHylab = r'$\rho_{\mathrm{sm}}(\mathrm{[Fe/H]})$'
         fH2Oylab = r'$p(f_{\mathrm{H}_2 \mathrm{O}}\mid \beta='+ f'{self.ISONumZIndex:.1f}' +')$'
         fH2Ointylab = '' 
         
@@ -638,6 +639,8 @@ class Distributions:
         fig, ax = plt.subplots()
         ax.plot(fH2OPlotPoints, dists1.fH2ODist(fH2OPlotPoints), color=colourPalette[0], label=self.name)
         ax.plot(fH2OPlotPoints, dists2.fH2ODist(fH2OPlotPoints), color=colourPalette[1], linestyle='dashed', label=dists2.name)
+        if self.ISONumZIndex>1.7:
+            ax.vlines(0.3, 0, dists1.fH2ODist(0.3)*1.1, color=colourPalette[2], alpha=0.5)
         ax.set_ylim(bottom=0)
         ax.legend()
         ax.set_xlabel(r'$f_\mathrm{H_2O}$')
