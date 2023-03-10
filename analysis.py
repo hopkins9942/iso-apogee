@@ -203,7 +203,8 @@ def plotOverR(G, extra=''):
               cmap=cmap1, norm=mpl.colors.Normalize())
     
     ax.plot(R, FeHMed, color=colourPalette[3], linestyle='dashed')
-    fig.colorbar(image)
+    cbar = fig.colorbar(image)
+    cbar.set_label(r'$\rho_{\mathrm{sm}}(\mathrm{[Fe/H]})$')
     ax.set_xlabel(r'$R/\mathrm{kpc}$')
     ax.set_ylabel(r'$\mathrm{[Fe/H]}$')
     path = os.path.join(plotDir,str(extra)+'FeHR.pdf')
@@ -216,7 +217,8 @@ def plotOverR(G, extra=''):
               cmap=cmap1, norm=mpl.colors.Normalize())
     
     ax.plot(R, fH2OMed, color=colourPalette[3], linestyle='dashed')
-    fig.colorbar(image)
+    cbar = fig.colorbar(image)
+    cbar.set_label(r'$p(f_{\mathrm{H}_2 \mathrm{O}})$')
     ax.set_xlabel(r'$R/\mathrm{kpc}$')
     ax.set_ylabel(r'$f_\mathrm{H_2O}$')
     path = os.path.join(plotDir,str(extra)+'fH2OR.pdf')
