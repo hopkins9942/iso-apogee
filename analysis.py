@@ -16,7 +16,7 @@ import mySetup
 import myIsochrones
 
 cmap0 = mpl.colormaps['Blues']
-cmap1 = mpl.colormaps['Purples']#mpl.colormaps['Blues']
+cmap1 = mpl.colormaps['Greys']#mpl.colormaps['Blues']
 cmap2 = mpl.colormaps['hsv']
 # colourPalette = mpl.colormaps['tab10'](np.linspace(0.05, 0.95, 10))
 colourPalette = [ 'goldenrod','darkslateblue', 'teal', 'red']
