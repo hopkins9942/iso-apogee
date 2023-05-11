@@ -36,9 +36,9 @@ def main(binNum, ESFweightingNum):
         # No stars in bin
         print("No stars")
         with open(os.path.join(binPath, f'w{ESFweightingNum}fit_results.dat'), 'wb') as f:
-            pickle.dump([-999, -999, -999], f)
+            pickle.dump(np.array([-999, -999, -999]), f)
         with open(os.path.join(binPath, f'w{ESFweightingNum}fit_sigmas.dat'), 'wb') as f:
-            pickle.dump([-999, -999, -999], f)
+            pickle.dump(np.array([-999, -999, -999]), f)
         return 0
     
     
@@ -155,7 +155,7 @@ def main(binNum, ESFweightingNum):
     print([logNuSun, aR, az])
     print(sigmas)
     with open(os.path.join(binPath, f'w{ESFweightingNum}fit_results.dat'), 'wb') as f:
-        pickle.dump([logNuSun, aR, az], f)
+        pickle.dump(np.array([logNuSun, aR, az]), f)
     with open(os.path.join(binPath, f'w{ESFweightingNum}fit_sigmas.dat'), 'wb') as f:
         pickle.dump(sigmas, f)
     
