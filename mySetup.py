@@ -9,6 +9,7 @@ import astropy.units as u
 dataDir = '/Users/hopkinsm/data/APOGEE/'
 # dataDir = '/data/phys-galactic-isos/sjoh4701/APOGEE/'
 
+
 GC_frame = coord.Galactocentric() #adjust parameters here if needed
 z_Sun = GC_frame.z_sun.to(u.kpc).value # .value removes unit, which causes problems with pytorch
 R_Sun = np.sqrt(GC_frame.galcen_distance.to(u.kpc).value**2 - z_Sun**2)

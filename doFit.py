@@ -301,8 +301,8 @@ def get_effSelFunc(MH, logAge):
 
 
 if __name__=='__main__':
-    main(142,0)
-    # main(int(sys.argv[1]), int(sys.argv[2]))
+    #main(142,0)
+    main(int(sys.argv[1]), int(sys.argv[2]))
 
 
 
