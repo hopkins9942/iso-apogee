@@ -5,8 +5,8 @@ import numpy as np
 import astropy.coordinates as coord
 import astropy.units as u
 
-dataDir= '/home/hopkinsl/Documents/APOGEE/data'
-# dataDir = '/Users/hopkinsm/data/APOGEE/'
+# dataDir= '/home/hopkinsl/Documents/APOGEE/data'
+dataDir = '/Users/hopkinsm/data/APOGEE/'
 # dataDir = '/data/phys-galactic-isos/sjoh4701/APOGEE/'
 
 GC_frame = coord.Galactocentric() #adjust parameters here if needed

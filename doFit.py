@@ -15,6 +15,7 @@ import mySetup
 import myIsochrones
 import pickleGetters
 
+# 20230512: need to change this to use an ESF based on measured astroNN age distribuion 
 
 def main(binNum, ESFweightingNum):
     print(f"Starting! {datetime.datetime.now()}")
