@@ -8,7 +8,7 @@ import astropy.coordinates as coord
 import astropy.units as u
 import matplotlib.pyplot as plt
 import scipy.optimize
-from scipy.special import gammaincinv
+from scipy.special import gammaincinv, erf
 
 
 import mySetup
@@ -37,43 +37,49 @@ def main(binNum, ESFweightingNum):
         # No stars in bin
         print("No stars")
         with open(os.path.join(binPath, f'w{ESFweightingNum}fit_results.dat'), 'wb') as f:
-            pickle.dump(np.array([-999, -999, -999]), f)
+            pickle.dump(np.array([-999, -999, -999, -999, -999]), f)
         with open(os.path.join(binPath, f'w{ESFweightingNum}fit_sigmas.dat'), 'wb') as f:
-            pickle.dump(np.array([-999, -999, -999]), f)
+            pickle.dump(np.array([-999, -999, -999, -999, -999]), f)
         return 0
     
+    logAge = mySetup.logAges
     
+    # fix below
+    #proabaly better to get MH and age out of binDict and known values
     
+    # MH_logAge = myIsochrones.extractIsochrones(myIsochrones.loadGrid())[0]
+    # list of MH-age pairs of isochrones. Used with mask to select isochrones
     
-    MH_logAge = myIsochrones.extractIsochrones(myIsochrones.loadGrid())[0]
-    
-    print(MH_logAge)
+    # print(MH_logAge)
     # MHvals = np.unique(MH_logAge[:,0])
     # logAgevals = np.unique(MH_logAge[:,1])
+    # print(MHvals)
+    # assert len(MHvals)==2
+    # print(logAgevals)
+    # assert len(logAgevals)==14
     
-    isochroneMask = ((binDict['FeH'][0] <= MH_logAge[:,0])&(MH_logAge[:,0] < binDict['FeH'][1]))
-    # isochroneIndices = np.arange(len(isochroneMask))[isochroneMask]
-    print(np.arange(len(MH_logAge))[isochroneMask])
-    assert np.count_nonzero(isochroneMask) == 28    
+    # isochroneMask = ((binDict['FeH'][0] <= MH_logAge[:,0])&(MH_logAge[:,0] < binDict['FeH'][1])) #masks for isochrones with MH in range
+    # # isochroneIndices = np.arange(len(isochroneMask))[isochroneMask]
+    # print(np.arange(len(MH_logAge))[isochroneMask])# prints indices of selectied isochrones
+    # assert np.count_nonzero(isochroneMask) == 28 # 14 ages, two metallicities 
     
-    weighting = np.zeros(len(MH_logAge))
-    if ESFweightingNum==0:
-        #uniform
-        weighting[isochroneMask] = 1
+    # weighting = np.zeros(len(MH_logAge))
+    # if ESFweightingNum==0:
+    #     #uniform
+    #     weighting[isochroneMask] = 1
         
-    elif ESFweightingNum==1:
-        #young - weight proportional to 13.9-age/Gyr
-        weighting[isochroneMask] =  13.9-10**(MH_logAge[isochroneMask,1]-9)
+    # elif ESFweightingNum==1:
+    #     #young - weight proportional to 13.9-age/Gyr
+    #     weighting[isochroneMask] =  13.9-10**(MH_logAge[isochroneMask,1]-9)
         
-    elif ESFweightingNum==2:
-        #old - weight proportional t0 age
-        weighting[isochroneMask] =  10**(MH_logAge[isochroneMask,1]-9)
+    # elif ESFweightingNum==2:
+    #     #old - weight proportional t0 age
+    #     weighting[isochroneMask] =  10**(MH_logAge[isochroneMask,1]-9)
         
-    else:
-        raise NotImplementedError('define weighting')
-    weighting/=weighting.sum()
-    print(weighting)
-    
+    # else:
+    #     raise NotImplementedError('define weighting')
+    # weighting/=weighting.sum()
+    # print(weighting)
     
     
     
@@ -81,25 +87,31 @@ def main(binNum, ESFweightingNum):
     
     locations = pickleGetters.get_locations()
     mu = mySetup.arr(mySetup.muGridParams)
-    meanESF = np.zeros((len(locations),len(mu)))
-    for i in np.arange(len(MH_logAge))[isochroneMask]:
-        ESF = get_effSelFunc(MH_logAge[i,0], MH_logAge[i,1])
+    ESF = np.zeros((len(logAge), len(locations),len(mu)))
+    for t in range(14):
+        ESF[t,:,:] = (get_effSelFunc(binDict['FeH'][0], logAge[t])
+                      + get_effSelFunc(binDict['FeH'][1], logAge[t]))/2 #mean of ESFs for the two metallicities
+    
+    # meanESF = np.zeros((len(locations),len(mu)))
+    # for i in np.arange(len(MH_logAge))[isochroneMask]:
+    #     ESF = get_effSelFunc(MH_logAge[i,0], MH_logAge[i,1])
         
-        fig,ax = plt.subplots()
-        ax.imshow(ESF.T, origin='lower', aspect='auto')
-        ax.set_title(str(MH_logAge[i,:]))
+    #     fig,ax = plt.subplots()
+    #     ax.imshow(ESF.T, origin='lower', aspect='auto')
+    #     ax.set_title(str(MH_logAge[i,:]))
         
-        meanESF += ESF*weighting[i]
+    #     meanESF += ESF*weighting[i]
         
-    fig,ax = plt.subplots()
-    ax.imshow(meanESF.T, origin='lower', aspect='auto')
-    ax.set_title('mean')
-    path = os.path.join(binPath, f'w{ESFweightingNum}meanESF.png')
-    fig.savefig(path, dpi=300)
+    # fig,ax = plt.subplots()
+    # ax.imshow(meanESF.T, origin='lower', aspect='auto')
+    # ax.set_title('mean')
+    # path = os.path.join(binPath, f'w{ESFweightingNum}meanESF.png')
+    # fig.savefig(path, dpi=300)
 
+    tau = (10**(logAge-9)).reshape((-1,1,1))
     D = mySetup.mu2D(mu)
     solidAngles = np.array(pickleGetters.get_solidAngles()).reshape((-1,1))
-    multiplier = (solidAngles*(D**3)*(mySetup.muStep)*meanESF*np.log(10)/5)
+    multiplier = (solidAngles*(D**3)*(mySetup.muStep)*mySetup.ageStep*ESF*np.log(10)/5)
     
     gLongLat = pickleGetters.get_gLongLat()
     gLon = gLongLat[:,0].reshape((-1,1))
@@ -112,59 +124,75 @@ def main(binNum, ESFweightingNum):
     z = gCentricCoords.z.to(u.kpc).value
     R = np.sqrt(x**2 + y**2)
     modz = np.abs(z)
-    assert R.shape==(len(locations),len(mu))
+    assert R.shape==(len(tau), len(locations),len(mu))
     
-    def B(aR, az):
-        return multiplier*np.exp(-aR*(R-mySetup.R_Sun) -az*modz)
+    
+    def ageFactor(tau0, omega):
+        """because age dist is truncated normal (0-14Gyr), with proper normalisation
+        dist is ageFactor*exp(-(omega/2)*(tau-tau0)**2).
+        
+        therefore agefactor**-1 = integral exp(-(omega/2)*(tau-tau0)**2 from tau=0-14"""
+        return 1/(np.sqrt(np.pi/(2*omega))*(erf(np.sqrt(omega/2)*(14-tau0)) - erf(-np.sqrt(omega/2)*tau0)))
+        
+    def B(aR, az, tau0, omega):
+        return multiplier*ageFactor(tau0, omega)*np.exp(-aR*(R-mySetup.R_Sun) -az*modz -omega*((tau-tau0)**2)/2)
+    
+    def Blite(aR, az, tau0, omega):
+        """without age factor to make B-weighted averages faster """
+        return multiplier*np.exp(-aR*(R-mySetup.R_Sun) -az*modz -omega*((tau-tau0)**2)/2)
     
     def fun(x):
-        """equal to stuff - ln(p), where p can be either value of total
+        """proportional to (stuff - ln(p))/N, where p can be either value of total
         posterior in logNuSun, logaR, logaz OR marginal posterior in logaR, logaz
         (they're proportional)
+         N=effVol is assumed, so effVol=N and logA=logN-log(B.sum) is substituted
          
          NOTE although input is aR,az, this is for posterior with unifrm priors
-         in and distributed in logaR and logaz"""
-        aR, az = x
-        return np.log(B(aR,az).sum()) + aR*(data[1] - mySetup.R_Sun) + az*data[2]
+         in and distributed in logaR and logaz (and other parameters)
+         
+         updated 17/05/23 to include age"""
+        aR, az, tau0, omega = x
+        return np.log(B(aR,az,tau0,omega).sum()) + aR*(data[1]-mySetup.R_Sun) + az*data[2] + omega*data[4]/2 - omega*tau0*data[3] + omega*(tau0**2)/2 - np.log(ageFactor(tau0, omega))
     
     def jac(x):
-        aR, az = x
-        return (data[1] - (R * B(aR, az)).sum()/B(aR, az).sum(),
-                data[2] - (modz * B(aR, az)).sum()/B(aR, az).sum()
+        aR, az, tau0, omega = x
+        return (        data[1] - (R    * Blite(aR,az,tau0,omega)).sum()/Blite(aR,az,tau0,omega).sum(),
+                        data[2] - (modz * Blite(aR,az,tau0,omega)).sum()/Blite(aR,az,tau0,omega).sum(),
+                -omega*(data[3] - (modz * Blite(aR,az,tau0,omega)).sum()/Blite(aR,az,tau0,omega).sum())
                 )
     
-    res = scipy.optimize.minimize(fun=fun, x0=(1/data[1], 1/data[2]), jac=jac)
+    res = scipy.optimize.minimize(fun=fun, x0=(1/data[1], 1/data[2], data[3], 1/(data[4]-data[3]**2)), jac=jac) #jac needed for hess?
     
     print(res)
     print(res.x)
     
-    aR, az = res.x
+    aR, az, tau0, omega = res.x
     isSuccess = res.success
     
-    logNuSun = np.log(data[0]/B(aR,az).sum())
+    logNuSun = np.log(data[0]/B(aR,az, tau0, omega).sum())
     
-    print("results: ", logNuSun, aR, az)
+    print("results: ", logNuSun, aR, az, tau0, omega)
     
     f_peak = res.fun
     hess = np.linalg.inv(res.hess_inv)
     print("hess: ", hess)
     
-    sigmas = np.array([((data[0])**(-0.5)), ((data[0]*hess[0,0])**(-0.5)), ((data[0]*hess[1,1])**(-0.5))])
+    sigmas = np.array([((data[0])**(-0.5))]+[((data[0]*hess[i,i])**(-0.5)) for i in range(4)])
     
     
     print("What's saved:")
-    print([logNuSun, aR, az])
+    print([logNuSun, aR, az, tau0, omega])
     print(sigmas)
-    with open(os.path.join(binPath, f'w{ESFweightingNum}fit_results.dat'), 'wb') as f:
-        pickle.dump(np.array([logNuSun, aR, az]), f)
-    with open(os.path.join(binPath, f'w{ESFweightingNum}fit_sigmas.dat'), 'wb') as f:
+    with open(os.path.join(binPath, f'fit_results.dat'), 'wb') as f:
+        pickle.dump(np.array([logNuSun, aR, az, tau0, omega]), f)
+    with open(os.path.join(binPath, f'fit_sigmas.dat'), 'wb') as f:
         pickle.dump(sigmas, f)
     
     
     
     # plotting
-    aR_forplot = aR
-    az_forplot = az
+    # aR_forplot = aR
+    # az_forplot = az
     # if (aR<=0):
     #     print("NEGATIVE aR WARNING")
     #     # aR_forplot = 0.000000000001
@@ -288,6 +316,7 @@ def main(binNum, ESFweightingNum):
 
 
 def get_effSelFunc(MH, logAge):
+    """loads ESF for one isochrone (ie one value of MH, one value of age)"""
     path = os.path.join(mySetup.dataDir, 'ESF', f'MH_{MH:.3f}_logAge_{logAge:.3f}.dat')
     print(path)
     if os.path.exists(path):

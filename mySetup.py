@@ -20,6 +20,9 @@ muMax = 17.0
 muStep = 0.1
 muGridParams = (muMin, muMax, muStep)
 
+ageStep = 1
+logAges = np.log10([0.1+ageStep*i for i in range(14)]) + 9
+
 def arr(gridParams):
     start, stop, step = gridParams
     arr = np.arange(round((stop-start)/step)+1)*step+start
