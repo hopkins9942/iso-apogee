@@ -169,7 +169,7 @@ def make_statSample(force=False):
         pickle.dump(statSample, f)
     print(statSample.dtype)
     assert len(statSample) == 165768
-    assert len(statSample.dtype) == 38
+    assert len(statSample.dtype) == 40
     return statSample
     
     # Could save individuals, but trimmed S is only order 10MB maybe

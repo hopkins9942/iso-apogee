@@ -128,7 +128,7 @@ def calculateAlphaFe(S):
 
 def calculateData():
     """
-    Cuts on mu and logg 
+    Cuts on mu and logg, distributes stars without abundances over bins to make up numbers
     """
     S = pg.get_statSample()
     
@@ -139,9 +139,15 @@ def calculateData():
     goodFe = (FeH>-9999)
     
     goodLogg = (1<=S['LOGG']) & (S['LOGG']<3)
+    
     D = S['weighted_dist']/1000 # kpc
     mu = mySetup.D2mu(D)
     goodMu = (mySetup.muMin<=mu) & (mu<mySetup.muMax)
+    
+    age = np.where(S['age_lowess_correct']>0, 
+                   np.where(S['age_lowess_correct']<14, S['age_lowess_correct'], 13.999),
+                   0.0001)
+    #maps age to 0-14 range
     
     goodCombined = goodAlpha & goodFe & goodLogg & goodMu
     
@@ -187,9 +193,11 @@ def calculateData():
         N = np.count_nonzero(bindices)*adjustment_factor
         meanR = R[bindices].mean() if N!=0 else 0
         meanmodz = modz[bindices].mean() if N!=0 else 0
-        print(mySetup.binName(binDict), N, meanR, meanmodz)
-        # with open(os.path.join(mySetup.dataDir, 'bins', mySetup.binName(binDict), 'data.dat'), 'wb') as f:
-        #     pickle.dump(np.array([N, meanR, meanmodz]), f)
+        meanage = age[bindices].mean() if N!=0 else 0
+        meansquareage = (age[bindices]*age[bindices]).mean() if N!=0 else 0
+        print(mySetup.binName(binDict), N, meanR, meanmodz, meanage, meansquareage)
+        with open(os.path.join(mySetup.dataDir, 'bins', mySetup.binName(binDict), 'data.dat'), 'wb') as f:
+            pickle.dump(np.array([N, meanR, meanmodz, meanage, meansquareage]), f)
     
     
     
