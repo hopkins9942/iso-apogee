@@ -6,7 +6,7 @@ import astropy.coordinates as coord
 import astropy.units as u
 
 # dataDir= '/home/hopkinsl/Documents/APOGEE/data'
-dataDir = '/Users/hopkinsm/data/APOGEE/'
+dataDir = '/Users/hopkinsm/APOGEE/data/'
 # dataDir = '/data/phys-galactic-isos/sjoh4701/APOGEE/'
 
 
