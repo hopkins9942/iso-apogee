@@ -195,9 +195,16 @@ def calculateData():
         meanmodz = modz[bindices].mean() if N!=0 else 0
         meanage = age[bindices].mean() if N!=0 else 0
         meansquareage = (age[bindices]*age[bindices]).mean() if N!=0 else 0
-        print(mySetup.binName(binDict), N, meanR, meanmodz, meanage, meansquareage)
+        # print(mySetup.binName(binDict), N, meanR, meanmodz, meanage, meansquareage)
         with open(os.path.join(mySetup.dataDir, 'bins', mySetup.binName(binDict), 'data.dat'), 'wb') as f:
             pickle.dump(np.array([N, meanR, meanmodz, meanage, meansquareage]), f)
+            
+        ageHist = np.histogram(age[bindices], bins = 14, range=(0,14))
+        # print(ageHist)
+        with open(os.path.join(mySetup.dataDir, 'bins', mySetup.binName(binDict), 'ageHist.dat'), 'wb') as f:
+            pickle.dump(ageHist, f)
+        with open(os.path.join(mySetup.dataDir, 'bins', mySetup.binName(binDict), 'ageHist.txt'), 'w') as f:
+            f.write(str(ageHist))
     
     
     
