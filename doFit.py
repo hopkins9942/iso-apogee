@@ -227,12 +227,12 @@ def main(binNum, plotStuff):
     ageFine = np.linspace(0,14)
     fig, ax = plt.subplots()
     ax.plot(agePoints, ageHist[0]/ageHist[0].sum())
-    ax.plot(ageFine, ageFactor(tau0, omega)*np.exp(omega*(ageFine-tau0)**2/2))
+    ax.plot(ageFine, ageFactor(tau0, omega)*np.exp(-omega*((ageFine-tau0)**2)/2))
     fig.set_tight_layout(True)
     path = os.path.join(binPath, 'ageDist.png')
     fig.savefig(path, dpi=300)
     
-    ncells = 5 #along each axis
+    ncells = 3 #along each axis
     widthFactor = 2
     widths = widthFactor*sigmas[1:] #/np.array([aR_forplot, az_forplot])
     # factor for nice cover, division by aR,az is for width of log(aR),log(az)
