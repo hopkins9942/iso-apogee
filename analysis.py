@@ -30,7 +30,7 @@ sha = repo.head.object.hexsha[:7]
 print(repo)
 print(sha)
 
-plotDir = '/home/hopkinsl/Documents/APOGEE/plots'#f'/Users/hopkinsm/Documents/APOGEE/plots/{sha}/'
+plotDir = f'/Users/hopkinsm/APOGEE/plots/{sha}/'
 os.makedirs(plotDir, exist_ok=True)
 
 

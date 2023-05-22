@@ -199,7 +199,7 @@ def calculateData():
         with open(os.path.join(mySetup.dataDir, 'bins', mySetup.binName(binDict), 'data.dat'), 'wb') as f:
             pickle.dump(np.array([N, meanR, meanmodz, meanage, meansquareage]), f)
             
-        ageHist = np.histogram(age[bindices], bins = 14, range=(0,14))
+        ageHist = np.histogram(age[bindices], bins = 14*3, range=(0,14))
         # print(ageHist)
         with open(os.path.join(mySetup.dataDir, 'bins', mySetup.binName(binDict), 'ageHist.dat'), 'wb') as f:
             pickle.dump(ageHist, f)

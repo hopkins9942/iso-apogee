@@ -17,8 +17,8 @@ import pickleGetters
 
 # 20230512: need to change this to use an ESF based on measured astroNN age distribuion 
 
-def main(binNum, plotStuff):
-    print(f"Starting! {datetime.datetime.now()}")
+def main(binNum, plotStuff, label=''):
+    print(f"\n\nStarting! {datetime.datetime.now()}")
     
     # binNum = 20# int(sys.argv[1])
     binDict = mySetup.binList[binNum]
@@ -36,11 +36,11 @@ def main(binNum, plotStuff):
     if data[0]==0:
         # No stars in bin
         print("No stars")
-        with open(os.path.join(binPath, 'fit_results.dat'), 'wb') as f:
+        with open(os.path.join(binPath, label+'fit_results.dat'), 'wb') as f:
             pickle.dump(np.array([-999, -999, -999, -999, -999]), f)
-        with open(os.path.join(binPath, 'fit_sigmas.dat'), 'wb') as f:
+        with open(os.path.join(binPath, label+'fit_sigmas.dat'), 'wb') as f:
             pickle.dump(np.array([-999, -999, -999, -999, -999]), f)
-        return 0
+        return True # i.e. "successful fit"
     
     logAge = mySetup.logAges
     
@@ -138,7 +138,7 @@ def main(binNum, plotStuff):
         return multiplier*ageFactor(tau0, omega)*np.exp(-aR*(R-mySetup.R_Sun) -az*modz -omega*((tau-tau0)**2)/2)
     
     def Blite(aR, az, tau0, omega):
-        """without age factor to make B-weighted averages faster """
+        """without age factor, as appears in function and to make B-weighted averages and objective function faster """
         return multiplier*np.exp(-aR*(R-mySetup.R_Sun) -az*modz -omega*((tau-tau0)**2)/2)
     
     def fun(x):
@@ -152,7 +152,7 @@ def main(binNum, plotStuff):
          
          updated 17/05/23 to include age"""
         aR, az, tau0, omega = x
-        return np.log(B(aR,az,tau0,omega).sum()) + aR*(data[1]-mySetup.R_Sun) + az*data[2] + omega*data[4]/2 - omega*tau0*data[3] + omega*(tau0**2)/2 - np.log(ageFactor(tau0, omega))
+        return np.log(Blite(aR,az,tau0,omega).sum()) + aR*(data[1]-mySetup.R_Sun) + az*data[2] + omega*data[4]/2 - omega*tau0*data[3] + omega*(tau0**2)/2
     
     def jac(x):
         aR, az, tau0, omega = x
@@ -165,8 +165,11 @@ def main(binNum, plotStuff):
     res = scipy.optimize.minimize(fun=fun, x0=(1/data[1],
                                                1/data[2],
                                                data[3],
-                                               1/(data[4]-data[3]**2)),
-                                  jac=jac) #jac needed for hess?
+                                               1/(data[4]-data[3]**2+0.1)), #0.1 is to stop inf when only one star -  omega =inf when one star
+                                  jac=jac, 
+                                  bounds=((None,None),(None,None),(None,None),(0.0001,1)))
+    #jac needed for hess?
+    #bounds to stop omega exploding when only one star, 1 chosen as errors in age are about 1Gyr and spacing of grid used to approximate is 1Gyr
     
     print(res)
     print(res.x)
@@ -179,18 +182,20 @@ def main(binNum, plotStuff):
     print("results: ", logNuSun, aR, az, tau0, omega)
     
     f_peak = res.fun
-    covariance = res.hess_inv
+    covariance = res.hess_inv.todense()
+    #when bounds are used, .todense() needs to be added as hess isn't explicity  calculated
     print("covarience: ", covariance)
+    variance = np.diag(covariance)
     
-    sigmas = np.array([((1/data[0])**(0.5))]+[((covariance[i,i]/data[0])**(0.5)) for i in range(4)])
+    sigmas = np.array([((1/data[0])**(0.5))]+[((variance[i]/data[0])**(0.5)) for i in range(4)])
     # check this, but I think divide by N^0.5 because cov=inverse hess
     
     print("What's saved:")
     print([logNuSun, aR, az, tau0, omega])
     print(sigmas)
-    with open(os.path.join(binPath, 'fit_results.dat'), 'wb') as f:
+    with open(os.path.join(binPath, label+'fit_results.dat'), 'wb') as f:
         pickle.dump(np.array([logNuSun, aR, az, tau0, omega]), f)
-    with open(os.path.join(binPath, 'fit_sigmas.dat'), 'wb') as f:
+    with open(os.path.join(binPath, label+'fit_sigmas.dat'), 'wb') as f:
         pickle.dump(sigmas, f)
     
     
@@ -200,12 +205,13 @@ def main(binNum, plotStuff):
     print('zero = ', (1 - (tau    * Blite(aR,az,tau0,omega)).sum()/Blite(aR,az,tau0,omega).sum()/data[3]))
     print('zero = ', (1 - (tau**2 * Blite(aR,az,tau0,omega)).sum()/Blite(aR,az,tau0,omega).sum()/data[4]))
     
+    agePoints = (np.arange(14*3)+0.5)/3
     with open(os.path.join(binPath, 'ageHist.dat'), 'rb') as f:
         ageHist = pickle.load(f)
-    print('tau0 = ', tau0, ', observed mean = ', ((ageHist[0]*(np.arange(14)+0.5))/ageHist[0].sum()).sum())
+    print('tau0 = ', tau0, ', observed mean = ', ((ageHist[0]*agePoints)/ageHist[0].sum()).sum())
     
     # human readable text file
-    path = os.path.join(binPath, f'results.txt')
+    path = os.path.join(binPath, label+'results.txt')
     with open(path, 'w') as f:
         out = (f"data: {data}\n\nresult: \n{res}\n\nsigmas: \n{sigmas}\n\nhess: \n{covariance}\n\n"+
                "widths: \n{widths}\n\nWhat's saved:\n{[logNuSun, aR, az, tau0, omega]}\n\n"+
@@ -217,26 +223,26 @@ def main(binNum, plotStuff):
             
             
     if plotStuff==False:
-        return
+        return True
     # plotting
     # What to plot? corner of p, 2d p/beta of ar,az marginalised over tau0 and omega and vice versa
     # just plot hess
     
     # age dist vs model
-    agePoints = np.arange(14)+0.5
-    ageFine = np.linspace(0,14)
+    ageFine = np.linspace(0,14, 100)
     fig, ax = plt.subplots()
-    ax.plot(agePoints, ageHist[0]/ageHist[0].sum())
-    ax.plot(ageFine, ageFactor(tau0, omega)*np.exp(-omega*((ageFine-tau0)**2)/2))
+    ax.bar(agePoints, ageHist[0]/(agePoints[1]-agePoints[0]), (agePoints[1]-agePoints[0]), align='center')
+    ax.plot(ageFine, data[0]*ageFactor(tau0, omega)*np.exp(-omega*((ageFine-tau0)**2)/2), color='C1')
+    ax.set_title(str(binNum)+": Age distributions")
     fig.set_tight_layout(True)
-    path = os.path.join(binPath, 'ageDist.png')
+    path = os.path.join(binPath, label+'ageDist.png')
     fig.savefig(path, dpi=300)
     
-    ncells = 3 #along each axis
+    ncells = 5 #along each axis
     widthFactor = 2
     widths = widthFactor*sigmas[1:] #/np.array([aR_forplot, az_forplot])
     # factor for nice cover, division by aR,az is for width of log(aR),log(az)
-    print(widths)
+    # print(widths)
     # aRArr = aR + np.linspace(-widths[0], widths[0], ncells)
     # azArr = az + np.linspace(-widths[1], widths[1], ncells)
     # tau0Arr = tau + np.linspace(-widths[2], widths[2], ncells)
@@ -246,7 +252,7 @@ def main(binNum, plotStuff):
 
     pgrid = np.zeros([len(paramArr[i]) for i in range(len(param))]) #(len(aR,az,tau0,omega))
     # lpgrid = np.zeros((len(laRArr), len(lazArr)))
-    beta =  np.zeros([len(paramArr[i]) for i in range(len(param))])
+    # beta =  np.zeros([len(paramArr[i]) for i in range(len(param))])
     assert pgrid.size==ncells**4
     for flatIndex in range(pgrid.size):
         mI = np.unravel_index(flatIndex, pgrid.shape)
@@ -254,30 +260,38 @@ def main(binNum, plotStuff):
                                           paramArr[1][mI[1]],
                                           paramArr[2][mI[2]],
                                           paramArr[3][mI[3]]))-f_peak))
-        beta[mI] = B(paramArr[0][mI[0]],
-                     paramArr[1][mI[1]],
-                     paramArr[2][mI[2]],
-                     paramArr[3][mI[3]]).sum()
+        # beta[mI] = B(paramArr[0][mI[0]],
+        #              paramArr[1][mI[1]],
+        #              paramArr[2][mI[2]],
+        #              paramArr[3][mI[3]]).sum()
         
     
     # values are marginal posterior over logaR, logaz (value per log(aR),log(az))
     intp = pgrid.sum()*(widths[0]/ncells)*(widths[1]/ncells)*(widths[2]/ncells)*(widths[3]/ncells)
     pgrid = pgrid/intp
     
-    peaklogNuSun = np.log(data[0]/beta)
+    # peaklogNuSun = np.log(data[0]/beta)
     
     #how to get samples for corner? times by number wanted, get poisson of each cell
     # fig = corner.corner(
     
     fig, ax = plt.subplots()
     image = ax.imshow(covariance)
-    ax.set_title("covariance in aR, az, tau0 and omega")
+    ax.set_title(str(binNum)+": covariance in aR, az, tau0 and omega")
     fig.colorbar(image, ax=ax)
     fig.set_tight_layout(True)
-    path = os.path.join(binPath, 'covariance.png')
+    path = os.path.join(binPath, label+'covariance.png')
     fig.savefig(path, dpi=300)
     
-    print(paramArr)
+    fig, ax = plt.subplots()
+    image = ax.imshow(covariance/np.sqrt(variance*variance.reshape(((4,1)))))
+    ax.set_title(str(binNum)+": correlation in aR, az, tau0 and omega")
+    fig.colorbar(image, ax=ax)
+    fig.set_tight_layout(True)
+    path = os.path.join(binPath, label+'correlation.png')
+    fig.savefig(path, dpi=300)
+    
+    # print(paramArr)
     fig, ax = plt.subplots()
     image = ax.imshow(pgrid.sum(axis=-1).sum(axis=-1).T, origin='lower',
               extent = (param[0]-widths[0]*(1+1/(ncells-1)), param[0]+widths[0]*(1+1/(ncells-1)),
@@ -287,12 +301,12 @@ def main(binNum, plotStuff):
     ax.axvline(aR+sigmas[1], color='C0', alpha=0.5)
     ax.axhline(az-sigmas[2], color='C0', alpha=0.5)
     ax.axhline(az+sigmas[2], color='C0', alpha=0.5)
-    ax.set_title("posterior marginalised over logNuSun, tau0 and omega")
+    ax.set_title(str(binNum)+": posterior marginalised over logNuSun, tau0 and omega")
     ax.set_xlabel('aR')
     ax.set_ylabel('az')
     fig.colorbar(image, ax=ax)
     fig.set_tight_layout(True)
-    path = os.path.join(binPath, 'aRazposterior.png')
+    path = os.path.join(binPath, label+'aRazposterior.png')
     fig.savefig(path, dpi=300)
     
     fig, ax = plt.subplots()
@@ -304,12 +318,12 @@ def main(binNum, plotStuff):
     ax.axvline(tau0+sigmas[3], color='C0', alpha=0.5)
     ax.axhline(omega-sigmas[4], color='C0', alpha=0.5)
     ax.axhline(omega+sigmas[4], color='C0', alpha=0.5)
-    ax.set_title("posterior marginalised over logNuSun, aR and az")
+    ax.set_title(str(binNum)+": posterior marginalised over logNuSun, aR and az")
     ax.set_xlabel('tau0')
     ax.set_ylabel('omega')
     fig.colorbar(image, ax=ax)
     fig.set_tight_layout(True)
-    path = os.path.join(binPath, 'tau0omegaposterior.png')
+    path = os.path.join(binPath, label+'tau0omegaposterior.png')
     fig.savefig(path, dpi=300)
     
     # fig, ax = plt.subplots()
@@ -341,7 +355,7 @@ def main(binNum, plotStuff):
     
     # print(pgrid)
     
-    
+    return isSuccess
     
     
     
@@ -362,7 +376,14 @@ def get_effSelFunc(MH, logAge):
 
 
 if __name__=='__main__':
-    main(142,True)
+    
+    # main(142,True, 'test')
+    
+    for i in range(len(mySetup.binList)):
+        success = main(i,False, 'omega1')
+        if not success:
+            print('ARGH FAILURE AGAIN') # for visibility
+            break
     
     # main(int(sys.argv[1]), plotStuff=False)
     #run here
