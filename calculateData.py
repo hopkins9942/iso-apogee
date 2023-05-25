@@ -103,6 +103,36 @@ def tests():
     # considereing spectral features sensitive to element in question. Fe has 
     # lots of features so fit well just be [M/H], alpha elements have fewer
     
+def plotR():
+    S = pg.get_statSample()
+    
+    goodLogg = (1<=S['LOGG']) & (S['LOGG']<3)
+    
+    D = S['weighted_dist']/1000 # kpc
+    mu = mySetup.D2mu(D)
+    goodMu = (mySetup.muMin<=mu) & (mu<mySetup.muMax)
+    
+    #maps age to 0-14 range
+    
+    good = goodLogg & goodMu
+    
+    gCoords = coord.SkyCoord(l=S['GLON']*u.deg, b=S['GLAT']*u.deg, distance=D*u.kpc, frame='galactic')
+    gCentricCoords = gCoords.transform_to(mySetup.GC_frame)
+    x = gCentricCoords.x.to(u.kpc).value
+    y = gCentricCoords.y.to(u.kpc).value
+    z = gCentricCoords.z.to(u.kpc).value
+    R = np.sqrt(x**2 + y**2)
+    modz = np.abs(z)
+    
+    fig,ax = plt.subplots()
+    ax.hist(R[good&(S['FE_H']>0)], bins=50)
+    
+    fig,ax = plt.subplots()
+    ax.hist(R[good&(S['FE_H']<0)], bins=50)
+    
+    print(len(R[good&(R>12)])/len(R[good]))
+    print(len(R[good&(R<4)])/len(R[good]))
+    print(len(R[good&(R<12)&(R>4)])/len(R[good]))
 
 def calculateAlphaFe(S):
     """
@@ -126,7 +156,7 @@ def calculateAlphaFe(S):
     return alphaFe, goodAlpha
 
 
-def calculateData():
+def calculateData():#probably bad practoce to have name name as file
     """
     Cuts on mu and logg, distributes stars without abundances over bins to make up numbers
     """

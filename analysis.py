@@ -16,6 +16,7 @@ import mySetup
 import myIsochrones
 
 cmap0 = mpl.colormaps['Blues']
+cmap01 = mpl.colormaps['Purples']
 cmap1 = mpl.colormaps['Greys']#mpl.colormaps['Blues']
 cmap2 = mpl.colormaps['hsv']
 # colourPalette = mpl.colormaps['tab10'](np.linspace(0.05, 0.95, 10))
@@ -38,10 +39,12 @@ os.makedirs(plotDir, exist_ok=True)
 # really should sort integral warnings if they appear
 
 def main():
-    G = Galaxy.loadFromBins(ESFweightingNum=0, NRG2SMMweightingNum=0)
-    plotFit(G)
+    G = Galaxy.loadFromBins()
+    plotFit(G, G.mask())
+    NRGvsSMM(G)
+    makePlots20230523(G)
+    
     plotOverR(G)
-    makePlots20230208()
     
     # for paper:
     # makePlots(0,0,0)
@@ -62,6 +65,36 @@ def main():
     
     
     return 0
+
+def NRGvsSMM(G):
+    DlocalNRG = Distributions('Local red giants', G.FeH(G.hist()/G.NRG2SMM), ISONumZIndex=1) #changed from SM to number density of giants
+    DlocalSMM = Distributions('Local sine mrote', G.FeH(G.hist()), ISONumZIndex=1)
+    DlocalNRG.plotWith(DlocalSMM, extra='localNRGvsSMM')
+    
+    DMWNRG = Distributions('MW red giants', G.FeH(G.integratedHist()/G.NRG2SMM), ISONumZIndex=1) #changed from SM to number density of giants
+    DMWSMM = Distributions('MW sine morte', G.FeH(G.integratedHist()), ISONumZIndex=1)
+    DMWNRG.plotWith(DMWSMM, extra='MWNRGvsSMM')
+
+def makePlots20230523(G):
+    Dlist = [Distributions('Local', G.FeH(G.hist()), ISONumZIndex=1, normalised=True),
+                     Distributions('Milky Way average', G.FeH(G.integratedHist()), perVolume=False, ISONumZIndex=1, normalised=True),
+                     Distributions('Local', G.FeH(G.hist()), ISONumZIndex=0, normalised=True),
+                     Distributions('Milky Way average', G.FeH(G.integratedHist()), perVolume=False, ISONumZIndex=0, normalised=True)]
+    Dlist[0].plotWith(Dlist[1], extra='Beta1')
+    Dlist[2].plotWith(Dlist[3], extra='Beta0')
+    
+    for d in Dlist:
+        print(d.name)
+        print(d.counts)
+        print()
+        
+    res = optimiseBeta(Dlist[0], MWD=Dlist[1])
+    
+    print(res)
+    
+    
+    # print('starting over R')
+    # plotOverR(G, extra=f'ESFwn{0}SMMwn{0}Zindex{1}')
 
 def makePlots20230208():
     G = Galaxy.loadFromBins(ESFweightingNum=0, NRG2SMMweightingNum=0)
@@ -86,10 +119,10 @@ def makePlots20230208():
     # plotOverR(G, extra=f'ESFwn{0}SMMwn{0}Zindex{1}')
 
 
-def makePlots(ESFwn=0, SMMwn=0, Zindex=1):
-    print(f'starting {ESFwn},{SMMwn},{Zindex}')
+def makePlots(Zindex=1):
+    print(f'starting {Zindex}')
     EAGLE_FeHHist, EAGLEEdges = getEAGLE_hist_edges()
-    G = Galaxy.loadFromBins(ESFweightingNum=ESFwn, NRG2SMMweightingNum=SMMwn)
+    G = Galaxy.loadFromBins()
     localD = Distributions('local', G.FeH(G.hist()), ISONumZIndex=Zindex, normalised=True)
     MWD = Distributions('MW', G.FeH(G.integratedHist()), perVolume=False, ISONumZIndex=Zindex, normalised=True)
     EAGLED = Distributions('EAGLE', EAGLE_FeHHist, FeHEdges=EAGLEEdges, perVolume=False, ISONumZIndex=Zindex, normalised=True)
@@ -120,66 +153,110 @@ def getEAGLE_hist_edges():
     
 
 def plotData(G, extra=''):
-    fig, axs = plt.subplots(ncols=3, figsize=[18, 4])
-    titles = ['N', 'mean R', 'mean mod z']
-    for i, X in enumerate([G.data[0,:,:], G.data[1,:,:], G.data[2,:,:]]):
-        image = axs[i].imshow(X.T, origin='lower', aspect='auto',
+    titles = ['N', 'mean R', 'mean mod z', 'mean age', 'mean age squared']
+    for i, X in enumerate([G.data[i,:,:] for i in range(5)]):
+        fig, ax = plt.subplots()
+        image = ax.imshow(X.T, origin='lower', aspect='auto',
                               extent=(G.FeHEdges[0], G.FeHEdges[-1], G.aFeEdges[0], G.aFeEdges[-1]),
-                              cmap=cmap1, norm=mpl.colors.LogNorm())
-        axs[i].set_title(titles[i])
-        axs[i].set_xlabel(r'$\mathrm{[Fe/H]}$')
-        axs[i].set_ylabel(r'$\mathrm{[\alpha/Fe]}$')
-        fig.colorbar(image, ax=axs[i])
+                              cmap=cmap0, norm=mpl.colors.LogNorm())
+        ax.set_title(titles[i])
+        ax.set_xlabel(r'$\mathrm{[Fe/H]}$')
+        ax.set_ylabel(r'$\mathrm{[\alpha/Fe]}$')
+        ax.set_facecolor("gainsboro")
+        fig.colorbar(image, ax=ax)
     fig.set_tight_layout(True)
     path = plotDir+str(extra)+'data.pdf'
     fig.savefig(path, dpi=300)
     
 
-def plotFit(G, extra=None):
-    binLim = 50
-    fig, axs = plt.subplots(ncols=3, figsize=[18, 4])
-    titles = [r'$\exp(\mathrm{logAmp})$', r'$a_R$', r'$a_z$']
-    for i, X in enumerate([np.where(G.data[0,:,:]>=binLim, np.exp(G.logAmp), 0),
-                           np.where(G.data[0,:,:]>=binLim, G.aR, 0), 
-                           np.where(G.data[0,:,:]>=binLim, G.az, 0)]):
-        
-        image = axs[i].imshow(X.T, origin='lower', aspect='auto',
+def plotFit(G, mask, extra=''):
+    # binLim = 50
+    # fig, axs = plt.subplots(ncols=5, figsize=[18, 4])
+    savename = ['logNuSun', 'aR', 'az', 'tau0', 'omegahalf', 'NRG2SMM']
+    titles = [r'$\log\nu_\odot$', r'$a_R$', r'$a_z$', r'$\tau_0$', r'$\omega^{-\frac{1}{2}}$', r'$\rho_\mathrm{sm}/n_\mathrm{giants}$']
+    unit = [r'', r'$\mathrm{kpc}^{-1}$', r'$\mathrm{kpc}^{-1}$', r'$\mathrm{Gyr}$', r'$\mathrm{Gyr}$', r'$M_\odot$']
+    # for i, X in enumerate([np.where(G.data[0,:,:]>=binLim, np.exp(G.logNuSun), 0),
+    #                        np.where(G.data[0,:,:]>=binLim, G.aR,    0), 
+    #                        np.where(G.data[0,:,:]>=binLim, G.az,    0),
+    #                        np.where(G.data[0,:,:]>=binLim, G.tau0,  0), 
+    #                        np.where(G.data[0,:,:]>=binLim, G.omega, 0), 
+    #                        np.where(G.data[0,:,:]>=binLim, G.NRG2SMM, 0)]):
+    for i, X in enumerate([np.where(mask, G.logNuSun, np.nan),
+                           np.where(mask, G.aR,    np.nan), 
+                           np.where(mask, G.az,    np.nan),
+                           np.where(mask, G.tau0,  np.nan), 
+                           np.where(mask, G.omega**-0.5, np.nan), 
+                           np.where(mask, G.NRG2SMM, np.nan)]):
+        fig, ax = plt.subplots()
+        image = ax.imshow(X.T, origin='lower', aspect='auto',
                               extent=(G.FeHEdges[0], G.FeHEdges[-1], G.aFeEdges[0], G.aFeEdges[-1]),
-                              cmap=cmap0, norm=mpl.colors.LogNorm())
-        axs[i].set_title(titles[i])
-        axs[i].set_xlabel(r'$\mathrm{[Fe/H]}$')
-        axs[i].set_ylabel(r'$\mathrm{[\alpha/Fe]}$')
-        cbar = fig.colorbar(image, ax=axs[i])
-        cbar.set_label('' if i==0 else r'$\mathrm{kpc}^{-1}$')
-    fig.set_tight_layout(True)
-    path = plotDir+'/'+str(extra)+'fit.pdf'
-    fig.savefig(path, dpi=300)
-
-def plotAgeWeightingDiffs():
-    binLim = 50
-    
-    G00 = Galaxy.loadFromBins(ESFweightingNum=0, NRG2SMMweightingNum=0)
-    for k in range(1,3):
-        G = Galaxy.loadFromBins(ESFweightingNum=k, NRG2SMMweightingNum=k)
-        fig, axs = plt.subplots(ncols=3, figsize=[18, 4])
-        titles = ['amp', r'$a_R$', r'$a_z$']
-        for i, X in enumerate([np.where(G00.data[0,:,:]>=binLim, G.amp-G00.amp, 0),
-                               np.where(G00.data[0,:,:]>=binLim, G.aR-G00.aR, 0), 
-                               np.where(G00.data[0,:,:]>=binLim, G.az-G00.az, 0)]):
-            image = axs[i].imshow(X.T, origin='lower', aspect='auto',
-                                  extent=(G.FeHEdges[0], G.FeHEdges[-1], G.aFeEdges[0], G.aFeEdges[-1]),
-                                  cmap=cmap1, norm=mpl.colors.Normalize())
-            axs[i].set_title(titles[i])
-            axs[i].set_xlabel(r'$\mathrm{[Fe/H]}$')
-            axs[i].set_ylabel(r'$\mathrm{[\alpha/Fe]}$')
-            fig.colorbar(image, ax=axs[i])
+                              cmap=cmap0)#, norm=mpl.colors.LogNorm())
+        ax.set_title(titles[i])
+        ax.set_xlabel(r'$\mathrm{[Fe/H]}$')
+        ax.set_ylabel(r'$\mathrm{[\alpha/Fe]}$')
+        ax.set_facecolor("gainsboro")#("lavenderblush")
+        cbar = fig.colorbar(image, ax=ax)
+        cbar.set_label(unit[i])
+        # cbar.set_label('' if i==0 else r'$\mathrm{kpc}^{-1}$')
         fig.set_tight_layout(True)
-        path = plotDir+str(k)+'DiffFit.pdf'
+        path = plotDir+'/'+str(extra)+str(savename[i])+'fit.pdf'
         fig.savefig(path, dpi=300)
+
+
+def plotErr(G, mask, extra=None):
+    binLim = 1
+    # fig, axs = plt.subplots(ncols=5, figsize=[18, 4])
+    titles = [r'$\sigma_{\mathrm{logNuSun}}$', r'$\sigma_{a_R}/a_R$', r'$\sigma_{a_z}/a_z$', r'$\sigma_{\tau0}/\tau_0$', r'$\sigma_{\omega}/\omega$', 'NRG2SMM']
+    # for i, X in enumerate([np.where(G.data[0,:,:]>=binLim, G.sig_logNuSun, 0),
+    #                        np.where(G.data[0,:,:]>=binLim, G.sig_aR/G.aR,    0), 
+    #                        np.where(G.data[0,:,:]>=binLim, G.sig_az/G.az,    0),
+    #                        np.where(G.data[0,:,:]>=binLim, G.sig_tau0/G.tau0,  0), 
+    #                        np.where(G.data[0,:,:]>=binLim, G.sig_omega/G.omega, 0)]):
+    for i, X in enumerate([np.where(mask, G.sig_logNuSun, np.nan),
+                           np.where(mask, G.sig_aR/G.aR,    np.nan), 
+                           np.where(mask, G.sig_az/G.az,    np.nan),
+                           np.where(mask, G.sig_tau0/G.tau0,  np.nan), 
+                           np.where(mask, G.sig_omega/G.omega, np.nan)]):
+        fig, ax = plt.subplots()
+        image = ax.imshow(X.T, origin='lower', aspect='auto',
+                              extent=(G.FeHEdges[0], G.FeHEdges[-1], G.aFeEdges[0], G.aFeEdges[-1]),
+                              cmap=cmap0)#, norm=mpl.colors.LogNorm())
+        ax.set_title(titles[i])
+        ax.set_xlabel(r'$\mathrm{[Fe/H]}$')
+        ax.set_ylabel(r'$\mathrm{[\alpha/Fe]}$')
+        ax.set_facecolor("gainsboro")#("lavenderblush")
+        cbar = fig.colorbar(image, ax=ax)
+        cbar.set_label('ADD UNIT')
+        # cbar.set_label('' if i==0 else r'$\mathrm{kpc}^{-1}$')
+    fig.set_tight_layout(True)
+    path = plotDir+'/'+str(extra)+'err.pdf'
+    fig.savefig(path, dpi=300)
+    
+# def plotAgeWeightingDiffs():
+#     binLim = 50
+    
+#     G00 = Galaxy.loadFromBins(ESFweightingNum=0, NRG2SMMweightingNum=0)
+#     for k in range(1,3):
+#         G = Galaxy.loadFromBins(ESFweightingNum=k, NRG2SMMweightingNum=k)
+#         fig, axs = plt.subplots(ncols=3, figsize=[18, 4])
+#         titles = ['amp', r'$a_R$', r'$a_z$']
+#         for i, X in enumerate([np.where(G00.data[0,:,:]>=binLim, G.amp-G00.amp, 0),
+#                                np.where(G00.data[0,:,:]>=binLim, G.aR-G00.aR, 0), 
+#                                np.where(G00.data[0,:,:]>=binLim, G.az-G00.az, 0)]):
+#             image = axs[i].imshow(X.T, origin='lower', aspect='auto',
+#                                   extent=(G.FeHEdges[0], G.FeHEdges[-1], G.aFeEdges[0], G.aFeEdges[-1]),
+#                                   cmap=cmap1, norm=mpl.colors.Normalize())
+#             axs[i].set_title(titles[i])
+#             axs[i].set_xlabel(r'$\mathrm{[Fe/H]}$')
+#             axs[i].set_ylabel(r'$\mathrm{[\alpha/Fe]}$')
+#             fig.colorbar(image, ax=axs[i])
+#         fig.set_tight_layout(True)
+#         path = plotDir+str(k)+'DiffFit.pdf'
+#         fig.savefig(path, dpi=300)
         
 
 def plotOverR(G, extra=''):
-    R = np.linspace(0,15,101)
+    R = np.linspace(4,12,101)
     R = (R[:-1]+R[1:])/2
     
     FeHPlotPoints = np.linspace(G.FeHEdges[0], G.FeHEdges[-1], 100)
@@ -204,7 +281,7 @@ def plotOverR(G, extra=''):
     
     ax.plot(R, FeHMed, color=colourPalette[3], linestyle='dashed')
     cbar = fig.colorbar(image)
-    cbar.set_label(r'$\rho_{\mathrm{sm}}(\mathrm{[Fe/H]})$')
+    cbar.set_label(r'$p(\mathrm{[Fe/H]}\mid R)$')
     ax.set_xlabel(r'$R/\mathrm{kpc}$')
     ax.set_ylabel(r'$\mathrm{[Fe/H]}$')
     path = os.path.join(plotDir,str(extra)+'FeHR.pdf')
@@ -218,7 +295,7 @@ def plotOverR(G, extra=''):
     
     ax.plot(R, fH2OMed, color=colourPalette[3], linestyle='dashed')
     cbar = fig.colorbar(image)
-    cbar.set_label(r'$p(f_{\mathrm{H}_2 \mathrm{O}})$')
+    cbar.set_label(r'$p(f_{\mathrm{H}_2 \mathrm{O}}\mid R)$')
     ax.set_xlabel(r'$R/\mathrm{kpc}$')
     ax.set_ylabel(r'$f_\mathrm{H_2O}$')
     path = os.path.join(plotDir,str(extra)+'fH2OR.pdf')
@@ -304,43 +381,65 @@ def calcNumInSamples(G):
 
 
 class Galaxy:
-    def __init__(self, FeHEdges, aFeEdges, amp, aR, az, sig_logNuSun, sig_aR, sig_az, data, logAmp):
+    def __init__(self, FeHEdges, aFeEdges, rhoSun, logNuSun, aR, az, tau0, omega, sig_logNuSun, sig_aR, sig_az, sig_tau0, sig_omega, NRG2SMM, data):
         """
         amp etc are arrays with [FeH index, aFe index]
+        
+        logNuSun is what comes out of the fit, the cartesian space number density of red giants at R=R0, z=0 in each bin
+        rhoSun is this multiplied by NRG2SMM, divided by volume of bin, so equals the denisty in space and composition of SM mass distribution
         """
         self.FeHEdges = FeHEdges
         self.aFeEdges = aFeEdges
-        self.amp = amp
+        self.rhoSun = rhoSun
+        self.logNuSun = logNuSun # logNuSun from fit, for testing
         self.aR = aR
         self.az = az
+        self.tau0 = tau0
+        self.omega = omega
         self.sig_logNuSun = sig_logNuSun # unsure if useful
         self.sig_aR = sig_aR
         self.sig_az = sig_az
+        self.sig_tau0 = sig_tau0
+        self.sig_omega = sig_omega
+        self.NRG2SMM = NRG2SMM
         self.data = data
-        self.logAmp = logAmp
         
-        self.shape = self.amp.shape
+        self.shape = self.rhoSun.shape
         self.FeHWidths = FeHEdges[1:] - FeHEdges[:-1]
         self.FeHMidpoints = (FeHEdges[1:] + FeHEdges[:-1])/2
         self.aFeWidths = aFeEdges[1:] - aFeEdges[:-1]
         self.aFeMidpoints = (aFeEdges[1:] + aFeEdges[:-1])/2
         self.vols = self.FeHWidths.reshape(-1,1) * self.aFeWidths
-        assert self.vols.shape==self.amp.shape
+        assert self.vols.shape==self.rhoSun.shape
         
+        
+    def mask(self, N=40, r=0.2):
+        return ((self.data[0,:,:]         >=N)&
+                (self.sig_logNuSun        <r)&
+                (self.sig_aR/self.aR      <r)&
+                (self.sig_az/self.az      <r)&
+                (self.sig_tau0/self.tau0  <r)&
+                (self.sig_omega/self.omega<r))
+    
     @classmethod
-    def loadFromBins(cls, FeHEdges=mySetup.FeHEdges, aFeEdges=mySetup.aFeEdges, ESFweightingNum=0, NRG2SMMweightingNum=0):
+    def loadFromBins(cls, FeHEdges=mySetup.FeHEdges, aFeEdges=mySetup.aFeEdges, fitLabel='omega1'):
         """
-        Note, can have different weighting in NRG2SMM and ESF for fit
+        
         """
         shape = (len(FeHEdges)-1, len(aFeEdges)-1)
-        amp = np.zeros(shape)#amp of rho
-        logAmp = np.zeros(shape)#log amp of numbr of giants
+        rhoSun = np.zeros(shape)#amp of rho
+        logNuSun = np.zeros(shape)#log  numbr desnity of giants
         aR = np.zeros(shape)
         az = np.zeros(shape)
+        tau0 = np.zeros(shape)
+        omega = np.zeros(shape)
         sig_logNuSun = np.zeros(shape)
         sig_aR = np.zeros(shape)
         sig_az = np.zeros(shape)
-        data = np.zeros((3, *shape))
+        sig_tau0 = np.zeros(shape)
+        sig_omega = np.zeros(shape)
+        NRG2SMM = np.zeros(shape)
+        data = np.zeros((5, *shape))
         
         FeHWidths = FeHEdges[1:] - FeHEdges[:-1]
         aFeWidths = aFeEdges[1:] - aFeEdges[:-1]
@@ -350,28 +449,30 @@ class Galaxy:
         
         for i in range(shape[0]):
             isochrones = isogrid[(FeHEdges[i]<=isogrid['MH'])&(isogrid['MH']<FeHEdges[i+1])]
-            NRG2SMM = myIsochrones.NRG2SMM(isochrones, NRG2SMMweightingNum)
             
             for j in range(shape[1]):
+            
                 binDir  = os.path.join(mySetup.dataDir, 'bins', f'FeH_{FeHEdges[i]:.3f}_{FeHEdges[i+1]:.3f}_aFe_{aFeEdges[j]:.3f}_{aFeEdges[j+1]:.3f}')
-                
                 
                 with open(os.path.join(binDir, 'data.dat'), 'rb') as f0:
                     data[:,i,j] = np.array(pickle.load(f0))
                 
-                with open(os.path.join(binDir, f'w{ESFweightingNum}fit_results.dat'), 'rb') as f1:
-                    logAmp[i,j], aR[i,j], az[i,j] = pickle.load(f1)
+                with open(os.path.join(binDir, fitLabel+'fit_results.dat'), 'rb') as f1:
+                    logNuSun[i,j], aR[i,j], az[i,j], tau0[i,j], omega[i,j] = pickle.load(f1)
                     
-                with open(os.path.join(binDir, f'w{ESFweightingNum}fit_sigmas.dat'), 'rb') as f1:
-                    sig_logNuSun[i,j], sig_aR[i,j], sig_az[i,j] = pickle.load(f1)
-                    
-                    
-                amp[i,j] = NRG2SMM*np.exp(logAmp[i,j])/vols[i,j]
-        return cls(FeHEdges, aFeEdges, amp, aR, az, sig_logNuSun, sig_aR, sig_az, data, logAmp)
+                with open(os.path.join(binDir, fitLabel+'fit_sigmas.dat'), 'rb') as f2:
+                    sig_logNuSun[i,j], sig_aR[i,j], sig_az[i,j], sig_tau0[i,j], sig_omega[i,j] = pickle.load(f2)
+                
+                if data[0,i,j] !=0:
+                    NRG2SMM[i,j] = myIsochrones.NRG2SMM(isochrones, tau0[i,j], omega[i,j]) #todo - for low metallicities, use higher metallicity distributin
+                    rhoSun[i,j] = NRG2SMM[i,j]*np.exp(logNuSun[i,j])/vols[i,j]
+                else:
+                    rhoSun[i,j] = 0
+        return cls(FeHEdges, aFeEdges, rhoSun, logNuSun, aR, az, tau0, omega, sig_logNuSun, sig_aR, sig_az, sig_tau0, sig_omega, NRG2SMM, data)
     
     
     def hist(self, R=mySetup.R_Sun, z=mySetup.z_Sun, normalised=False):
-        hist = self.amp*np.exp( - self.aR*(R-mySetup.R_Sun) - self.az*np.abs(z))
+        hist = self.rhoSun*np.exp( - self.aR*(R-mySetup.R_Sun) - self.az*np.abs(z))
         if not normalised:
             return hist
         else:
@@ -379,7 +480,7 @@ class Galaxy:
     
     def integratedHist(self, Rlim=None, zlim=None, normalised=False):
         """integrates R=0 to R and z=-z to z, with default of whole galaxy"""
-        hist = np.where((self.aR>0)&(self.az>0), 4*np.pi*self.amp*np.exp(self.aR*mySetup.R_Sun)/(self.aR**2 * self.az), 0)
+        hist = np.where((self.aR>0)&(self.az>0), 4*np.pi*self.rhoSun*np.exp(self.aR*mySetup.R_Sun)/(self.aR**2 * self.az), 0)
         # volume technically infinite for negative a, this only occurs when negligible stars in bin
         if Rlim!=None:
             hist *= (1 - (1+self.aR*Rlim)*np.exp(-self.aR*Rlim))
@@ -394,7 +495,7 @@ class Galaxy:
     def zintegratedHist(self, R=mySetup.R_Sun, zlim=None, normalised=False):
         """integrates z=-z to z at given R, with default of whole vertical range"""
         arg = np.where((self.az>0), -self.aR*(R-mySetup.R_Sun), 0)
-        hist = np.where((self.az>0), 2*self.amp*np.exp(arg)/(self.az), 0)
+        hist = np.where((self.az>0), 2*self.rhoSun*np.exp(arg)/(self.az), 0)
         # volume technically infinite for negative a, this only occurs when negligible stars in bin
         # werid split here to avoid warnings
         
@@ -405,11 +506,14 @@ class Galaxy:
         else:
             return hist/sum(self.vols*self.zintegratedHist())
         
-    def FeH(self, hist):
+    def FeH(self, hist, maskN=40, maskr=0.2):
         """
         From hist in FeH and aFe, integrates over aFe to get FeH alone
+        
+        useMask avoids bins with uncertain parameter values 
         """
-        return ((hist*self.vols).sum(axis=1))/self.FeHWidths
+        
+        return ((np.where(self.mask(maskN,maskr), hist, 0)*self.vols).sum(axis=1))/self.FeHWidths
         
     #     if integrated==False:
     #         #at point
@@ -576,7 +680,7 @@ class Distributions:
         fH2OPlotPoints = np.linspace(fH2OLow+0.0001, fH2OHigh-0.0001)
         
         fig, ax = plt.subplots()
-        ax.bar(self.FeHMidpoints, self.FeHHist, width = self.FeHWidths, color=colourPalette[7], alpha=0.5)
+        ax.bar(self.FeHMidpoints, self.FeHHist, width = self.FeHWidths, color=colourPalette[1], alpha=0.5)
         ax.plot(FeHPlotPoints, self.FeHDist(FeHPlotPoints), color=colourPalette[0])
         ax.vlines(-0.4, 0, self.FeHDist(0),  color=colourPalette[2], alpha=0.5)
         ax.vlines( 0.4, 0, self.FeHDist(0), color=colourPalette[2], alpha=0.5)
@@ -615,7 +719,7 @@ class Distributions:
         os.makedirs(saveDir, exist_ok=True)
         
         FeHylab = r'$\rho_{\mathrm{sm}}(\mathrm{[Fe/H]})$'
-        fH2Oylab = r'$p(f_{\mathrm{H}_2 \mathrm{O}}\mid \beta='+ f'{self.ISONumZIndex:.1f}' +')$'
+        fH2Oylab = r'$p(f_{\mathrm{H}_2 \mathrm{O}}\mid \beta='+ f'{self.ISONumZIndex:.2f}' +')$'
         fH2Ointylab = '' 
         
         FeHPlotPoints = np.linspace(min(dists1.FeHEdges[0], dists2.FeHEdges[0]),
@@ -714,19 +818,19 @@ for x in [-0.4+0.0001, -0.2, 0, 0.2, 0.4-0.0001]:
     
     
 if __name__=='__main__':
-    # main()
+    main()
     # pass
     
-    G = Galaxy.loadFromBins(ESFweightingNum=0, NRG2SMMweightingNum=0)
+    # G = Galaxy.loadFromBins(ESFweightingNum=0, NRG2SMMweightingNum=0)
 
-    Dlp = Distributions('Local', G.FeH(G.hist()), ISONumZIndex=1, normalised=True)
-    Dla = Distributions('Local', G.FeH(G.hist()), ISONumZIndex=0, normalised=True)
-    Dgp = Distributions('Milky Way', G.FeH(G.integratedHist()), ISONumZIndex=1, normalised=True)
-    Dga = Distributions('Milky Way', G.FeH(G.integratedHist()), ISONumZIndex=0, normalised=True)
-    Dlp2 = Distributions('gamma=1', G.FeH(G.hist()), ISONumZIndex=1, normalised=True)
-    Dlf = Distributions('gamma=1.8', G.FeH(G.hist()), ISONumZIndex=1.8, normalised=True)
+    # Dlp = Distributions('Local', G.FeH(G.hist()), ISONumZIndex=1, normalised=True)
+    # Dla = Distributions('Local', G.FeH(G.hist()), ISONumZIndex=0, normalised=True)
+    # Dgp = Distributions('Milky Way', G.FeH(G.integratedHist()), ISONumZIndex=1, normalised=True)
+    # Dga = Distributions('Milky Way', G.FeH(G.integratedHist()), ISONumZIndex=0, normalised=True)
+    # Dlp2 = Distributions('gamma=1', G.FeH(G.hist()), ISONumZIndex=1, normalised=True)
+    # Dlf = Distributions('gamma=1.8', G.FeH(G.hist()), ISONumZIndex=1.8, normalised=True)
     
-    Dlp.plotWith(Dgp, extra='p')
-    Dla.plotWith(Dga, extra='a')
+    # Dlp.plotWith(Dgp, extra='p')
+    # Dla.plotWith(Dga, extra='a')
     
-    Dlp2.plotWith(Dlf)
+    # Dlp2.plotWith(Dlf)

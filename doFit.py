@@ -214,8 +214,8 @@ def main(binNum, plotStuff, label=''):
     path = os.path.join(binPath, label+'results.txt')
     with open(path, 'w') as f:
         out = (f"data: {data}\n\nresult: \n{res}\n\nsigmas: \n{sigmas}\n\nhess: \n{covariance}\n\n"+
-               "widths: \n{widths}\n\nWhat's saved:\n{[logNuSun, aR, az, tau0, omega]}\n\n"+
-               "median - peak logNuSun = {np.log(gammaincinv(data[0], 0.5)/data[0])}")
+               f"\nWhat's saved:\n{[logNuSun, aR, az, tau0, omega]}\n\n"+
+               f"median - peak logNuSun = {np.log(gammaincinv(data[0], 0.5)/data[0])}")
         if isSuccess:
             f.write(out)
         else:
