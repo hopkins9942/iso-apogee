@@ -1,4 +1,5 @@
 import datetime
+import time
 import sys
 import os
 import pickle
@@ -17,8 +18,9 @@ import pickleGetters
 
 # 20230512: need to change this to use an ESF based on measured astroNN age distribuion 
 
-def main(binNum, plotStuff, label=''):
-    print(f"\n\nStarting! {datetime.datetime.now()}")
+def main(binNum, plotStuff, verbose, label=''):
+    if verbose:
+        print(f"\n\nStarting! {datetime.datetime.now()}")
     
     # binNum = 20# int(sys.argv[1])
     binDict = mySetup.binList[binNum]
@@ -30,8 +32,9 @@ def main(binNum, plotStuff, label=''):
     with open(os.path.join(binPath, 'data.dat'), 'rb') as f:
         data = pickle.load(f)
     
-    print("bin: ", mySetup.binName(binDict))
-    print("data: ", data)
+    print("bin: ", binNum, mySetup.binName(binDict))
+    if verbose:
+        print("data: ", data)
     
     if data[0]==0:
         # No stars in bin
@@ -82,15 +85,13 @@ def main(binNum, plotStuff, label=''):
     # print(weighting)
     
     
-    #FeH are wrong here, set to 1 and 3 not 0 and 5
     
-    
+    muMin = 7.0 
+    muMax = 17.0
+    muStep = 0.1
     locations = pickleGetters.get_locations()
-    mu = mySetup.arr(mySetup.muGridParams)
-    ESF = np.zeros((len(logAge), len(locations),len(mu)))
-    for t in range(14):
-        ESF[t,:,:] = (get_effSelFunc(binDict['FeH'][0]+0.025, logAge[t])
-                      + get_effSelFunc(binDict['FeH'][0]+0.075, logAge[t]))/2 #mean of ESFs for the two metallicities
+    mu = mySetup.arr((muMin,muMax, muStep))
+    
     
     # meanESF = np.zeros((len(locations),len(mu)))
     # for i in np.arange(len(MH_logAge))[isochroneMask]:
@@ -111,7 +112,6 @@ def main(binNum, plotStuff, label=''):
     tau = (10**(logAge-9)).reshape((-1,1,1))
     D = mySetup.mu2D(mu)
     solidAngles = np.array(pickleGetters.get_solidAngles()).reshape((-1,1))
-    multiplier = (solidAngles*(D**3)*(mySetup.muStep)*mySetup.ageStep*ESF*np.log(10)/5)
     
     gLongLat = pickleGetters.get_gLongLat()
     gLon = gLongLat[:,0].reshape((-1,1))
@@ -125,6 +125,22 @@ def main(binNum, plotStuff, label=''):
     R = np.sqrt(x**2 + y**2)
     modz = np.abs(z)
     assert R.shape==(len(locations),len(mu))
+    
+    ESF = np.zeros((len(logAge), len(locations),len(mu)))
+    for t in range(14):
+        ESF[t,:,:] = np.where((mySetup.minR<R)&(R<mySetup.maxR)&(modz<mySetup.maxmodz),
+                              (get_effSelFunc(binDict['FeH'][0]+0.025, logAge[t])
+                               +get_effSelFunc(binDict['FeH'][0]+0.075, logAge[t]))/2, #mean of ESFs for the two metallicities
+                              0)
+        #sets ESF to zero outside range considered
+    if binDict['FeH'][0]<-0.55:
+        # where ages unreliable, uses mean ESF for each age
+        meanESF = ESF.mean(0)
+        assert meanESF.shape == R.shape
+        ESF = np.tile(meanESF, (14,1,1))
+    assert ESF.shape==(len(tau),len(locations),len(mu))
+    multiplier = (solidAngles*(D**3)*(muStep)*mySetup.ageStep*ESF*np.log(10)/5)
+    
     
     
     def ageFactor(tau0, omega):
@@ -154,6 +170,10 @@ def main(binNum, plotStuff, label=''):
         aR, az, tau0, omega = x
         return np.log(Blite(aR,az,tau0,omega).sum()) + aR*(data[1]-mySetup.R_Sun) + az*data[2] + omega*data[4]/2 - omega*tau0*data[3] + omega*(tau0**2)/2
     
+    # def fun_uniform(x):
+    #     aR, az = x
+    #     return fun((aR,az,7,0.0001))
+    
     def jac(x):
         aR, az, tau0, omega = x
         return (        data[1] - (R    * Blite(aR,az,tau0,omega)).sum()/Blite(aR,az,tau0,omega).sum() ,
@@ -162,37 +182,52 @@ def main(binNum, plotStuff, label=''):
                 0.5*data[4] - tau0*data[3] - ((0.5*tau**2 - tau0*tau)*Blite(aR,az,tau0,omega)).sum()/Blite(aR,az,tau0,omega).sum()
                 )
     
+    # def jac_uniform(x):
+    #     aR, az = x
+    #     tau0, omega = (7,0.0001)
+    #     return ( data[1] - (R    * Blite(aR,az,tau0,omega)).sum()/Blite(aR,az,tau0,omega).sum() ,
+    #              data[2] - (modz * Blite(aR,az,tau0,omega)).sum()/Blite(aR,az,tau0,omega).sum() )
+    
     res = scipy.optimize.minimize(fun=fun, x0=(1/data[1],
                                                1/data[2],
                                                data[3],
                                                1/(data[4]-data[3]**2+0.1)), #0.1 is to stop inf when only one star -  omega =inf when one star
                                   jac=jac, 
-                                  bounds=((None,None),(None,None),(None,None),(0.0001,1)))
+                                  bounds=((-1,None),(-1,None),(None,None),(0.0001,1)))
+    aR, az, tau0, omega = res.x
+    f_peak = res.fun
+    covariance = res.hess_inv.todense()
+        
+    
+        
     #jac needed for hess?
     #bounds to stop omega exploding when only one star, 1 chosen as errors in age are about 1Gyr and spacing of grid used to approximate is 1Gyr
+    # also to stop aR exploding when one star near high R end if range
     
-    print(res)
-    print(res.x)
+    if verbose:
+        print(res)
+        print(res.x)
     
-    aR, az, tau0, omega = res.x
     isSuccess = res.success
     
     logNuSun = np.log(data[0]/B(aR,az, tau0, omega).sum())
     
-    print("results: ", logNuSun, aR, az, tau0, omega)
+    if verbose:
+        print("results: ", logNuSun, aR, az, tau0, omega)
     
-    f_peak = res.fun
-    covariance = res.hess_inv.todense()
     #when bounds are used, .todense() needs to be added as hess isn't explicity  calculated
-    print("covarience: ", covariance)
+    if verbose:
+        print("covarience: ", covariance)
     variance = np.diag(covariance)
     
-    sigmas = np.array([((1/data[0])**(0.5))]+[((variance[i]/data[0])**(0.5)) for i in range(4)])
-    # check this, but I think divide by N^0.5 because cov=inverse hess
     
-    print("What's saved:")
-    print([logNuSun, aR, az, tau0, omega])
-    print(sigmas)
+    # check this, but I think divide by N^0.5 because cov=inverse hess
+    sigmas = np.array([((1/data[0])**(0.5))]+[((variance[i]/data[0])**(0.5)) for i in range(4)])
+    
+    if verbose:
+        print("What's saved:")
+        print([logNuSun, aR, az, tau0, omega])
+        print(sigmas)
     with open(os.path.join(binPath, label+'fit_results.dat'), 'wb') as f:
         pickle.dump(np.array([logNuSun, aR, az, tau0, omega]), f)
     with open(os.path.join(binPath, label+'fit_sigmas.dat'), 'wb') as f:
@@ -200,15 +235,17 @@ def main(binNum, plotStuff, label=''):
     
     
     #checks
-    print('zero = ', (1 - (R      * Blite(aR,az,tau0,omega)).sum()/Blite(aR,az,tau0,omega).sum()/data[1]))
-    print('zero = ', (1 - (modz   * Blite(aR,az,tau0,omega)).sum()/Blite(aR,az,tau0,omega).sum()/data[2]))
-    print('zero = ', (1 - (tau    * Blite(aR,az,tau0,omega)).sum()/Blite(aR,az,tau0,omega).sum()/data[3]))
-    print('zero = ', (1 - (tau**2 * Blite(aR,az,tau0,omega)).sum()/Blite(aR,az,tau0,omega).sum()/data[4]))
+    if verbose:
+        print('zero = ', (1 - (R      * Blite(aR,az,tau0,omega)).sum()/Blite(aR,az,tau0,omega).sum()/data[1]))
+        print('zero = ', (1 - (modz   * Blite(aR,az,tau0,omega)).sum()/Blite(aR,az,tau0,omega).sum()/data[2]))
+        print('zero = ', (1 - (tau    * Blite(aR,az,tau0,omega)).sum()/Blite(aR,az,tau0,omega).sum()/data[3]))
+        print('zero = ', (1 - (tau**2 * Blite(aR,az,tau0,omega)).sum()/Blite(aR,az,tau0,omega).sum()/data[4]))
     
     agePoints = (np.arange(14*3)+0.5)/3
     with open(os.path.join(binPath, 'ageHist.dat'), 'rb') as f:
         ageHist = pickle.load(f)
-    print('tau0 = ', tau0, ', observed mean = ', ((ageHist[0]*agePoints)/ageHist[0].sum()).sum())
+    if verbose:
+        print('tau0 = ', tau0, ', observed mean = ', ((ageHist[0]*agePoints)/ageHist[0].sum()).sum())
     
     # human readable text file
     path = os.path.join(binPath, label+'results.txt')
@@ -238,9 +275,13 @@ def main(binNum, plotStuff, label=''):
     path = os.path.join(binPath, label+'ageDist.png')
     fig.savefig(path, dpi=300)
     
+    # if sigmas[2]>25:
+    #     print('NOT graphing, would cause overflow at edge of plot')
+    #     return isSuccess
     ncells = 5 #along each axis
     widthFactor = 2
-    widths = widthFactor*sigmas[1:] #/np.array([aR_forplot, az_forplot])
+    widths = widthFactor*sigmas[1:]
+    #/np.array([aR_forplot, az_forplot])
     # factor for nice cover, division by aR,az is for width of log(aR),log(az)
     # print(widths)
     # aRArr = aR + np.linspace(-widths[0], widths[0], ncells)
@@ -256,19 +297,25 @@ def main(binNum, plotStuff, label=''):
     assert pgrid.size==ncells**4
     for flatIndex in range(pgrid.size):
         mI = np.unravel_index(flatIndex, pgrid.shape)
+        # print(mI)
+        # time.sleep(0.2)
         pgrid[mI] = np.exp(-data[0]*(fun((paramArr[0][mI[0]],
                                           paramArr[1][mI[1]],
                                           paramArr[2][mI[2]],
                                           paramArr[3][mI[3]]))-f_peak))
+        
+            
         # beta[mI] = B(paramArr[0][mI[0]],
         #              paramArr[1][mI[1]],
         #              paramArr[2][mI[2]],
         #              paramArr[3][mI[3]]).sum()
-        
+    # print(np.where(np.isnan(pgrid[:,1:,:,:])))
+    # print(pgrid)
+    # only normalises if no nans, but leaves nans in place for checking
+    if not np.any(np.isnan(pgrid)):
+        intp = pgrid.sum()*np.prod([widths[i]/ncells for i in range(4)])
+        pgrid = pgrid/intp
     
-    # values are marginal posterior over logaR, logaz (value per log(aR),log(az))
-    intp = pgrid.sum()*(widths[0]/ncells)*(widths[1]/ncells)*(widths[2]/ncells)*(widths[3]/ncells)
-    pgrid = pgrid/intp
     
     # peaklogNuSun = np.log(data[0]/beta)
     
@@ -292,8 +339,9 @@ def main(binNum, plotStuff, label=''):
     fig.savefig(path, dpi=300)
     
     # print(paramArr)
+    
     fig, ax = plt.subplots()
-    image = ax.imshow(pgrid.sum(axis=-1).sum(axis=-1).T, origin='lower',
+    image = ax.imshow(pgrid.sum(axis=(2,3), where=~np.isnan(pgrid)).T, origin='lower',
               extent = (param[0]-widths[0]*(1+1/(ncells-1)), param[0]+widths[0]*(1+1/(ncells-1)),
                         param[1]-widths[1]*(1+1/(ncells-1)), param[1]+widths[1]*(1+1/(ncells-1))),
               aspect='auto')
@@ -310,7 +358,7 @@ def main(binNum, plotStuff, label=''):
     fig.savefig(path, dpi=300)
     
     fig, ax = plt.subplots()
-    image = ax.imshow(pgrid.sum(axis=0).sum(axis=0).T, origin='lower',
+    image = ax.imshow(pgrid.sum(axis=(0,1), where=~np.isnan(pgrid)).T, origin='lower',
               extent = (param[2]-widths[2]*(1+1/(ncells-1)), param[2]+widths[2]*(1+1/(ncells-1)),
                         param[3]-widths[3]*(1+1/(ncells-1)), param[3]+widths[3]*(1+1/(ncells-1))),
               aspect='auto')
@@ -325,6 +373,7 @@ def main(binNum, plotStuff, label=''):
     fig.set_tight_layout(True)
     path = os.path.join(binPath, label+'tau0omegaposterior.png')
     fig.savefig(path, dpi=300)
+    
     
     # fig, ax = plt.subplots()
     # image = ax.imshow(lpgrid.T, origin='lower',
@@ -377,10 +426,10 @@ def get_effSelFunc(MH, logAge):
 
 if __name__=='__main__':
     
-    # main(142,True, 'test')
+    # main(154, True, True, 'test')
     
-    for i in range(len(mySetup.binList)):
-        success = main(i,False, 'omega1')
+    for i in range(0,len(mySetup.binList)):
+        success = main(i, True, True, 'lowFeHUniform+Rzlim+plotwithoutnan')
         if not success:
             print('ARGH FAILURE AGAIN') # for visibility
             break

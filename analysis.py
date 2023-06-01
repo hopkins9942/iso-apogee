@@ -41,6 +41,12 @@ os.makedirs(plotDir, exist_ok=True)
 def main():
     G = Galaxy.loadFromBins()
     plotFit(G, G.mask())
+    plotErr(G, G.mask())
+    Dlocal = Distributions('Local,test', G.FeH(G.hist(), G.mask()), ISONumZIndex=1)
+    intHist = G.integratedHist(Rlim1=4, Rlim2=12, zlim=5)
+    DMW = Distributions('Milky Way,test', G.FeH(intHist, G.mask()), perVolume=False, ISONumZIndex=1, normalised=True)
+    Dlocal.plot()
+    DMW.plot()
     NRGvsSMM(G)
     makePlots20230523(G)
     
@@ -67,19 +73,22 @@ def main():
     return 0
 
 def NRGvsSMM(G):
-    DlocalNRG = Distributions('Local red giants', G.FeH(G.hist()/G.NRG2SMM), ISONumZIndex=1) #changed from SM to number density of giants
-    DlocalSMM = Distributions('Local sine mrote', G.FeH(G.hist()), ISONumZIndex=1)
+    DlocalNRG = Distributions('Local red giants', G.FeH(G.hist()/G.NRG2SMM, G.mask()), ISONumZIndex=1) #changed from SM to number density of giants
+    DlocalSMM = Distributions('Local sine mrote', G.FeH(G.hist(), G.mask()), ISONumZIndex=1)
     DlocalNRG.plotWith(DlocalSMM, extra='localNRGvsSMM')
     
-    DMWNRG = Distributions('MW red giants', G.FeH(G.integratedHist()/G.NRG2SMM), ISONumZIndex=1) #changed from SM to number density of giants
-    DMWSMM = Distributions('MW sine morte', G.FeH(G.integratedHist()), ISONumZIndex=1)
+    intHist = G.integratedHist(Rlim1=4, Rlim2=12, zlim=5)
+    DMWNRG = Distributions('MW red giants', G.FeH(intHist/G.NRG2SMM, G.mask()), ISONumZIndex=1) #changed from SM to number density of giants
+    DMWSMM = Distributions('MW sine morte', G.FeH(intHist, G.mask()), ISONumZIndex=1)
     DMWNRG.plotWith(DMWSMM, extra='MWNRGvsSMM')
 
 def makePlots20230523(G):
-    Dlist = [Distributions('Local', G.FeH(G.hist()), ISONumZIndex=1, normalised=True),
-                     Distributions('Milky Way average', G.FeH(G.integratedHist()), perVolume=False, ISONumZIndex=1, normalised=True),
-                     Distributions('Local', G.FeH(G.hist()), ISONumZIndex=0, normalised=True),
-                     Distributions('Milky Way average', G.FeH(G.integratedHist()), perVolume=False, ISONumZIndex=0, normalised=True)]
+    intHist = G.integratedHist(Rlim1=4, Rlim2=12, zlim=5)
+    
+    Dlist = [Distributions('Local', G.FeH(G.hist(), G.mask()), ISONumZIndex=1, normalised=True),
+                     Distributions('Milky Way average', G.FeH(intHist, G.mask()), perVolume=False, ISONumZIndex=1, normalised=True),
+                     Distributions('Local', G.FeH(G.hist(), G.mask()), ISONumZIndex=0, normalised=True),
+                     Distributions('Milky Way average', G.FeH(intHist, G.mask()), perVolume=False, ISONumZIndex=0, normalised=True)]
     Dlist[0].plotWith(Dlist[1], extra='Beta1')
     Dlist[2].plotWith(Dlist[3], extra='Beta0')
     
@@ -172,20 +181,22 @@ def plotData(G, extra=''):
 def plotFit(G, mask, extra=''):
     # binLim = 50
     # fig, axs = plt.subplots(ncols=5, figsize=[18, 4])
-    savename = ['logNuSun', 'aR', 'az', 'tau0', 'omegahalf', 'NRG2SMM']
-    titles = [r'$\log\nu_\odot$', r'$a_R$', r'$a_z$', r'$\tau_0$', r'$\omega^{-\frac{1}{2}}$', r'$\rho_\mathrm{sm}/n_\mathrm{giants}$']
-    unit = [r'', r'$\mathrm{kpc}^{-1}$', r'$\mathrm{kpc}^{-1}$', r'$\mathrm{Gyr}$', r'$\mathrm{Gyr}$', r'$M_\odot$']
+    savename = ['logNuSun', 'logNuSununits', 'aR', 'az', 'tau0', 'omegahalf', 'NRG2SMM']
+    titles = [r'$\log\nu_\odot$', r'$\log(\nu_\odot/\mathrm{kpc}^{-3})$', r'$a_R$', r'$a_z$', r'$\tau_0$', r'$\omega^{-\frac{1}{2}}$', r'$\rho_\mathrm{sm}/n_\mathrm{giants}$']
+    unit = [r'', r'', r'$\mathrm{kpc}^{-1}$', r'$\mathrm{kpc}^{-1}$', r'$\mathrm{Gyr}$', r'$\mathrm{Gyr}$', r'$M_\odot$']
     # for i, X in enumerate([np.where(G.data[0,:,:]>=binLim, np.exp(G.logNuSun), 0),
     #                        np.where(G.data[0,:,:]>=binLim, G.aR,    0), 
     #                        np.where(G.data[0,:,:]>=binLim, G.az,    0),
     #                        np.where(G.data[0,:,:]>=binLim, G.tau0,  0), 
     #                        np.where(G.data[0,:,:]>=binLim, G.omega, 0), 
     #                        np.where(G.data[0,:,:]>=binLim, G.NRG2SMM, 0)]):
+    ageMask = mask*(np.arange(G.shape[0])>=15).reshape(-1,1)
     for i, X in enumerate([np.where(mask, G.logNuSun, np.nan),
+                           np.where(mask, G.logNuSun, np.nan),
                            np.where(mask, G.aR,    np.nan), 
                            np.where(mask, G.az,    np.nan),
-                           np.where(mask, G.tau0,  np.nan), 
-                           np.where(mask, G.omega**-0.5, np.nan), 
+                           np.where(ageMask, G.tau0,  np.nan), 
+                           np.where(ageMask, G.omega**-0.5, np.nan), 
                            np.where(mask, G.NRG2SMM, np.nan)]):
         fig, ax = plt.subplots()
         image = ax.imshow(X.T, origin='lower', aspect='auto',
@@ -204,17 +215,17 @@ def plotFit(G, mask, extra=''):
 
 
 def plotErr(G, mask, extra=None):
-    binLim = 1
+    # binLim = 1
     # fig, axs = plt.subplots(ncols=5, figsize=[18, 4])
-    titles = [r'$\sigma_{\mathrm{logNuSun}}$', r'$\sigma_{a_R}/a_R$', r'$\sigma_{a_z}/a_z$', r'$\sigma_{\tau0}/\tau_0$', r'$\sigma_{\omega}/\omega$', 'NRG2SMM']
+    titles = [r'$\sigma_{\mathrm{logNuSun}}$', r'$\sigma_{a_R}$', r'$\sigma_{a_z}$', r'$\sigma_{\tau0}/\tau_0$', r'$\sigma_{\omega}/\omega$', 'NRG2SMM']
     # for i, X in enumerate([np.where(G.data[0,:,:]>=binLim, G.sig_logNuSun, 0),
     #                        np.where(G.data[0,:,:]>=binLim, G.sig_aR/G.aR,    0), 
     #                        np.where(G.data[0,:,:]>=binLim, G.sig_az/G.az,    0),
     #                        np.where(G.data[0,:,:]>=binLim, G.sig_tau0/G.tau0,  0), 
     #                        np.where(G.data[0,:,:]>=binLim, G.sig_omega/G.omega, 0)]):
     for i, X in enumerate([np.where(mask, G.sig_logNuSun, np.nan),
-                           np.where(mask, G.sig_aR/G.aR,    np.nan), 
-                           np.where(mask, G.sig_az/G.az,    np.nan),
+                           np.where(mask, G.sig_aR,    np.nan), 
+                           np.where(mask, G.sig_az,    np.nan),
                            np.where(mask, G.sig_tau0/G.tau0,  np.nan), 
                            np.where(mask, G.sig_omega/G.omega, np.nan)]):
         fig, ax = plt.subplots()
@@ -256,7 +267,7 @@ def plotErr(G, mask, extra=None):
         
 
 def plotOverR(G, extra=''):
-    R = np.linspace(4,12,101)
+    R = np.linspace(4,12,51)
     R = (R[:-1]+R[1:])/2
     
     FeHPlotPoints = np.linspace(G.FeHEdges[0], G.FeHEdges[-1], 100)
@@ -267,7 +278,7 @@ def plotOverR(G, extra=''):
     fH2OMed = np.zeros(len(R))
     
     for i, r in enumerate(R):
-        D = Distributions(f'r={r}', G.FeH(G.zintegratedHist(r)), normalised=True)
+        D = Distributions(f'r={r}', G.FeH(G.zintegratedHist(r), G.mask()), normalised=True)
         FeHR[i,:] = D.FeHDist(FeHPlotPoints)
         fH2OR[i,:] = D.fH2ODist(fH2OPlotPoints)
         FeHMed[i] = medianFeH(D)
@@ -413,16 +424,23 @@ class Galaxy:
         assert self.vols.shape==self.rhoSun.shape
         
         
-    def mask(self, N=40, r=0.2):
-        return ((self.data[0,:,:]         >=N)&
-                (self.sig_logNuSun        <r)&
-                (self.sig_aR/self.aR      <r)&
-                (self.sig_az/self.az      <r)&
-                (self.sig_tau0/self.tau0  <r)&
-                (self.sig_omega/self.omega<r))
+    def mask(self, N=20, s=1):# currently completely flawed by negative aR
+        return (
+                (self.data[0,:,:]         >=N)
+                # (self.sig_logNuSun        <r)&
+                # (self.sig_aR/self.aR      <r)&
+                # (self.sig_az/self.az      <r)
+                # (
+                #     (self.sig_tau0<0)#this bit ensures good age measuremnet where it is possible lowFeH
+                #         |(
+                #         (self.sig_tau0/self.tau0  <r)&TODO revert and add other marker for low FeH
+                #         (self.sig_omega/self.omega<r)
+                #         )
+                # )
+                )
     
     @classmethod
-    def loadFromBins(cls, FeHEdges=mySetup.FeHEdges, aFeEdges=mySetup.aFeEdges, fitLabel='omega1'):
+    def loadFromBins(cls, FeHEdges=mySetup.FeHEdges, aFeEdges=mySetup.aFeEdges, fitLabel='lowFeHUniform+Rzlim+plotwithoutnan'):
         """
         
         """
@@ -456,18 +474,30 @@ class Galaxy:
                 
                 with open(os.path.join(binDir, 'data.dat'), 'rb') as f0:
                     data[:,i,j] = np.array(pickle.load(f0))
-                
+                    
                 with open(os.path.join(binDir, fitLabel+'fit_results.dat'), 'rb') as f1:
                     logNuSun[i,j], aR[i,j], az[i,j], tau0[i,j], omega[i,j] = pickle.load(f1)
+                        
                     
-                with open(os.path.join(binDir, fitLabel+'fit_sigmas.dat'), 'rb') as f2:
-                    sig_logNuSun[i,j], sig_aR[i,j], sig_az[i,j], sig_tau0[i,j], sig_omega[i,j] = pickle.load(f2)
+                if FeHEdges[0]>-0.55:
+                    with open(os.path.join(binDir, fitLabel+'fit_sigmas.dat'), 'rb') as f2:
+                        sig_logNuSun[i,j], sig_aR[i,j], sig_az[i,j], sig_tau0[i,j], sig_omega[i,j] = pickle.load(f2)
                 
+                else:
+                    with open(os.path.join(binDir, fitLabel+'fit_sigmas.dat'), 'rb') as f2:
+                        sig_logNuSun[i,j], sig_aR[i,j], sig_az[i,j], sig_tau0[i,j], sig_omega[i,j] = pickle.load(f2)
+                        
                 if data[0,i,j] !=0:
-                    NRG2SMM[i,j] = myIsochrones.NRG2SMM(isochrones, tau0[i,j], omega[i,j]) #todo - for low metallicities, use higher metallicity distributin
+                    if FeHEdges[i]<-0.55: #low Fe
+                        # NRG2SMM[i,j] = myIsochrones.NRG2SMM(isochrones, 7, 0.0001) #uses uniform age 
+                        NRG2SMM[i,j] = myIsochrones.NRG2SMM(isochrones, 12, 1) #uses old age to get upper lim 
+                    else:
+                        NRG2SMM[i,j] = myIsochrones.NRG2SMM(isochrones, tau0[i,j], omega[i,j]) 
+                    
                     rhoSun[i,j] = NRG2SMM[i,j]*np.exp(logNuSun[i,j])/vols[i,j]
                 else:
                     rhoSun[i,j] = 0
+                    
         return cls(FeHEdges, aFeEdges, rhoSun, logNuSun, aR, az, tau0, omega, sig_logNuSun, sig_aR, sig_az, sig_tau0, sig_omega, NRG2SMM, data)
     
     
@@ -478,42 +508,50 @@ class Galaxy:
         else:
             return hist/sum(self.vols*self.hist(R,z)) #assumes bins cover whole distribution
     
-    def integratedHist(self, Rlim=None, zlim=None, normalised=False):
+    def integratedHist(self, Rlim1=4, Rlim2=12, zlim=5, normalised=False):
         """integrates R=0 to R and z=-z to z, with default of whole galaxy"""
-        hist = np.where((self.aR>0)&(self.az>0), 4*np.pi*self.rhoSun*np.exp(self.aR*mySetup.R_Sun)/(self.aR**2 * self.az), 0)
+        # hist = np.where((self.aR>0)&(self.az>0), 4*np.pi*self.rhoSun*np.exp(self.aR*mySetup.R_Sun)/(self.aR**2 * self.az), 0) removed now using R and z limits
         # volume technically infinite for negative a, this only occurs when negligible stars in bin
-        if Rlim!=None:
-            hist *= (1 - (1+self.aR*Rlim)*np.exp(-self.aR*Rlim))
-        if zlim!=None:
-            hist *= (1 - np.exp(-self.az*zlim))
+        # if Rlim!=None:
+        #     hist *= (1 - (1+self.aR*Rlim)*np.exp(-self.aR*Rlim))
+        # if zlim!=None:
+        #     hist *= (1 - np.exp(-self.az*zlim))
+        
+        hist = ((4*np.pi*self.rhoSun*np.exp(self.aR*mySetup.R_Sun)/(self.aR**2 * self.az))
+                * ((1+self.aR*Rlim1)*np.exp(-self.aR*Rlim1) - (1+self.aR*Rlim2)*np.exp(-self.aR*Rlim2))
+                * (1 - np.exp(-self.az*zlim)))
             
         if not normalised:
             return hist
         else:
             return hist/sum(self.vols*self.integratedHist())
         
-    def zintegratedHist(self, R=mySetup.R_Sun, zlim=None, normalised=False):
-        """integrates z=-z to z at given R, with default of whole vertical range"""
-        arg = np.where((self.az>0), -self.aR*(R-mySetup.R_Sun), 0)
-        hist = np.where((self.az>0), 2*self.rhoSun*np.exp(arg)/(self.az), 0)
+    def zintegratedHist(self, R=mySetup.R_Sun, zlim=5, normalised=False):
+        """integrates z=-z to z at given R"""
+        # arg = np.where((self.az>0), -self.aR*(R-mySetup.R_Sun), 0)
+        # hist = np.where((self.az>0), 2*self.rhoSun*np.exp(arg)/(self.az), 0) removed now using R and z limits and allowing negative aRaz
         # volume technically infinite for negative a, this only occurs when negligible stars in bin
         # werid split here to avoid warnings
         
-        if zlim!=None:
-            hist *= (1 - np.exp(-self.az*zlim))
+        # if zlim!=None:
+        #     hist *= (1 - np.exp(-self.az*zlim))
+        
+        
+        hist = (2*self.rhoSun*np.exp(-self.aR*(R-mySetup.R_Sun))/(self.az))*(1 - np.exp(-self.az*zlim))
+        
         if not normalised:
             return hist
         else:
             return hist/sum(self.vols*self.zintegratedHist())
         
-    def FeH(self, hist, maskN=40, maskr=0.2):
+    def FeH(self, hist, mask):
         """
         From hist in FeH and aFe, integrates over aFe to get FeH alone
         
         useMask avoids bins with uncertain parameter values 
         """
         
-        return ((np.where(self.mask(maskN,maskr), hist, 0)*self.vols).sum(axis=1))/self.FeHWidths
+        return ((np.where(mask, hist, 0)*self.vols).sum(axis=1))/self.FeHWidths
         
     #     if integrated==False:
     #         #at point
@@ -684,7 +722,7 @@ class Distributions:
         ax.plot(FeHPlotPoints, self.FeHDist(FeHPlotPoints), color=colourPalette[0])
         ax.vlines(-0.4, 0, self.FeHDist(0),  color=colourPalette[2], alpha=0.5)
         ax.vlines( 0.4, 0, self.FeHDist(0), color=colourPalette[2], alpha=0.5)
-        ax.set_xlabel(r'$\mathrm{[Fe/H]}')
+        ax.set_xlabel(r'$\mathrm{[Fe/H]}$')
         ax.set_xlim(plotLim[0], plotLim[1])
         ax.set_ylabel(FeHylab)
         # ax.set_title(self.name)
@@ -745,8 +783,8 @@ class Distributions:
         fig, ax = plt.subplots()
         ax.plot(fH2OPlotPoints, dists1.fH2ODist(fH2OPlotPoints), color=colourPalette[0], label=self.name)
         ax.plot(fH2OPlotPoints, dists2.fH2ODist(fH2OPlotPoints), color=colourPalette[1], linestyle='dashed', label=dists2.name)
-        if self.ISONumZIndex>1.7:
-            ax.vlines(0.3, 0, dists1.fH2ODist(0.3)*1.1, color=colourPalette[2], alpha=0.5)
+        if self.ISONumZIndex>1.4:
+            ax.vlines(0.3, 0, 3.0, color=colourPalette[2], alpha=0.5)
         ax.set_ylim(bottom=0)
         ax.legend()
         ax.set_xlabel(r'$f_\mathrm{H_2O}$')

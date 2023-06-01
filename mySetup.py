@@ -15,10 +15,14 @@ z_Sun = GC_frame.z_sun.to(u.kpc).value # .value removes unit, which causes probl
 R_Sun = np.sqrt(GC_frame.galcen_distance.to(u.kpc).value**2 - z_Sun**2)
 
 
-muMin = 7.0 # only one RG below 7.0
-muMax = 17.0
-muStep = 0.1
-muGridParams = (muMin, muMax, muStep)
+# muMin = 7.0 # only one RG below 7.0
+# muMax = 17.0
+# muStep = 0.1
+# muGridParams = (muMin, muMax, muStep) commented out to force scripts to move to R and modz limit system.  calcESF.py should continue to use mu though, with limiting happening later 
+
+minR=4
+maxR=12
+maxmodz=5
 
 ageStep = 1
 logAges = np.log10([0.1+ageStep*i for i in range(14)]) + 9
