@@ -424,7 +424,7 @@ class Galaxy:
         assert self.vols.shape==self.rhoSun.shape
         
         
-    def mask(self, N=20, s=1):# currently completely flawed by negative aR
+    def mask(self, N=20, s=1):# err part currently completely flawed by negative aR
         return (
                 (self.data[0,:,:]         >=N)
                 # (self.sig_logNuSun        <r)&

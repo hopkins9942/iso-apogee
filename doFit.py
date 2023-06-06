@@ -429,7 +429,7 @@ if __name__=='__main__':
     # main(154, True, True, 'test')
     
     for i in range(0,len(mySetup.binList)):
-        success = main(i, True, True, 'lowFeHUniform+Rzlim+plotwithoutnan')
+        success = main(i, False, False, 'lowFeHUniform+Rzlim+plotwithoutnan')
         if not success:
             print('ARGH FAILURE AGAIN') # for visibility
             break
