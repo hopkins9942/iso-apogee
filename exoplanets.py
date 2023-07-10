@@ -38,7 +38,8 @@ class Galaxy:
         amp etc are arrays with [FeH index, aFe index]
         
         logNuSun is what comes out of the fit, the cartesian space number density of red giants at R=R0, z=0 in each bin
-        rhoSun is this multiplied by NRG2SMM, divided by volume of bin, so equals the denisty in space and composition of SM mass distribution
+        rhoSun is now multiplied by NRG2NLS, divided by volume of bin, so equals the denisty in space and composition of number density distribution of living stars
+        
         """
         self.FeHEdges = FeHEdges
         self.aFeEdges = aFeEdges
@@ -87,7 +88,7 @@ class Galaxy:
         sig_az = np.zeros(shape)
         sig_tau0 = np.zeros(shape)
         sig_omega = np.zeros(shape)
-        NRG2SMM = np.zeros(shape)
+        NRG2NLS = np.zeros(shape)
         data = np.zeros((5, *shape))
         
         FeHWidths = FeHEdges[1:] - FeHEdges[:-1]
@@ -121,16 +122,16 @@ class Galaxy:
                         
                 if data[0,i,j] !=0:
                     if FeHEdges[i]<-0.55: #low Fe
-                        # NRG2SMM[i,j] = myIsochrones.NRG2SMM(isochrones, 7, 0.0001) #uses uniform age 
-                        NRG2SMM[i,j] = myIsochrones.NRG2SMM(isochrones, 12, 1) #uses old age to get upper lim 
+                        NRG2NLS[i,j] = myIsochrones.NRG2NLS(isochrones, 7, 0.0001) #uses uniform age 
+                        # NRG2SMM[i,j] = myIsochrones.NRG2NLS(isochrones, 12, 1) #uses old age to get upper lim 
                     else:
-                        NRG2SMM[i,j] = myIsochrones.NRG2SMM(isochrones, tau0[i,j], omega[i,j]) 
+                        NRG2NLS[i,j] = myIsochrones.NRG2NLS(isochrones, tau0[i,j], omega[i,j]) 
                     
-                    rhoSun[i,j] = NRG2SMM[i,j]*np.exp(logNuSun[i,j])/vols[i,j]
+                    rhoSun[i,j] = NRG2NLS[i,j]*np.exp(logNuSun[i,j])/vols[i,j]
                 else:
                     rhoSun[i,j] = 0
                     
-        return cls(FeHEdges, aFeEdges, rhoSun, logNuSun, aR, az, tau0, omega, sig_logNuSun, sig_aR, sig_az, sig_tau0, sig_omega, NRG2SMM, data)
+        return cls(FeHEdges, aFeEdges, rhoSun, logNuSun, aR, az, tau0, omega, sig_logNuSun, sig_aR, sig_az, sig_tau0, sig_omega, NRG2NLS, data)
     
     
     def hist(self, R=mySetup.R_Sun, z=mySetup.z_Sun, normalised=False):
