@@ -178,92 +178,92 @@ class Galaxy:
         
         
         
-#### ISO recipe ####
-FeH_p = np.array([-0.4, -0.3, -0.2, -0.1, 0.0, 0.1, 0.2, 0.3, 0.4])
-fH2O_p = np.array([0.5098, 0.4905, 0.4468, 0.4129, 0.3563, 0.2918, 0.2173, 0.1532, 0.06516])
-compPoly = np.polynomial.polynomial.Polynomial.fit(FeH_p, fH2O_p, 3)
-FeHLow = FeH_p[0]
-FeHHigh = FeH_p[-1]
-fH2OLow = compPoly(FeH_p[-1])
-fH2OHigh = compPoly(FeH_p[0])
-def comp(FeH):
-    return np.where(FeHLow<=FeH, np.where(FeH<FeHHigh,
-                                          compPoly(FeH),
-                                          fH2OLow), fH2OHigh)
+# #### ISO recipe ####
+# FeH_p = np.array([-0.4, -0.3, -0.2, -0.1, 0.0, 0.1, 0.2, 0.3, 0.4])
+# fH2O_p = np.array([0.5098, 0.4905, 0.4468, 0.4129, 0.3563, 0.2918, 0.2173, 0.1532, 0.06516])
+# compPoly = np.polynomial.polynomial.Polynomial.fit(FeH_p, fH2O_p, 3)
+# FeHLow = FeH_p[0]
+# FeHHigh = FeH_p[-1]
+# fH2OLow = compPoly(FeH_p[-1])
+# fH2OHigh = compPoly(FeH_p[0])
+# def comp(FeH):
+#     return np.where(FeHLow<=FeH, np.where(FeH<FeHHigh,
+#                                           compPoly(FeH),
+#                                           fH2OLow), fH2OHigh)
     
-def compInv(fH2O):
-    """inv may not work with array inputs"""
-    if np.ndim(fH2O)==0:
-        val = fH2O
-        if fH2OLow<=val<=fH2OHigh:
-            allroots = (compPoly-val).roots()
-            myroot = allroots[(FeH_p[0]<=allroots)&(allroots<=FeH_p[-1])]
-            assert len(myroot)==1 # checks not multiple roots
-            assert np.isreal(myroot[0])
-            return np.real(myroot[0])
-        else:
-            return np.nan
-    else:
-        returnArray = np.zeros_like(fH2O)
-        for i, val in enumerate(fH2O):
-            if fH2OLow<=val<fH2OHigh:
-                allroots = (compPoly-val).roots()
-                myroot = allroots[(FeH_p[0]<=allroots)&(allroots<FeH_p[-1])]
-                assert len(myroot)==1 # checks not multiple roots
-                assert np.isreal(myroot[0])
-                returnArray[i] = np.real(myroot[0])
-            else:
-                returnArray[i] =  np.nan
-        return returnArray
+# def compInv(fH2O):
+#     """inv may not work with array inputs"""
+#     if np.ndim(fH2O)==0:
+#         val = fH2O
+#         if fH2OLow<=val<=fH2OHigh:
+#             allroots = (compPoly-val).roots()
+#             myroot = allroots[(FeH_p[0]<=allroots)&(allroots<=FeH_p[-1])]
+#             assert len(myroot)==1 # checks not multiple roots
+#             assert np.isreal(myroot[0])
+#             return np.real(myroot[0])
+#         else:
+#             return np.nan
+#     else:
+#         returnArray = np.zeros_like(fH2O)
+#         for i, val in enumerate(fH2O):
+#             if fH2OLow<=val<fH2OHigh:
+#                 allroots = (compPoly-val).roots()
+#                 myroot = allroots[(FeH_p[0]<=allroots)&(allroots<FeH_p[-1])]
+#                 assert len(myroot)==1 # checks not multiple roots
+#                 assert np.isreal(myroot[0])
+#                 returnArray[i] = np.real(myroot[0])
+#             else:
+#                 returnArray[i] =  np.nan
+#         return returnArray
         
-def compDeriv(FeH):
-    return np.where((FeHLow<=FeH)&(FeH<FeHHigh), compPoly.deriv()(FeH), 0)
+# def compDeriv(FeH):
+#     return np.where((FeHLow<=FeH)&(FeH<FeHHigh), compPoly.deriv()(FeH), 0)
 
-for x in [-0.4+0.0001, -0.2, 0, 0.2, 0.4-0.0001]:
-    assert np.isclose(compInv(comp(x)), x) #checks inverse works
+# for x in [-0.4+0.0001, -0.2, 0, 0.2, 0.4-0.0001]:
+#     assert np.isclose(compInv(comp(x)), x) #checks inverse works
     
-class Distributions:
-    """Contains the binned FeH distributions, and methods to get
-    corresponding smoothed and fH2O distributions."""
+# class Distributions:
+#     """Contains the binned FeH distributions, and methods to get
+#     corresponding smoothed and fH2O distributions."""
     
-    alpha = 1 #normalising factor
+#     alpha = 1 #normalising factor
     
-    def __init__(self,FeHHist, FeHEdges=mySetup.FeHEdges, perVolume=True, normalised=False, ISONumZIndex=1):
-        self.FeHEdges = FeHEdges
-        self.FeHWidths = self.FeHEdges[1:] - self.FeHEdges[:-1]
-        self.FeHMidpoints = (self.FeHEdges[1:] + self.FeHEdges[:-1])/2
-        self.perVolume = perVolume
-        self.isNormalised = normalised
-        if not normalised:
-            self.FeHHist = FeHHist
-        else:
-            self.FeHHist = FeHHist/np.sum(self.FeHWidths*FeHHist)
-        self.ISONumZIndex = ISONumZIndex
+#     def __init__(self,FeHHist, FeHEdges=mySetup.FeHEdges, perVolume=True, normalised=False, ISONumZIndex=1):
+#         self.FeHEdges = FeHEdges
+#         self.FeHWidths = self.FeHEdges[1:] - self.FeHEdges[:-1]
+#         self.FeHMidpoints = (self.FeHEdges[1:] + self.FeHEdges[:-1])/2
+#         self.perVolume = perVolume
+#         self.isNormalised = normalised
+#         if not normalised:
+#             self.FeHHist = FeHHist
+#         else:
+#             self.FeHHist = FeHHist/np.sum(self.FeHWidths*FeHHist)
+#         self.ISONumZIndex = ISONumZIndex
         
-        y = np.append(0, np.cumsum(self.FeHWidths*self.FeHHist))
-        dist = scipy.interpolate.CubicSpline(self.FeHEdges, y, bc_type='clamped', extrapolate=True).derivative()
-        def FeHDistFunc(FeH):
-            # sets dist to zero outside range
-            return np.where((self.FeHEdges[0]<=FeH)&(FeH<self.FeHEdges[-1]), dist(FeH), 0)
-        self.FeHDist = FeHDistFunc
+#         y = np.append(0, np.cumsum(self.FeHWidths*self.FeHHist))
+#         dist = scipy.interpolate.CubicSpline(self.FeHEdges, y, bc_type='clamped', extrapolate=True).derivative()
+#         def FeHDistFunc(FeH):
+#             # sets dist to zero outside range
+#             return np.where((self.FeHEdges[0]<=FeH)&(FeH<self.FeHEdges[-1]), dist(FeH), 0)
+#         self.FeHDist = FeHDistFunc
         
-        def ISOsPerFeH(FeH):
-            # return self.alpha*(10**(FeH*ISONumZIndex))*self.FeHDist(FeH)
-            return self.alpha*(((10**FeH)/(1+2.78*0.0207*(10**FeH)))**ISONumZIndex)*self.FeHDist(FeH)
+#         def ISOsPerFeH(FeH):
+#             # return self.alpha*(10**(FeH*ISONumZIndex))*self.FeHDist(FeH)
+#             return self.alpha*(((10**FeH)/(1+2.78*0.0207*(10**FeH)))**ISONumZIndex)*self.FeHDist(FeH)
 
-        lowerCount = scipy.integrate.quad(ISOsPerFeH, FeHHigh, self.FeHEdges[-1])[0] 
-        middleCount = scipy.integrate.quad(ISOsPerFeH, FeHLow, FeHHigh)[0]
-        upperCount = scipy.integrate.quad(ISOsPerFeH, self.FeHEdges[0], FeHLow, limit=200)[0]
-        normFactor = (lowerCount+middleCount+upperCount) if self.isNormalised else 1
-        #Assumes bins entirely capture all stars
-        # quad has problem with EAGLE and some rs
+#         lowerCount = scipy.integrate.quad(ISOsPerFeH, FeHHigh, self.FeHEdges[-1])[0] 
+#         middleCount = scipy.integrate.quad(ISOsPerFeH, FeHLow, FeHHigh)[0]
+#         upperCount = scipy.integrate.quad(ISOsPerFeH, self.FeHEdges[0], FeHLow, limit=200)[0]
+#         normFactor = (lowerCount+middleCount+upperCount) if self.isNormalised else 1
+#         #Assumes bins entirely capture all stars
+#         # quad has problem with EAGLE and some rs
         
         
-        def fH2ODistFunc(fH2O):
-            return ISOsPerFeH(compInv(fH2O))/(normFactor*np.abs(compDeriv(compInv(fH2O))))
+#         def fH2ODistFunc(fH2O):
+#             return ISOsPerFeH(compInv(fH2O))/(normFactor*np.abs(compDeriv(compInv(fH2O))))
         
-        self.fH2ODist = fH2ODistFunc
-        self.counts = (lowerCount/normFactor, middleCount/normFactor, upperCount/normFactor)
+#         self.fH2ODist = fH2ODistFunc
+#         self.counts = (lowerCount/normFactor, middleCount/normFactor, upperCount/normFactor)
 
 
 def plotter(dist, title, G):
@@ -286,7 +286,8 @@ Galaxy class contains a model of the Milky Way between R=4kpc to 12kpc, and
 z=-5kpc to 5kpc and can be loaded with the .loadFromBins method.
 Probably best left with default arguments.
 
-
+What is stored are 2D numpy arrays with the values of the parameters of the fit 
+for each bin in [Fe/H] and [alpha/Fe]
 
 This is currently the sine morte stellar mass density distribution - changing this 
 to the normal stellar number/mass density distribution should be easy though. 
@@ -295,7 +296,7 @@ G = Galaxy.loadFromBins()
 
 """
 The .hist, .integratedHist and .zintegratedHist methods take inputs of R and z 
-coordinates and return the alpha/Fe and Fe/H distribution at this R and z,
+coordinates and return the [alpha/Fe] and [Fe/H] distribution as a 2D histogram at this R and z,
 or integrated between these values of R and z. See definitions above for
 default arguments, all distances are in kiloparsecs.
 """
@@ -317,15 +318,18 @@ plotter(distribution_galaxy_average, 'integrated', G)
 
 
 """
-The .FeH method converts a distribution in [alpha/Fe] and [Fe/H] to just
-a distribution in [Fe/H] - should eb inputted with the output from .hist, 
+The .FeH method converts a 2D histogram in in [alpha/Fe] and [Fe/H] to just
+a 1D historgram in [Fe/H] - should be inputted with the output from .hist, 
 .integratedHist, or .zintegratedHist
+
+This method by default masks out bins with fewer than 20 stars observed - it doesn't
+change the distribution, and avoids bins with uncertain fits
 """
 
 FeH_at_Sun = G.FeH(G.hist())
 
 fig,ax = plt.subplots()
-ax.plot(G.FeHMidpoints, FeH_at_Sun)
+ax.bar(G.FeHMidpoints, FeH_at_Sun, width = G.FeHWidths)
 ax.set_xlabel(r'$\mathrm{[Fe/H]}$')
 ax.set_title('at Sun')
 
@@ -333,7 +337,7 @@ ax.set_title('at Sun')
 FeH_outer_disk = G.FeH(G.hist(R=11.5,z=0))
 
 fig,ax = plt.subplots()
-ax.plot(G.FeHMidpoints, FeH_outer_disk)
+ax.bar(G.FeHMidpoints, FeH_outer_disk, width = G.FeHWidths)
 ax.set_xlabel(r'$\mathrm{[Fe/H]}$')
 ax.set_title('Outer disk')
 
@@ -341,20 +345,15 @@ ax.set_title('Outer disk')
 FeH_galaxy_average = G.FeH(G.integratedHist(Rlim1=mySetup.minR, Rlim2=mySetup.maxR, zlim=mySetup.maxmodz))
 
 fig,ax = plt.subplots()
-ax.plot(G.FeHMidpoints, FeH_galaxy_average)
+ax.bar(G.FeHMidpoints, FeH_galaxy_average, width = G.FeHWidths)
 ax.set_xlabel(r'$\mathrm{[Fe/H]}$')
 ax.set_title('integrated')
 
 """
-The Distributions class contains a FeH distribution and an ISO recipe,
-to smooth the binned FeH distribution and map it to an ISO distribution,
-accessed .
-
-Input with the output from FeH
+The Distributions class smooths the binned FeH distribution and contains an ISO recipe,
+I've included it (commented out) but it's probably easier to define your own way
+of mapping the FeH distribution to the exoplanet population. Good luck!
 """
-D_at_Sun = Distributions(G.FeH(G.hist()))
-
-D_at_Sun. 
 
 
 
