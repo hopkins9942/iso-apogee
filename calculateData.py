@@ -104,6 +104,70 @@ def tests():
     # lots of features so fit well just be [M/H], alpha elements have fewer
     
 
+def plotR():
+    S = pg.get_statSample()
+    
+    goodLogg = (1<=S['LOGG']) & (S['LOGG']<3)
+    
+    D = S['weighted_dist']/1000 # kpc
+    mu = mySetup.D2mu(D)
+    goodMu = (mySetup.muMin<=mu) & (mu<mySetup.muMax)
+    
+    #maps age to 0-14 range
+    
+    good = goodLogg & goodMu
+    
+    gCoords = coord.SkyCoord(l=S['GLON']*u.deg, b=S['GLAT']*u.deg, distance=D*u.kpc, frame='galactic')
+    gCentricCoords = gCoords.transform_to(mySetup.GC_frame)
+    x = gCentricCoords.x.to(u.kpc).value
+    y = gCentricCoords.y.to(u.kpc).value
+    z = gCentricCoords.z.to(u.kpc).value
+    R = np.sqrt(x**2 + y**2)
+    modz = np.abs(z)
+    
+    fig,ax = plt.subplots()
+    ax.hist(R[good&(S['FE_H']>0)], bins=50)
+    
+    fig,ax = plt.subplots()
+    ax.hist(R[good&(S['FE_H']<0)], bins=50)
+    
+    print(len(R[good&(R>12)])/len(R[good]))
+    print(len(R[good&(R<4)])/len(R[good]))
+    print(len(R[good&(R<12)&(R>4)])/len(R[good]))
+
+def plotmodz():
+    S = pg.get_statSample()
+    
+    goodLogg = (1<=S['LOGG']) & (S['LOGG']<3)
+    
+    D = S['weighted_dist']/1000 # kpc
+    mu = mySetup.D2mu(D)
+    goodMu = (mySetup.muMin<=mu) & (mu<mySetup.muMax)
+    
+    #maps age to 0-14 range
+    
+    good = goodLogg & goodMu
+    
+    gCoords = coord.SkyCoord(l=S['GLON']*u.deg, b=S['GLAT']*u.deg, distance=D*u.kpc, frame='galactic')
+    gCentricCoords = gCoords.transform_to(mySetup.GC_frame)
+    x = gCentricCoords.x.to(u.kpc).value
+    y = gCentricCoords.y.to(u.kpc).value
+    z = gCentricCoords.z.to(u.kpc).value
+    R = np.sqrt(x**2 + y**2)
+    modz = np.abs(z)
+    
+    fig,ax = plt.subplots()
+    ax.hist(modz[good&(S['FE_H']>0)], bins=50)
+    ax.set_xlim((0,5))
+    
+    fig,ax = plt.subplots()
+    ax.hist(modz[good&(S['FE_H']<0)], bins=50)
+    ax.set_xlim((0,5))
+    
+    print(len(modz[good&(modz>1)])/len(modz[good]))
+    print(len(modz[good&(modz<1)])/len(modz[good]))
+    print(max(modz[good]))
+
 def calculateAlphaFe(S):
     """
     Bovy2016: we average the abundances [O/H], [Mg/H], [Si/H], [S/H], and 
@@ -126,9 +190,15 @@ def calculateAlphaFe(S):
     return alphaFe, goodAlpha
 
 
+<<<<<<< HEAD
 def calculateData():
     """
     Cuts on mu and logg 
+=======
+def calculateData():#probably bad practoce to have name name as file
+    """
+    Cuts on mu and logg, distributes stars without abundances over bins to make up numbers
+>>>>>>> 939b020eb7c41a21993d98dabfa5c7a0527ebf20
     """
     S = pg.get_statSample()
     
@@ -139,12 +209,17 @@ def calculateData():
     goodFe = (FeH>-9999)
     
     goodLogg = (1<=S['LOGG']) & (S['LOGG']<3)
+<<<<<<< HEAD
     D = S['weighted_dist']/1000 # kpc
     mu = mySetup.D2mu(D)
     goodMu = (mySetup.muMin<=mu) & (mu<mySetup.muMax)
     
     goodCombined = goodAlpha & goodFe & goodLogg & goodMu
     
+=======
+    
+    D = S['weighted_dist']/1000 # kpc
+>>>>>>> 939b020eb7c41a21993d98dabfa5c7a0527ebf20
     
     #coords
     gCoords = coord.SkyCoord(l=S['GLON']*u.deg, b=S['GLAT']*u.deg, distance=D*u.kpc, frame='galactic')
@@ -155,6 +230,7 @@ def calculateData():
     R = np.sqrt(x**2 + y**2)
     modz = np.abs(z)
     
+<<<<<<< HEAD
     Nstars = np.count_nonzero(goodLogg & goodMu)
     Nbad = np.count_nonzero(np.logical_not(goodAlpha | goodFe) & goodLogg & goodMu)
     print('Num of stars in just mu range: ', np.count_nonzero(goodMu))
@@ -172,6 +248,39 @@ def calculateData():
     print('Number of stars in mu and logg range missing abundance in FeH but has aFe: ',
           np.count_nonzero(np.logical_not(goodFe) & goodAlpha & goodLogg & goodMu))
     # all adds up, if FeH missing then so is aFe
+=======
+    
+    # mu = mySetup.D2mu(D)
+    # goodMu = (mySetup.muMin<=mu) & (mu<mySetup.muMax)
+    goodPos = (mySetup.minR<R)&(R<mySetup.maxR)&(modz<mySetup.maxmodz)&(S['weighted_dist_error']/S['weighted_dist']<0.5)
+    
+    age = np.where(S['age_lowess_correct']>0, 
+                   np.where(S['age_lowess_correct']<14, S['age_lowess_correct'], 13.999),
+                   0.0001)
+    #maps age to 0-14 range
+    
+    # goodCombined = goodAlpha & goodFe & goodLogg & goodMu
+    
+    
+    
+    Nstars = np.count_nonzero(goodLogg & goodPos)
+    Nbad = np.count_nonzero(np.logical_not(goodAlpha | goodFe) & goodLogg & goodPos)
+    print('Num of stars in just pos range: ', np.count_nonzero(goodPos))
+    print('Num of stars in pos and logg range: ', Nstars)
+    print('Number of stars in pos and logg range missing abundance in either aFe or FeH: ', Nbad)
+    print('Number of stars in pos and logg range missing abundance in FeH: ',
+          np.count_nonzero(np.logical_not(goodFe) & goodLogg & goodPos))
+    
+    print('Number of stars in pos and logg range missing abundance in aFe: ',
+          np.count_nonzero(np.logical_not(goodAlpha) & goodLogg & goodPos))
+    
+    print('Number of stars in pos and logg range missing abundance in aFe but has FeH: ',
+          np.count_nonzero(np.logical_not(goodAlpha) & goodFe & goodLogg & goodPos))
+    
+    print('Number of stars in pos and logg range missing abundance in FeH but has aFe: ',
+          np.count_nonzero(np.logical_not(goodFe) & goodAlpha & goodLogg & goodPos))
+    # all adds up, if FeH missing then so is goodPos
+>>>>>>> 939b020eb7c41a21993d98dabfa5c7a0527ebf20
     # only 39 stars have FeH but miss aFe, small enough to consider generally bad and distribute as if FeH not known
     
     adjustment_factor = 1/(1-(Nbad/Nstars))
@@ -182,14 +291,33 @@ def calculateData():
         bindices = (
             (binDict['FeH'][0]<=FeH)&(FeH<binDict['FeH'][1])&
             (binDict['aFe'][0]<=aFe)&(aFe<binDict['aFe'][1])&
+<<<<<<< HEAD
             (goodLogg & goodMu)
+=======
+            (goodLogg & goodPos)
+>>>>>>> 939b020eb7c41a21993d98dabfa5c7a0527ebf20
             ) # indices of good stars in bin
         N = np.count_nonzero(bindices)*adjustment_factor
         meanR = R[bindices].mean() if N!=0 else 0
         meanmodz = modz[bindices].mean() if N!=0 else 0
+<<<<<<< HEAD
         print(mySetup.binName(binDict), N, meanR, meanmodz)
         # with open(os.path.join(mySetup.dataDir, 'bins', mySetup.binName(binDict), 'data.dat'), 'wb') as f:
         #     pickle.dump(np.array([N, meanR, meanmodz]), f)
+=======
+        meanage = age[bindices].mean() if N!=0 else 0
+        meansquareage = (age[bindices]*age[bindices]).mean() if N!=0 else 0
+        # print(mySetup.binName(binDict), N, meanR, meanmodz, meanage, meansquareage)
+        with open(os.path.join(mySetup.dataDir, 'bins', mySetup.binName(binDict), 'data.dat'), 'wb') as f:
+            pickle.dump(np.array([N, meanR, meanmodz, meanage, meansquareage]), f)
+            
+        ageHist = np.histogram(age[bindices], bins = 14*3, range=(0,14))
+        # print(ageHist)
+        with open(os.path.join(mySetup.dataDir, 'bins', mySetup.binName(binDict), 'ageHist.dat'), 'wb') as f:
+            pickle.dump(ageHist, f)
+        with open(os.path.join(mySetup.dataDir, 'bins', mySetup.binName(binDict), 'ageHist.txt'), 'w') as f:
+            f.write(str(ageHist))
+>>>>>>> 939b020eb7c41a21993d98dabfa5c7a0527ebf20
     
     
     

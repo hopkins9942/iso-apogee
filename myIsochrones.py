@@ -71,7 +71,8 @@ def makeRGmask(isogrid):
     return ((1<=isogrid['logg']) & (isogrid['logg']<3) & (isogrid['Jmag']-isogrid['Ksmag']>0.3))
 
 
-def NRG2SMM(isogrid, ageWeightingNum):
+
+def NRG2SMM(isogrid, tau0, omega):
     """
     Returns ratio between the  sine morte mass and red giant number in isogrid
     isogrid can be swapped for a single or multiple whole isochrones, as long as
@@ -87,27 +88,33 @@ def NRG2SMM(isogrid, ageWeightingNum):
     # logAgevals = np.unique(MH_logAge[:,1])
     
     # isochroneMask = ((binDict['FeH'][0] <= MH_logAge[:,0])&(MH_logAge[:,0] < binDict['FeH'][1]))
-    if ageWeightingNum==0:
-        #uniform
-        ageWeighting = np.ones(len(indices))
+
+    
+    # if ageWeightingNum==0:
+    #     #uniform
+    #     ageWeighting = np.ones(len(indices))
         
-    elif ageWeightingNum==1:
-        #young - weight proportional to 13.9-age/Gyr
-        ageWeighting =  13.9-10**(MH_logAge[:,1]-9)
+    # elif ageWeightingNum==1:
+    #     #young - weight proportional to 13.9-age/Gyr
+    #     ageWeighting =  13.9-10**(MH_logAge[:,1]-9)
         
-    elif ageWeightingNum==2:
-        #old - weight proportional t0 age
-        ageWeighting =  10**(MH_logAge[:,1]-9)
+    # elif ageWeightingNum==2:
+    #     #old - weight proportional t0 age
+    #     ageWeighting =  10**(MH_logAge[:,1]-9)
         
-    else:
-        raise NotImplementedError('define weighting')
-    ageWeighting/=ageWeighting.sum() # one weight for each isochrone
+    # else:
+    #     raise NotImplementedError('define weighting')
+    
+    ages = 10**(MH_logAge[:,1]-9)
+    ageWeighting  = np.exp(-(omega/2)*(ages-tau0)**2)
+    ageWeighting/=ageWeighting.sum()
+    # gives each isochrone a weight, such that sum of weights is 1
     
     weights = calcWeights(isogrid)*ageWeighting[np.digitize(np.arange(len(isogrid)), indices)-1]
     # multiplicatively increases isopoint weight by the age weighting for that point's isochrone
     # digitize takes arange 0,...,len(isogrid)-1, then for each works out index of isochrone .
     
-    
+
     RGmask = makeRGmask(isogrid)
     weightinRG = weights[RGmask].sum()
     # Since ageWeighting is normalised, weightinRG is the weighted mean of the IMF-weight  

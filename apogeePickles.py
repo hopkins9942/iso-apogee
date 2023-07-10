@@ -154,7 +154,7 @@ def make_statSample(force=False):
                   'O_FE', 'MG_FE', 'SI_FE', 'S_FE', 'CA_FE', 'FE_H',
                   'O_FE_ERR', 'MG_FE_ERR', 'SI_FE_ERR', 'S_FE_ERR', 'CA_FE_ERR', 'FE_H_ERR',
                   'weighted_dist', 'weighted_dist_error',
-                  'age_lowess_correct',
+                  'age_lowess_correct', 'age_total_error','age_model_error',
                   'J0', 'H0', 'K0', 'METALS', 'ALPHAFE']
     
     names2drop = []
@@ -169,7 +169,7 @@ def make_statSample(force=False):
         pickle.dump(statSample, f)
     print(statSample.dtype)
     assert len(statSample) == 165768
-    assert len(statSample.dtype) == 38
+    assert len(statSample.dtype) == 40
     return statSample
     
     # Could save individuals, but trimmed S is only order 10MB maybe
