@@ -1,15 +1,11 @@
-import time
-from math import isclose
-
 import numpy as np
 import os
 import pickle
-import git
+
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
-from matplotlib import cm
-import scipy
+
 
 import mySetup
 import myIsochrones
