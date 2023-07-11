@@ -190,15 +190,10 @@ def calculateAlphaFe(S):
     return alphaFe, goodAlpha
 
 
-<<<<<<< HEAD
-def calculateData():
-    """
-    Cuts on mu and logg 
-=======
+
 def calculateData():#probably bad practoce to have name name as file
     """
     Cuts on mu and logg, distributes stars without abundances over bins to make up numbers
->>>>>>> 939b020eb7c41a21993d98dabfa5c7a0527ebf20
     """
     S = pg.get_statSample()
     
@@ -209,17 +204,9 @@ def calculateData():#probably bad practoce to have name name as file
     goodFe = (FeH>-9999)
     
     goodLogg = (1<=S['LOGG']) & (S['LOGG']<3)
-<<<<<<< HEAD
-    D = S['weighted_dist']/1000 # kpc
-    mu = mySetup.D2mu(D)
-    goodMu = (mySetup.muMin<=mu) & (mu<mySetup.muMax)
-    
-    goodCombined = goodAlpha & goodFe & goodLogg & goodMu
-    
-=======
+
     
     D = S['weighted_dist']/1000 # kpc
->>>>>>> 939b020eb7c41a21993d98dabfa5c7a0527ebf20
     
     #coords
     gCoords = coord.SkyCoord(l=S['GLON']*u.deg, b=S['GLAT']*u.deg, distance=D*u.kpc, frame='galactic')
@@ -230,25 +217,7 @@ def calculateData():#probably bad practoce to have name name as file
     R = np.sqrt(x**2 + y**2)
     modz = np.abs(z)
     
-<<<<<<< HEAD
-    Nstars = np.count_nonzero(goodLogg & goodMu)
-    Nbad = np.count_nonzero(np.logical_not(goodAlpha | goodFe) & goodLogg & goodMu)
-    print('Num of stars in just mu range: ', np.count_nonzero(goodMu))
-    print('Num of stars in mu and logg range: ', Nstars)
-    print('Number of stars in mu and logg range missing abundance in either aFe or FeH: ', Nbad)
-    print('Number of stars in mu and logg range missing abundance in FeH: ',
-          np.count_nonzero(np.logical_not(goodFe) & goodLogg & goodMu))
-    
-    print('Number of stars in mu and logg range missing abundance in aFe: ',
-          np.count_nonzero(np.logical_not(goodAlpha) & goodLogg & goodMu))
-    
-    print('Number of stars in mu and logg range missing abundance in aFe but has FeH: ',
-          np.count_nonzero(np.logical_not(goodAlpha) & goodFe & goodLogg & goodMu))
-    
-    print('Number of stars in mu and logg range missing abundance in FeH but has aFe: ',
-          np.count_nonzero(np.logical_not(goodFe) & goodAlpha & goodLogg & goodMu))
-    # all adds up, if FeH missing then so is aFe
-=======
+
     
     # mu = mySetup.D2mu(D)
     # goodMu = (mySetup.muMin<=mu) & (mu<mySetup.muMax)
@@ -280,7 +249,6 @@ def calculateData():#probably bad practoce to have name name as file
     print('Number of stars in pos and logg range missing abundance in FeH but has aFe: ',
           np.count_nonzero(np.logical_not(goodFe) & goodAlpha & goodLogg & goodPos))
     # all adds up, if FeH missing then so is goodPos
->>>>>>> 939b020eb7c41a21993d98dabfa5c7a0527ebf20
     # only 39 stars have FeH but miss aFe, small enough to consider generally bad and distribute as if FeH not known
     
     adjustment_factor = 1/(1-(Nbad/Nstars))
@@ -291,20 +259,13 @@ def calculateData():#probably bad practoce to have name name as file
         bindices = (
             (binDict['FeH'][0]<=FeH)&(FeH<binDict['FeH'][1])&
             (binDict['aFe'][0]<=aFe)&(aFe<binDict['aFe'][1])&
-<<<<<<< HEAD
-            (goodLogg & goodMu)
-=======
+
             (goodLogg & goodPos)
->>>>>>> 939b020eb7c41a21993d98dabfa5c7a0527ebf20
             ) # indices of good stars in bin
         N = np.count_nonzero(bindices)*adjustment_factor
         meanR = R[bindices].mean() if N!=0 else 0
         meanmodz = modz[bindices].mean() if N!=0 else 0
-<<<<<<< HEAD
-        print(mySetup.binName(binDict), N, meanR, meanmodz)
-        # with open(os.path.join(mySetup.dataDir, 'bins', mySetup.binName(binDict), 'data.dat'), 'wb') as f:
-        #     pickle.dump(np.array([N, meanR, meanmodz]), f)
-=======
+
         meanage = age[bindices].mean() if N!=0 else 0
         meansquareage = (age[bindices]*age[bindices]).mean() if N!=0 else 0
         # print(mySetup.binName(binDict), N, meanR, meanmodz, meanage, meansquareage)
@@ -317,7 +278,6 @@ def calculateData():#probably bad practoce to have name name as file
             pickle.dump(ageHist, f)
         with open(os.path.join(mySetup.dataDir, 'bins', mySetup.binName(binDict), 'ageHist.txt'), 'w') as f:
             f.write(str(ageHist))
->>>>>>> 939b020eb7c41a21993d98dabfa5c7a0527ebf20
     
     
     
