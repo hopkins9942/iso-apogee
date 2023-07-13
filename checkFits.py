@@ -87,9 +87,8 @@ def main(binNum, label):
     
     
     
-    if len(S[inBin&goodCombined])==0:
-        # No stars in bin
-        print("No stars")
+    if np.count_nonzero(inBin&goodCombined)<500:
+        print("Not enough stars")
         return 0
     
     with open(os.path.join(binPath, label+'fit_results.dat'), 'rb') as f:
@@ -98,12 +97,12 @@ def main(binNum, label):
     #plotting
     #spatial
     Rgrid = np.linspace(4,12).reshape((-1,1))
-    modzgrid = np.linspace(0,2)
+    modzgrid = np.linspace(0,1)
     
     fig,ax = plt.subplots()
     ax.scatter(R[inBin&goodCombined], modz[inBin&goodCombined], s=0.1, alpha=0.5, color='red')
     image = ax.imshow((Rgrid*np.exp(-aR*Rgrid -az*modzgrid)).T, origin='lower',#Rgird* becasue this makes it desnity per R per z
-              extent = (4, 12, 0, 2),
+              extent = (4, 12, 0, 1),
               aspect='auto',
               cmap=cmap1)
     ax.set_xlabel(r'$R/\mathrm{kpc}$')
@@ -159,7 +158,7 @@ def main(binNum, label):
     
                               
 if __name__=='__main__':
-    for i in range(25,26):#25*7,29*7):
+    for i in range(len(mySetup.binList)):
         main(i, 'lowFeHUniform+Rzlim+plotwithoutnan')
     
     

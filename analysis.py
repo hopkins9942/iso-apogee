@@ -48,12 +48,12 @@ def main():
     #makePlots20230208()
     G = Galaxy.loadFromBins()
     plotFit(G, G.mask())
-    plotErr(G, G.mask())
-    Dlocal = Distributions('Local,test', G.FeH(G.hist(), G.mask()), ISONumZIndex=1)
-    intHist = G.integratedHist(Rlim1=4, Rlim2=12, zlim=5)
-    DMW = Distributions('Milky Way,test', G.FeH(intHist, G.mask()), perVolume=False, ISONumZIndex=1, normalised=True)
-    Dlocal.plot()
-    DMW.plot()
+    # plotErr(G, G.mask())
+    # Dlocal = Distributions('Local,test', G.FeH(G.hist(), G.mask()), ISONumZIndex=1)
+    # intHist = G.integratedHist(Rlim1=4, Rlim2=12, zlim=5)
+    # DMW = Distributions('Milky Way,test', G.FeH(intHist, G.mask()), perVolume=False, ISONumZIndex=1, normalised=True)
+    # Dlocal.plot()
+    # DMW.plot()
     NRGvsSMM(G)
     makePlots20230523(G)
     
@@ -80,22 +80,22 @@ def main():
     return 0
 
 def NRGvsSMM(G):
-    DlocalNRG = Distributions('Local red giants', G.FeH(G.hist()/G.NRG2SMM, G.mask()), ISONumZIndex=1) #changed from SM to number density of giants
-    DlocalSMM = Distributions('Local sine mrote', G.FeH(G.hist(), G.mask()), ISONumZIndex=1)
+    DlocalNRG = Distributions('Red Giants', G.FeH(G.hist()/G.NRG2SMM, G.mask()), ISONumZIndex=1) #changed from SM to number density of giants
+    DlocalSMM = Distributions('Sine Morte', G.FeH(G.hist(), G.mask()), ISONumZIndex=1)
     DlocalNRG.plotWith(DlocalSMM, extra='localNRGvsSMM')
     
     intHist = G.integratedHist(Rlim1=4, Rlim2=12, zlim=5)
-    DMWNRG = Distributions('MW red giants', G.FeH(intHist/G.NRG2SMM, G.mask()), ISONumZIndex=1) #changed from SM to number density of giants
-    DMWSMM = Distributions('MW sine morte', G.FeH(intHist, G.mask()), ISONumZIndex=1)
+    DMWNRG = Distributions('Red Giants', G.FeH(intHist/G.NRG2SMM, G.mask()), ISONumZIndex=1) #changed from SM to number density of giants
+    DMWSMM = Distributions('Sine Morte', G.FeH(intHist, G.mask()), ISONumZIndex=1)
     DMWNRG.plotWith(DMWSMM, extra='MWNRGvsSMM')
 
 def makePlots20230523(G):
     intHist = G.integratedHist(Rlim1=4, Rlim2=12, zlim=5)
     
     Dlist = [Distributions('Local', G.FeH(G.hist(), G.mask()), ISONumZIndex=1, normalised=True),
-                     Distributions('Milky Way average', G.FeH(intHist, G.mask()), perVolume=False, ISONumZIndex=1, normalised=True),
+                     Distributions('Milky Way Disk', G.FeH(intHist, G.mask()), perVolume=False, ISONumZIndex=1, normalised=True),
                      Distributions('Local', G.FeH(G.hist(), G.mask()), ISONumZIndex=0, normalised=True),
-                     Distributions('Milky Way average', G.FeH(intHist, G.mask()), perVolume=False, ISONumZIndex=0, normalised=True)]
+                     Distributions('Milky Way Disk', G.FeH(intHist, G.mask()), perVolume=False, ISONumZIndex=0, normalised=True)]
     Dlist[0].plotWith(Dlist[1], extra='Beta1')
     Dlist[2].plotWith(Dlist[3], extra='Beta0')
     
@@ -115,9 +115,9 @@ def makePlots20230523(G):
 def makePlots20230208():
     G = Galaxy.loadFromBins(ESFweightingNum=0, NRG2SMMweightingNum=0)
     Dlist = [Distributions('Local', G.FeH(G.hist()), ISONumZIndex=1, normalised=True),
-                     Distributions('Milky Way average', G.FeH(G.integratedHist()), perVolume=False, ISONumZIndex=1, normalised=True),
+                     Distributions('Milky Way Disk', G.FeH(G.integratedHist()), perVolume=False, ISONumZIndex=1, normalised=True),
                      Distributions('Local', G.FeH(G.hist()), ISONumZIndex=0, normalised=True),
-                     Distributions('Milky Way average', G.FeH(G.integratedHist()), perVolume=False, ISONumZIndex=0, normalised=True)]
+                     Distributions('Milky Way Disk', G.FeH(G.integratedHist()), perVolume=False, ISONumZIndex=0, normalised=True)]
     Dlist[0].plotWith(Dlist[1], extra='Beta1')
     Dlist[2].plotWith(Dlist[3], extra='Beta0')
     
@@ -191,9 +191,9 @@ def plotData(G, extra=''):
 def plotFit(G, mask, extra=''):
     # binLim = 50
     # fig, axs = plt.subplots(ncols=5, figsize=[18, 4])
-    savename = ['logNuSun', 'logNuSununits', 'aR', 'az', 'tau0', 'omegahalf', 'NRG2SMM']
-    titles = [r'$\log\nu_\odot$', r'$\log(\nu_\odot/\mathrm{kpc}^{-3})$', r'$a_R$', r'$a_z$', r'$\tau_0$', r'$\omega^{-\frac{1}{2}}$', r'$\rho_\mathrm{sm}/n_\mathrm{giants}$']
-    unit = [r'', r'', r'$\mathrm{kpc}^{-1}$', r'$\mathrm{kpc}^{-1}$', r'$\mathrm{Gyr}$', r'$\mathrm{Gyr}$', r'$M_\odot$']
+    savename = ['logNuSun',  'aR', 'az', 'tau0', 'omegahalf', 'NRG2SMM']
+    titles = [r'$\mathrm{logA}$', r'$a_R$', r'$a_z$', r'$\tau_0$', r'$\omega^{-\frac{1}{2}}$', r'$\rho_\mathrm{sm}/n_\mathrm{giants}$']
+    unit = [r'', r'$\mathrm{kpc}^{-1}$', r'$\mathrm{kpc}^{-1}$', r'$\mathrm{Gyr}$', r'$\mathrm{Gyr}$', r'$M_\odot$']
     # for i, X in enumerate([np.where(G.data[0,:,:]>=binLim, np.exp(G.logNuSun), 0),
     #                        np.where(G.data[0,:,:]>=binLim, G.aR,    0), 
     #                        np.where(G.data[0,:,:]>=binLim, G.az,    0),
@@ -202,7 +202,6 @@ def plotFit(G, mask, extra=''):
     #                        np.where(G.data[0,:,:]>=binLim, G.NRG2SMM, 0)]):
     ageMask = mask*(np.arange(G.shape[0])>=15).reshape(-1,1)
     for i, X in enumerate([np.where(mask, G.logNuSun, np.nan),
-                           np.where(mask, G.logNuSun, np.nan),
                            np.where(mask, G.aR,    np.nan), 
                            np.where(mask, G.az,    np.nan),
                            np.where(ageMask, G.tau0,  np.nan), 
@@ -383,6 +382,7 @@ def optimiseBeta(D, fH2O=0.3, extra='', MWD=None):
         print(f'beta={res.x} counts: {optD.counts[0]:.3f}, {optD.counts[1]:.3f}, {optD.counts[2]:.3f}')
     else:
         optD = D.butWithBeta(res.x[0])
+        print(optD.ISONumZIndex)
         optMWD = MWD.butWithBeta(res.x[0])
         optD.plotWith(optMWD, extra=extra+f'Zindex{optD.ISONumZIndex:.3f}')
         print(f'beta={res.x} counts: {optD.counts[0]:.3f}, {optD.counts[1]:.3f}, {optD.counts[2]:.3f}\nMWcounts: {optMWD.counts[0]:.3f}, {optMWD.counts[1]:.3f}, {optMWD.counts[2]:.3f}')
@@ -770,7 +770,7 @@ class Distributions:
         
         os.makedirs(saveDir, exist_ok=True)
         
-        FeHylab = r'$\rho_{\mathrm{sm}}(\mathrm{[Fe/H]})$'
+        FeHylab = r'$\rho_{\mathrm{sm}}(\mathrm{[Fe/H]})$' if extra!='localNRGvsSMM' else r'$n_{\mathrm{giants}}(\mathrm{[Fe/H]})$'
         fH2Oylab = r'$p(f_{\mathrm{H}_2 \mathrm{O}}\mid \beta='+ f'{self.ISONumZIndex:.2f}' +')$'
         fH2Ointylab = '' 
         
@@ -797,7 +797,8 @@ class Distributions:
         fig, ax = plt.subplots()
         ax.plot(fH2OPlotPoints, dists1.fH2ODist(fH2OPlotPoints), color=colourPalette[0], label=self.name)
         ax.plot(fH2OPlotPoints, dists2.fH2ODist(fH2OPlotPoints), color=colourPalette[1], linestyle='dashed', label=dists2.name)
-        if self.ISONumZIndex>1.4:
+        print(self.ISONumZIndex)
+        if self.ISONumZIndex>1.3:
             ax.vlines(0.3, 0, 3.0, color=colourPalette[2], alpha=0.5)
         ax.set_ylim(bottom=0)
         ax.legend()
