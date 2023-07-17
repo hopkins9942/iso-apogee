@@ -12,6 +12,8 @@ import matplotlib.pyplot as plt
 from matplotlib import cm
 import scipy
 
+from scipy.integrate import quad 
+
 import mySetup
 import myIsochrones
 
@@ -78,6 +80,17 @@ def main():
     
     
     return 0
+
+def NBlackHoles():
+    number_fraction_form_BH = 1-quad(myIsochrones.Kroupa, 0.08, 8)[0]/quad(myIsochrones.Kroupa, 0.08, 12000)[0] #mass of 8MSun comes from https://arxiv.org/pdf/1609.08411.pdf
+    print(number_fraction_form_BH)
+    G = Galaxy.loadFromBins()
+    # print(G.integratedHist())
+    # print(G.integratedHist()[G.mask()])
+    sm_mass_in_each_MAP = (G.integratedHist()*G.vols)
+    print(sm_mass_in_each_MAP[G.mask()].sum())
+    print(sm_mass_in_each_MAP[G.mask()].sum()/myIsochrones.meanMini)
+    print(sm_mass_in_each_MAP[G.mask()].sum()*number_fraction_form_BH/myIsochrones.meanMini)
 
 def NRGvsSMM(G):
     DlocalNRG = Distributions('Red Giants', G.FeH(G.hist()/G.NRG2SMM, G.mask()), ISONumZIndex=1) #changed from SM to number density of giants
@@ -305,6 +318,7 @@ def plotOverR(G, extra=''):
     ax.set_xlabel(r'$R/\mathrm{kpc}$')
     ax.set_ylabel(r'$\mathrm{[Fe/H]}$')
     path = os.path.join(plotDir,str(extra)+'FeHR.pdf')
+    fig.tight_layout()
     fig.savefig(path, dpi=300)
     
     fig, ax = plt.subplots()
@@ -319,6 +333,7 @@ def plotOverR(G, extra=''):
     ax.set_xlabel(r'$R/\mathrm{kpc}$')
     ax.set_ylabel(r'$f_\mathrm{H_2O}$')
     path = os.path.join(plotDir,str(extra)+'fH2OR.pdf')
+    fig.tight_layout()
     fig.savefig(path, dpi=300)
     
     
@@ -770,7 +785,7 @@ class Distributions:
         
         os.makedirs(saveDir, exist_ok=True)
         
-        FeHylab = r'$\rho_{\mathrm{sm}}(\mathrm{[Fe/H]})$' if extra!='localNRGvsSMM' else r'$n_{\mathrm{giants}}(\mathrm{[Fe/H]})$'
+        FeHylab = r'$\rho_{\mathrm{sm}}(\mathrm{[Fe/H]})$' if extra!='localNRGvsSMM' else r'$n(\mathrm{[Fe/H]})$'
         fH2Oylab = r'$p(f_{\mathrm{H}_2 \mathrm{O}}\mid \beta='+ f'{self.ISONumZIndex:.2f}' +')$'
         fH2Ointylab = '' 
         
@@ -784,8 +799,9 @@ class Distributions:
         fig, ax = plt.subplots()
         ax.plot(FeHPlotPoints, dists1.FeHDist(FeHPlotPoints), color=colourPalette[0], label=self.name)
         ax.plot(FeHPlotPoints, dists2.FeHDist(FeHPlotPoints), color=colourPalette[1], linestyle='dashed', label=dists2.name)
-        ax.vlines(-0.4, 0, dists1.FeHDist(0), color=colourPalette[2], alpha=0.5)
-        ax.vlines( 0.4, 0, dists1.FeHDist(0), color=colourPalette[2], alpha=0.5)
+        if extra!='localNRGvsSMM':
+            ax.vlines(-0.4, 0, dists1.FeHDist(0), color=colourPalette[2], alpha=0.5)
+            ax.vlines( 0.4, 0, dists1.FeHDist(0), color=colourPalette[2], alpha=0.5)
         ax.legend()
         ax.set_xlabel(r'$\mathrm{[Fe/H]}$')
         ax.set_xlim(plotLim[0], plotLim[1])
@@ -804,7 +820,7 @@ class Distributions:
         ax.legend()
         ax.set_xlabel(r'$f_\mathrm{H_2O}$')
         ax.set_ylabel(fH2Oylab)
-        ax.set_title('ISO distribution')
+        ax.set_title('ISO Distribution')
         path = os.path.join(saveDir, str(extra) + names + '_fH2O' + '.pdf')
         fig.savefig(path, dpi=300)
         

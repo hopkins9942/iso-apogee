@@ -33,7 +33,7 @@ plt.rcParams.update({
 
 
 class Galaxy:
-    def __init__(self, FeHEdges, aFeEdges, rhoSun, logNuSun, aR, az, tau0, omega, sig_logNuSun, sig_aR, sig_az, sig_tau0, sig_omega, NRG2SMM, data):
+    def __init__(self, FeHEdges, aFeEdges, rhoSun, logNuSun, aR, az, tau0, omega, sig_logNuSun, sig_aR, sig_az, sig_tau0, sig_omega, NRG2NLS, data):
         """
         amp etc are arrays with [FeH index, aFe index]
         
@@ -54,7 +54,7 @@ class Galaxy:
         self.sig_az = sig_az
         self.sig_tau0 = sig_tau0
         self.sig_omega = sig_omega
-        self.NRG2SMM = NRG2SMM
+        self.NRG2NLS = NRG2NLS
         self.data = data
         
         self.shape = self.rhoSun.shape
