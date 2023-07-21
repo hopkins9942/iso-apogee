@@ -154,6 +154,36 @@ def NRG2NLS(isogrid, tau0, omega):
     # as isochrones automatically ignore high-mass, dead points
     return weights.sum()/weightinRG
     
+
+def NRG2NSM(isogrid, tau0, omega):
+    """
+    Returns ratio between the  number of sine morte stars and red giant number in isogrid
+    Essentially NRG2SM without multiplication by mean mass
+    isogrid can be swapped for a single or multiple whole isochrones, as long as
+    they are whole and ordered correctly
+    """
+    
+    MH_logAge, indices = extractIsochrones(isogrid)
+    
+    ages = 10**(MH_logAge[:,1]-9)
+    ageWeighting  = np.exp(-(omega/2)*(ages-tau0)**2)
+    ageWeighting/=ageWeighting.sum()
+    # gives each isochrone a weight, such that sum of weights is 1
+    
+    weights = calcWeights(isogrid)*ageWeighting[np.digitize(np.arange(len(isogrid)), indices)-1]
+    # multiplicatively increases isopoint weight by the age weighting for that point's isochrone
+    # digitize takes arange 0,...,len(isogrid)-1, then for each works out index of isochrone .
+    
+
+    RGmask = makeRGmask(isogrid)
+    weightinRG = weights[RGmask].sum()
+    # Since ageWeighting is normalised, weightinRG is the weighted mean of the IMF-weight  
+    # in each isochrone in the RG region
+    
+    # sine morte distribution requires weightPerIsochrone,
+    # not sum of weights as old isochrones lack high-mass, dead points
+    return weightPerIsochrone/weightinRG
+
 def checkFracAlive(isogrid, bymass=False):
     MH_logAge, indices = extractIsochrones(isogrid)
     wArr = np.zeros(len(indices))
