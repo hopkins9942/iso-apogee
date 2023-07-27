@@ -36,33 +36,129 @@ plotDir = f'/Users/hopkinsm/APOGEE/plots/BlackHoles/'
 os.makedirs(plotDir, exist_ok=True)
 
 rBH = 1.48e-3 # calculated by hand, integrating Kroupa from 0.08 to inf vs 25 to inf
-
+# rBH = 6.5e-3 integrating upwars of 8Msun, which is all remnants
 
 def main():
     G = Galaxy.loadFromBins()
-    # print(G.NRG2NSM[G.mask()])
-    
     # plotFit(G, G.mask())
+    # totalBHs(G)
+    ageOverR(G)
+    # plotOverR(G)
     
-    # # Black holes made for stars of mass>25 MSun, metallicity less than 0, inspired by
-    # # https://iopscience.iop.org/article/10.1086/375341/pdf
-    # # assuming kroupa imf
     
-    # # fraction of stars over 25 Msun
+def totalBHs(G):
+    rBHarray = np.where(G.FeHMidpoints<0.0, rBH, 0.0)
+    starcounts = G.FeH(G.integratedHist(), G.mask())*G.FeHWidths # aroudnSun - per kpc3?
     
-    # rBHarray = np.where(G.FeHMidpoints<0.0, rBH, 0.0)
-    # print(rBHarray)
+    BHcount = (rBHarray*starcounts).sum()
+    # BHcount = (rBH*starcounts).sum() for no metallicity cutoff
+
+    print(BHcount)
+
+def ageOverR(G):
+    """I measure the SM, LS and RG surface density and mean age at each R,
+    then for ratios between types of star compare full measured and predicted 
+    from mean age alone, to check fact that SM/LS barely varies over R.
+    result: mean age clearly varies over R, from 6.4 to 4.8 Gyr. Using
+    this mean age to estimate the ratio of SM to RG overpredicts true value
+    (because curvature of NRG2N__ is negative - middle value of age
+     overpredicts mean of spread - therefore fine) and since overprediction is
+    slightly less for ls, prediction for ls2sm overestimates too.
+    HOWEVER, using mean tau, which looks right, still gives very small variation
+    in LS2SM, meaning very small variation in actual measured is fine. 
+    Conclusion: LS2SM jsut doesn't vary much over disk"""
+    R = np.linspace(4,12,51)
+    R = (R[:-1]+R[1:])/2
+    tau = np.linspace(0,14,51)
+    tau = (tau[:-1]+tau[1:])/2
     
-    # starcounts = G.FeH(G.hist(), G.mask())*G.FeHWidths # aroudnSun - per kpc3?
-    # fig,ax = plt.subplots()
-    # ax.plot(G.FeHMidpoints, starcounts/G.FeHWidths)
-    # bhcounts =starcounts*rBHarray
-    # fig,ax = plt.subplots()
-    # ax.plot(G.FeHMidpoints, bhcounts/G.FeHWidths)
-    # # sum counts for density/number of bh
+    isogrid = myIsochrones.loadGrid()
+    isochrones = isogrid[(-0.5<=isogrid['MH'])&(isogrid['MH']<0)]
     
-    # BH gradient
-    plotOverR(G)
+    SMstars = np.zeros(len(R))
+    LSstars = np.zeros(len(R))
+    RGstars = np.zeros(len(R))
+    meanTau0 = np.zeros(len(R))
+    rg2sm = np.zeros(len(R))
+    rg2ls = np.zeros(len(R))
+    ageDist = np.zeros((len(R), len(tau)))
+    
+    for i, r in enumerate(R):
+        SMstarFeHcounts = (G.FeH(G.zintegratedHist(r), G.mask())*G.FeHWidths)
+        LSstarFeHcounts = (G.FeH(G.zintegratedHist(r)*G.NRG2NLS/G.NRG2NSM, G.mask())*G.FeHWidths)
+        RGstarFeHcounts = (G.FeH(G.zintegratedHist(r)/G.NRG2NSM, G.mask())*G.FeHWidths)
+        tau0FeHsums = (G.FeH(G.zintegratedHist(r)*G.tau0, G.mask())*G.FeHWidths)
+        SMstars[i] = SMstarFeHcounts.sum()
+        LSstars[i] = LSstarFeHcounts.sum()
+        RGstars[i] = RGstarFeHcounts.sum()
+        meanTau0[i] = tau0FeHsums.sum()/SMstars[i]
+        for j in range(len(tau)):
+            ageDist[i,j] = (G.FeH(G.zintegratedHist(r)*np.sqrt(G.omega/(2*np.pi))
+                                  *np.exp(-G.omega*(tau[j]-G.tau0)**2/2),
+                                  G.mask())*G.FeHWidths).sum()
+        ageDist[i,:]/=ageDist[i,:].sum()
+        
+        rg2sm[i] = myIsochrones.NRG2NSM(isochrones, meanTau0[i], 1)
+        rg2ls[i] = myIsochrones.NRG2NLS(isochrones, meanTau0[i], 1)
+    
+    overage_rg2sm = np.zeros(len(tau))
+    overage_rg2ls = np.zeros(len(tau))
+    for j in range(len(tau)):
+        overage_rg2sm[j] = myIsochrones.NRG2NSM(isochrones, tau[j], 1)
+        overage_rg2ls[j] = myIsochrones.NRG2NLS(isochrones, tau[j], 1)
+        
+    fig, ax = plt.subplots()
+    ax.plot(tau, overage_rg2sm)
+    ax.plot(tau, overage_rg2ls)
+    ax.set_xlabel(r'age / Gyr')
+    ax.set_ylabel(r'rg2_')
+    # path = os.path.join(plotDir, '.pdf')
+    # fig.tight_layout()
+    # fig.savefig(path, dpi=300)
+    
+    fig, ax = plt.subplots()
+    ax.plot(R, meanTau0)
+    ax.set_xlabel(r'$R/\mathrm{kpc}$')
+    ax.set_ylabel(r'mean tau0 / Gyr')
+    path = os.path.join(plotDir, 'tau0overR.pdf')
+    fig.tight_layout()
+    fig.savefig(path, dpi=300)
+    
+    fig,ax = plt.subplots()
+    ax.imshow(ageDist.T, origin='lower',
+              extent=(R[0], R[-1], tau[0], tau[-1]),
+              aspect='auto')
+    
+    fig, ax = plt.subplots()
+    ax.plot(R, SMstars/RGstars, label='full measured')
+    ax.plot(R, rg2sm, label='estimated from mean age')
+    ax.set_xlabel(r'$R/\mathrm{kpc}$')
+    ax.set_ylabel(r'rg2sm')
+    fig.legend()
+    path = os.path.join(plotDir, 'rg2smOverR.pdf')
+    fig.tight_layout()
+    fig.savefig(path, dpi=300)
+    
+    fig, ax = plt.subplots()
+    ax.plot(R, LSstars/RGstars, label='full measured')
+    ax.plot(R, rg2ls, label='estimated from mean age')
+    ax.set_xlabel(r'$R/\mathrm{kpc}$')
+    ax.set_ylabel(r'rg2ls')
+    fig.legend()
+    path = os.path.join(plotDir, 'rg2lsOverR.pdf')
+    fig.tight_layout()
+    fig.savefig(path, dpi=300)
+    
+    fig, ax = plt.subplots()
+    ax.plot(R, SMstars/LSstars, label='full measured')
+    ax.plot(R, rg2sm/rg2ls, label='estimated from mean age')
+    ax.set_xlabel(r'$R/\mathrm{kpc}$')
+    ax.set_ylabel(r'ls2sm')
+    fig.legend()
+    path = os.path.join(plotDir, 'ls2smOverR.pdf')
+    fig.tight_layout()
+    fig.savefig(path, dpi=300)
+    
     
     
 def plotOverR(G):
@@ -71,39 +167,56 @@ def plotOverR(G):
     
     rBHarray = np.where(G.FeHMidpoints<0.0, rBH, 0.0)
     
-    stars = np.zeros(len(R))
+    SMstars = np.zeros(len(R))
+    LSstars = np.zeros(len(R))
     BHs = np.zeros(len(R))
     
     for i, r in enumerate(R):
-        starFeHcounts = (G.FeH(G.zintegratedHist(r), G.mask())*G.FeHWidths) 
-        stars[i] = starFeHcounts.sum() 
-        BHs[i] = (starFeHcounts*rBHarray).sum()
+        SMstarFeHcounts = (G.FeH(G.zintegratedHist(r), G.mask())*G.FeHWidths)
+        LSstarFeHcounts = (G.FeH(G.zintegratedHist(r)*G.NRG2NLS/G.NRG2NSM, G.mask())*G.FeHWidths)
+        SMstars[i] = SMstarFeHcounts.sum() 
+        LSstars[i] = LSstarFeHcounts.sum() 
+        BHs[i] = (SMstarFeHcounts*rBHarray).sum()
         
     fig, ax = plt.subplots()
-    ax.plot(R, stars, label='stars')
+    ax.plot(R, LSstars, label='Living stars')
+    ax.plot(R, SMstars, label='SM stars')
     ax.plot(R, BHs*1e3, label=r'BHs$\cdot 10^3$')
     ax.set_xlabel(r'$R/\mathrm{kpc}$')
-    ax.set_ylabel(r'Surface density /$\mathrm{number}\;\mathrm{kpc}^{-3}$')
+    ax.set_ylabel(r'Surface density /$\mathrm{number}\;\mathrm{kpc}^{-2}$')
     # ax.set_yscale('log')
     fig.legend()
     path = os.path.join(plotDir, 'overR.pdf')
     fig.tight_layout()
     fig.savefig(path, dpi=300)
     
+    fig, ax = plt.subplots()
+    ax.plot(R, SMstars/LSstars, label='SM / living stars')
+    # ax.plot(R, BHs*1e3/LSstars, label=r'BHs$\cdot 10^3$ / living stars')
+    ax.set_xlabel(r'$R/\mathrm{kpc}$')
+    ax.set_ylabel(r'Surface density ratio')
+    # ax.set_ylim([0, 1.5])
+    fig.legend()
+    path = os.path.join(plotDir, 'ratiosoverR.pdf')
+    fig.tight_layout()
+    fig.savefig(path, dpi=300)
+    # print(SMstars/LSstars)
     
     
 
 def plotFit(G, mask, extra=''):
-    savename = ['logNuSun',  'aR', 'az', 'tau0', 'omegahalf', 'NRG2NSM']
-    titles = [r'$\mathrm{logA}$', r'$a_R$', r'$a_z$', r'$\tau_0$', r'$\omega^{-\frac{1}{2}}$', r'$n_\mathrm{sm}/n_\mathrm{giants}$']
-    unit = [r'', r'$\mathrm{kpc}^{-1}$', r'$\mathrm{kpc}^{-1}$', r'$\mathrm{Gyr}$', r'$\mathrm{Gyr}$', r'']
+    savename = ['logNuSun',  'aR', 'az', 'tau0', 'omegahalf', 'NRG2NSM', 'NRG2NLS', 'SMperLS']
+    titles = [r'$\mathrm{logA}$', r'$a_R$', r'$a_z$', r'$\tau_0$', r'$\omega^{-\frac{1}{2}}$', r'$n_\mathrm{sm}/n_\mathrm{giants}$', r'$n_\mathrm{ls}/n_\mathrm{giants}$', r'$n_\mathrm{sm}/n_\mathrm{living}$']
+    unit = [r'', r'$\mathrm{kpc}^{-1}$', r'$\mathrm{kpc}^{-1}$', r'$\mathrm{Gyr}$', r'$\mathrm{Gyr}$', r'', '', '']
     ageMask = mask*(np.arange(G.shape[0])>=15).reshape(-1,1)
     for i, X in enumerate([np.where(mask, G.logNuSun, np.nan),
                            np.where(mask, G.aR,    np.nan), 
                            np.where(mask, G.az,    np.nan),
                            np.where(ageMask, G.tau0,  np.nan), 
                            np.where(ageMask, G.omega**-0.5, np.nan), 
-                           np.where(mask, G.NRG2NSM, np.nan)]):
+                           np.where(mask, G.NRG2NSM, np.nan), 
+                           np.where(mask, G.NRG2NLS, np.nan), 
+                           np.where(mask, G.NRG2NSM/G.NRG2NLS, np.nan)]):
         fig, ax = plt.subplots()
         image = ax.imshow(X.T, origin='lower', aspect='auto',
                               extent=(G.FeHEdges[0], G.FeHEdges[-1], G.aFeEdges[0], G.aFeEdges[-1]),
@@ -122,15 +235,8 @@ def plotFit(G, mask, extra=''):
 
 
 
-
-
-
-
-
-
-
 class Galaxy:
-    def __init__(self, FeHEdges, aFeEdges, rhoSun, logNuSun, aR, az, tau0, omega, sig_logNuSun, sig_aR, sig_az, sig_tau0, sig_omega, NRG2NSM, data):
+    def __init__(self, FeHEdges, aFeEdges, rhoSun, logNuSun, aR, az, tau0, omega, sig_logNuSun, sig_aR, sig_az, sig_tau0, sig_omega, NRG2NSM, NRG2NLS, data):
         """
         amp etc are arrays with [FeH index, aFe index]
         
@@ -153,6 +259,7 @@ class Galaxy:
         self.sig_tau0 = sig_tau0
         self.sig_omega = sig_omega
         self.NRG2NSM = NRG2NSM
+        self.NRG2NLS = NRG2NLS
         self.data = data
         
         self.shape = self.rhoSun.shape
@@ -187,6 +294,7 @@ class Galaxy:
         sig_tau0 = np.zeros(shape)
         sig_omega = np.zeros(shape)
         NRG2NSM = np.zeros(shape)
+        NRG2NLS = np.zeros(shape)
         data = np.zeros((5, *shape))
         
         FeHWidths = FeHEdges[1:] - FeHEdges[:-1]
@@ -220,16 +328,17 @@ class Galaxy:
                         
                 if data[0,i,j] !=0:
                     if FeHEdges[i]<-0.55: #low Fe
-                        # NRG2SMM[i,j] = myIsochrones.NRG2SMM(isochrones, 7, 0.0001) #uses uniform age 
                         NRG2NSM[i,j] = myIsochrones.NRG2NSM(isochrones, 12, 1) #uses old age to get upper lim 
+                        NRG2NLS[i,j] = myIsochrones.NRG2NLS(isochrones, 12, 1) #uses old age to get upper lim 
                     else:
                         NRG2NSM[i,j] = myIsochrones.NRG2NSM(isochrones, tau0[i,j], omega[i,j]) 
+                        NRG2NLS[i,j] = myIsochrones.NRG2NLS(isochrones, tau0[i,j], omega[i,j]) 
                     
                     rhoSun[i,j] = NRG2NSM[i,j]*np.exp(logNuSun[i,j])/vols[i,j]
                 else:
                     rhoSun[i,j] = 0
                     
-        return cls(FeHEdges, aFeEdges, rhoSun, logNuSun, aR, az, tau0, omega, sig_logNuSun, sig_aR, sig_az, sig_tau0, sig_omega, NRG2NSM, data)
+        return cls(FeHEdges, aFeEdges, rhoSun, logNuSun, aR, az, tau0, omega, sig_logNuSun, sig_aR, sig_az, sig_tau0, sig_omega, NRG2NSM, NRG2NLS, data)
     
     
     def hist(self, R=mySetup.R_Sun, z=mySetup.z_Sun, normalised=False):

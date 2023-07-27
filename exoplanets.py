@@ -307,7 +307,7 @@ plotter(distribution_outer_disk, 'Outer disk', G)
 distribution_inner_disk = G.hist(R=4.5, z=0)
 plotter(distribution_inner_disk, 'Inner disk', G)
 
-distribution_thick_disk = G.hist(R=mySetup.R_Sun, z=4)
+distribution_thick_disk = G.hist(R=mySetup.R_Sun, z=1)
 plotter(distribution_thick_disk, 'Thick disk', G)
 
 distribution_galaxy_average = G.integratedHist(Rlim1=mySetup.minR, Rlim2=mySetup.maxR, zlim=mySetup.maxmodz)
@@ -351,6 +351,19 @@ The Distributions class smooths the binned FeH distribution and contains an ISO 
 I've included it (commented out) but it's probably easier to define your own way
 of mapping the FeH distribution to the exoplanet population. Good luck!
 """
+
+def pmc(FeH):
+    return 0.03*10**(2*FeH)
+    
+R= np.linspace(4,12)
+
+for r in R:
+    starsInBin = G.FeH(G.hist(R=r,z=0))
+    planets = (starsInBin*pmc(G.FeHMidpoints)).sum()
+    stars = starsInBin.sum()
+    print(planets/stars)
+
+
 
 
 

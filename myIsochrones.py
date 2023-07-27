@@ -106,7 +106,7 @@ def NRG2SMM(isogrid, tau0, omega):
     #     raise NotImplementedError('define weighting')
     
     ages = 10**(MH_logAge[:,1]-9)
-    ageWeighting  = np.exp(-(omega/2)*(ages-tau0)**2)
+    ageWeighting = np.exp(-(omega/2)*(ages-tau0)**2)
     ageWeighting/=ageWeighting.sum()
     # gives each isochrone a weight, such that sum of weights is 1
     
