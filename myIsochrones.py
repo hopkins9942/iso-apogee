@@ -21,6 +21,15 @@ def Kroupa(M):
     weights = np.where(M>=0.5, (M/0.5)**-2.3, (M/0.5)**-1.3)
     return weights*1.0308575372519622
 
+def KroupaBD(M):
+    """
+    Returns relative Kroupa number IMF at mass M.
+    Includes Brown dwarfs as used in Sajadian 23
+    """
+    weights = np.where(M>=0.5, (M/0.5)**-2.3, np.where(M<0.08, ((0.08/0.5)**-1.3)*((M/0.08)**-0.7), (M/0.5)**-1.3))
+    return weights*1
+minBDM = 0.01
+
 minMini = 0.09
 maxMini = 5.3535 
 # taken from Kroupa isogrid, used for integrals
