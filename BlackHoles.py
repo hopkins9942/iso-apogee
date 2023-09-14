@@ -41,9 +41,9 @@ rBH = 1.48e-3 # calculated by hand, integrating Kroupa from 0.08 to inf vs 25 to
 def main():
     G = Galaxy.loadFromBins()
     # plotFit(G, G.mask())
-    # totalBHs(G)
-    ageOverR(G)
-    # plotOverR(G)
+    totalBHs(G)
+    # ageOverR(G)
+    plotOverR(G)
     
     
 def totalBHs(G):
@@ -54,6 +54,16 @@ def totalBHs(G):
     # BHcount = (rBH*starcounts).sum() for no metallicity cutoff
 
     print(BHcount)
+    
+def maxCentreVals(G):
+    cv = G.logNuSun + G.aR*mySetup.R_Sun# + np.log(G.NRG2NLS)
+    cv_masked = cv[G.mask()]
+    inOrder = np.sort(cv_masked)
+    print(inOrder)
+    
+    FeHindx, aFeindx = np.where(cv>=inOrder[-3]) # should fetch highest n - plus these outside mask
+    
+    return (G.FeHMidpoints[FeHindx], G.aFeMidpoints[aFeindx])
 
 def ageOverR(G):
     """I measure the SM, LS and RG surface density and mean age at each R,
@@ -171,6 +181,10 @@ def plotOverR(G):
     LSstars = np.zeros(len(R))
     BHs = np.zeros(len(R))
     
+    SMstarsmidplane = np.zeros(len(R)) 
+    LSstarsmidplane = np.zeros(len(R))
+    BHsmidplane = np.zeros(len(R))
+    
     for i, r in enumerate(R):
         SMstarFeHcounts = (G.FeH(G.zintegratedHist(r), G.mask())*G.FeHWidths)
         LSstarFeHcounts = (G.FeH(G.zintegratedHist(r)*G.NRG2NLS/G.NRG2NSM, G.mask())*G.FeHWidths)
@@ -178,12 +192,42 @@ def plotOverR(G):
         LSstars[i] = LSstarFeHcounts.sum() 
         BHs[i] = (SMstarFeHcounts*rBHarray).sum()
         
+        SMstarFeHmidplanecounts = (G.FeH(G.hist(r,0), G.mask())*G.FeHWidths)
+        LSstarFeHmidplanecounts = (G.FeH(G.hist(r,0)*G.NRG2NLS/G.NRG2NSM, G.mask())*G.FeHWidths)
+        SMstarsmidplane[i] = SMstarFeHmidplanecounts.sum() 
+        LSstarsmidplane[i] = LSstarFeHmidplanecounts.sum()
+        BHsmidplane[i] = (SMstarFeHmidplanecounts*rBHarray).sum()
+    
+    print(R)
+    print(BHs)
+    print(BHs[R<8.0])
+    
+    
+    #fits 
+    def fun(x,density):
+        logA, a = x
+        return ((density-np.exp(logA-a*(R[R<8]-8)))**2).sum()
+    
+    LSlogA, LSa = scipy.optimize.minimize(fun, [17,0.25], args=(LSstars[R<8],)).x
+    BHlogA, BHa = scipy.optimize.minimize(fun, [10,0.25], args=(BHs[R<8],)).x
+    LSmidplanelogA, LSmidplanea = scipy.optimize.minimize(fun, [17,0.25], args=(LSstarsmidplane[R<8],)).x
+    BHmidplanelogA, BHmidplanea = scipy.optimize.minimize(fun, [10,0.25], args=(BHsmidplane[R<8],)).x
+    print(LSlogA, BHlogA, 1/LSa, 1/BHa)
+    print(LSmidplanelogA, BHmidplanelogA, 1/LSmidplanea, 1/BHmidplanea)
+    
+    def model(logA,a):
+        return np.exp(logA-a*(R-8))
+    
+    
+    
     fig, ax = plt.subplots()
-    ax.plot(R, LSstars, label='Living stars')
-    ax.plot(R, SMstars, label='SM stars')
-    ax.plot(R, BHs*1e3, label=r'BHs$\cdot 10^3$')
+    ax.plot(R, LSstars*1e-3*1e-6, label='Living stars$\cdot 10^{-3}$')
+    ax.plot(R, model(LSlogA,LSa)*1e-3*1e-6, label='LS model')
+    # ax.plot(R, SMstars*1e-6, label='SM stars')
+    ax.plot(R, BHs*1e-6, label=r'BHs')
+    ax.plot(R, model(BHlogA,BHa)*1e-6, label=r'BH model')
     ax.set_xlabel(r'$R/\mathrm{kpc}$')
-    ax.set_ylabel(r'Surface density /$\mathrm{number}\;\mathrm{kpc}^{-2}$')
+    ax.set_ylabel(r'Surface density /$\mathrm{number}\;\mathrm{pc}^{-2}$')
     # ax.set_yscale('log')
     fig.legend()
     path = os.path.join(plotDir, 'overR.pdf')
@@ -191,8 +235,14 @@ def plotOverR(G):
     fig.savefig(path, dpi=300)
     
     fig, ax = plt.subplots()
-    ax.plot(R, SMstars/LSstars, label='SM / living stars')
-    # ax.plot(R, BHs*1e3/LSstars, label=r'BHs$\cdot 10^3$ / living stars')
+    ax.plot(R, (LSstars-model(LSlogA,LSa))*1e-3*1e-6, label='Lstars')
+    ax.plot(R, (BHs-model(BHlogA,BHa))*1e-6, label=r'BHs')
+    ax.set_title('fit diff')
+    fig.legend()
+    
+    fig, ax = plt.subplots()
+    # ax.plot(R, SMstars/LSstars, label='SM / living stars')
+    ax.plot(R, BHs*1e3/LSstars, label=r'BHs$\cdot 10^3$ / living stars')
     ax.set_xlabel(r'$R/\mathrm{kpc}$')
     ax.set_ylabel(r'Surface density ratio')
     # ax.set_ylim([0, 1.5])
@@ -203,7 +253,65 @@ def plotOverR(G):
     # print(SMstars/LSstars)
     
     
-
+    fig, ax = plt.subplots()
+    # ax.plot(R, SMstarsmidplane*10**-3*1e-9, label='SM stars/1000')
+    ax.plot(R, LSstarsmidplane*10**-3*1e-9, label='LS stars/1000')
+    ax.plot(R, model(LSmidplanelogA,LSmidplanea)*1e-3*1e-9, label='LS model')
+    ax.plot(R, BHsmidplane*1e-9, label=r'BHs')
+    ax.plot(R, model(BHmidplanelogA,BHmidplanea)*1e-9, label='BH model')
+    ax.plot(R, LSstarsmidplane*BHs/LSstars*1e-9, label=r'upper limit BHs, LS')
+    # ax.plot(R, model(LSlogA,LSa)*1e-3*1e-6, label='LS model')
+    # ax.plot(R, SMstarsmidplane*BHs/SMstars*1e-9, label=r'upper limit BHs, SM') #looks identical to above
+    ax.set_xlabel(r'$R/\mathrm{kpc}$')
+    ax.set_ylabel(r'midplane volume density /$\mathrm{number}\;\mathrm{pc}^{-3}$')
+    # ax.set_ylim([0, 1.5])
+    ax.set_title('midplane density')
+    fig.legend()
+    path = os.path.join(plotDir, 'midplane.pdf')
+    fig.tight_layout()
+    fig.savefig(path, dpi=300)
+    # print(SMstars/LSstars)
+    
+    fig, ax = plt.subplots()
+    ax.plot(R, (LSstarsmidplane-model(LSmidplanelogA,LSmidplanea))*1e-3*1e-9, label='Lstars')
+    ax.plot(R, (BHsmidplane-model(BHmidplanelogA,BHmidplanea))*1e-9, label=r'BHs')
+    ax.set_title('midplane fit diff')
+    fig.legend()
+    
+    
+    fig, ax = plt.subplots()
+    # ax.plot(R, SMstars/LSstars, label='SM / living stars')
+    ax.plot(R, BHsmidplane*1e3/LSstarsmidplane, label=r'BHs$\cdot 10^3$ / living stars')
+    ax.plot(R, BHsmidplane*1e3/SMstarsmidplane, label=r'BHs$\cdot 10^3$ / SM stars')
+    ax.set_xlabel(r'$R/\mathrm{kpc}$')
+    ax.set_ylabel(r'midplane volume density ratio')
+    # ax.set_ylim([0, 1.5])
+    ax.set_title('midplane density ratios')
+    fig.legend()
+    path = os.path.join(plotDir, 'midplaneratiosoverR.pdf')
+    fig.tight_layout()
+    fig.savefig(path, dpi=300)
+    # print(SMstars/LSstars)
+    
+    fig, ax = plt.subplots()
+    # ax.plot(R, SMstars/LSstars, label='SM / living stars')
+    ax.plot(R, BHsmidplane*1e3/LSstarsmidplane, label=r'midplane volume density')
+    ax.plot(R, BHs*1e3/SMstars, label=r'surface density')
+    ax.set_xlabel(r'$R/\mathrm{kpc}$')
+    ax.set_ylabel(r'BH*1000/LS stars')
+    # ax.set_ylim([0, 1.5])
+    ax.set_title('ratio comparison')
+    fig.legend()
+    path = os.path.join(plotDir, 'ratiocomparison.pdf')
+    fig.tight_layout()
+    fig.savefig(path, dpi=300)
+    # print(SMstars/LSstars)
+    
+    
+    
+    
+    
+    
 def plotFit(G, mask, extra=''):
     savename = ['logNuSun',  'aR', 'az', 'tau0', 'omegahalf', 'NRG2NSM', 'NRG2NLS', 'SMperLS']
     titles = [r'$\mathrm{logA}$', r'$a_R$', r'$a_z$', r'$\tau_0$', r'$\omega^{-\frac{1}{2}}$', r'$n_\mathrm{sm}/n_\mathrm{giants}$', r'$n_\mathrm{ls}/n_\mathrm{giants}$', r'$n_\mathrm{sm}/n_\mathrm{living}$']
