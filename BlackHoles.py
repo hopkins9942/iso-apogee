@@ -30,8 +30,8 @@ colourPalette = [ 'goldenrod','darkslateblue', 'teal', 'red']
 plt.rcParams.update({
     "text.usetex": True})
 
-plotDir = r'D:\Moved folders\OneDrive\OneDrive\Documents\Code\APOGEE\plots'
-# plotDir = f'/Users/hopkinsm/APOGEE/plots/BlackHoles/'
+# plotDir = r'D:\Moved folders\OneDrive\OneDrive\Documents\Code\APOGEE\plots'
+plotDir = f'/Users/hopkinsm/APOGEE/plots/BlackHoles/'
 #f'/Users/hopkinsm/Documents/APOGEE/plots/{sha}/'
 #plotDir = '/home/hopkinsl/Documents/APOGEE/plots'
 os.makedirs(plotDir, exist_ok=True)
@@ -45,19 +45,19 @@ def main():
     G = Galaxy.loadFromBins()
     
     # plotFit(G, G.mask())
-    totalBHs(G)
+    # totalBHs(G)
     # ageOverR(G)
-    plotOverR(G)
-    
-    # plotmidplane(G)
     # plotOverR(G)
+    
+    plotmidplane(G)
+    plotOverR(G)
     # print(F1(G))
     # KSdiff(G, 20)
     
 def totalBHs(G):
     rBHarray = np.where(G.FeHMidpoints<0.0, rBH, 0.0)
-    starcounts = G.FeH(G.integratedHist(Rlim1=0), G.mask())*G.FeHWidths 
-    # starcounts = G.FeH(G.hist(), G.mask())*G.FeHWidths # aroudnSun - per kpc3?
+    # starcounts = G.FeH(G.integratedHist(Rlim1=0), G.mask())*G.FeHWidths 
+    starcounts = G.FeH(G.hist(), G.mask())*G.FeHWidths # aroudnSun - per kpc3?
     
     BHcount = (rBHarray*starcounts).sum()
     # BHcount = (rBH*starcounts).sum() for no metallicity cutoff
@@ -232,28 +232,31 @@ def plotmidplane(G):
         
         
     fig, ax = plt.subplots()
-    ax.plot(R, LSstars, label='Living stars')
-    ax.plot(R, SMstars, label='SM stars')
-    ax.plot(R, BHs*1e3, label=r'BHs$\cdot 10^3$')
+    ax.plot(R[R>3.95], LSstars[R>3.95]*1e-9, 'C2', label='Living stars')
+    ax.plot(R[R<4], LSstars[R<4]*1e-9, '--C2')
+    # ax.plot(R, SMstars, label='SM stars')
+    ax.plot(R[R>3.95], BHs[R>3.95]*1e3*1e-9, 'k', label=r'Black holes$\,\cdot 10^3$')
+    ax.plot(R[R<4], BHs[R<4]*1e3*1e-9, '--k')
     ax.set_xlabel(r'$R/\mathrm{kpc}$')
-    ax.set_ylabel(r'midplane density /$\mathrm{number}\;\mathrm{kpc}^{-3}$')
+    ax.set_ylabel(r'Midplane volume density /$\;\mathrm{number}\;\mathrm{pc}^{-3}$')
     # ax.set_yscale('log')
-    fig.legend()
+    ax.legend()
     path = os.path.join(plotDir, 'midoverR.pdf')
     fig.tight_layout()
-    fig.savefig(path, dpi=300)
+    fig.savefig(path, dpi=100)
     
     fig, ax = plt.subplots()
-    ax.plot(R[R>3.95], BHs[R>3.95]*1e3/LSstars[R>3.95], 'C0', label='BHs/ 1000 living stars')
-    ax.plot(R[R<4], BHs[R<4]*1e3/LSstars[R<4], '--C0')
+    ax.plot(R[R>3.95], BHs[R>3.95]/LSstars[R>3.95], 'C3', label='Black holes / living stars')
+    ax.plot(R[R<4], BHs[R<4]/LSstars[R<4], '--C3')
     # ax.plot(R, BHs*1e3/LSstars, label=r'BHs$\cdot 10^3$ / living stars')
     ax.set_xlabel(r'$R/\mathrm{kpc}$')
-    ax.set_ylabel(r'volume density ratio')
-    ax.set_ylim([0, 1.5])
-    fig.legend()
+    ax.set_ylabel(r'Midplane volume density ratio')
+    ax.set_ylim([0, 1.5e-3])
+    ax.ticklabel_format(axis='y',scilimits=(0,0))
+    ax.legend()
     path = os.path.join(plotDir, 'midratiosoverR.pdf')
     fig.tight_layout()
-    fig.savefig(path, dpi=300)
+    fig.savefig(path, dpi=100)
     # print(SMstars/LSstars)
     
 def plotOverR(G):
@@ -275,32 +278,34 @@ def plotOverR(G):
         
         
     fig, ax = plt.subplots()
-    ax.plot(R[R>3.95], LSstars[R>3.95], 'C0', label='Living stars')
-    ax.plot(R[R<4], LSstars[R<4], '--C0')
-    ax.plot(R[R>3.95], SMstars[R>3.95],'C1', label='SM stars')
-    ax.plot(R[R<4], SMstars[R<4], '--C1')
-    ax.plot(R[R>3.95], BHs[R>3.95]*1e3, 'C2', label=r'BHs$\cdot 10^3$')
-    ax.plot(R[R<4], BHs[R<4]*1e3, '--C2')
+    ax.plot(R[R>3.95], LSstars[R>3.95]*1e-6, 'C2', label='Living stars')
+    # ax.plot(R[R<4], LSstars[R<4], '--C2')
+    ax.plot(R[R>3.95], SMstars[R>3.95]*1e-6,'C0', label='Sine morte stars')
+    # ax.plot(R[R<4], SMstars[R<4], '--C0')
+    ax.plot(R[R>3.95], BHs[R>3.95]*1e3*1e-6, 'k', label=r'Black holes$\,\cdot 10^3$')
+    # ax.plot(R[R<4], BHs[R<4]*1e3, '--C1')
     ax.set_xlabel(r'$R/\mathrm{kpc}$')
-    ax.set_ylabel(r'Surface density /$\mathrm{number}\;\mathrm{kpc}^{-2}$')
+    ax.set_ylabel(r'Surface density /$\;\mathrm{number}\;\mathrm{pc}^{-2}$')
     # ax.set_yscale('log')
-    fig.legend()
+    ax.legend()
     path = os.path.join(plotDir, 'overR.pdf')
     fig.tight_layout()
-    fig.savefig(path, dpi=300)
+    fig.savefig(path, dpi=100)
     
     fig, ax = plt.subplots()
-    ax.plot(R[R>3.95], BHs[R>3.95]*1e3/LSstars[R>3.95], 'C0', label='BHs/ 1000 living stars')
-    ax.plot(R[R<4], BHs[R<4]*1e3/LSstars[R<4], '--C0')
-    # ax.plot(R, BHs*1e3/LSstars, label=r'BHs$\cdot 10^3$ / living stars')
+    ax.plot(R[R>3.95], BHs[R>3.95]/LSstars[R>3.95], 'C3', label='Black holes / living stars')
+    # ax.plot(R[R<4], BHs[R<4]*1e3/LSstars[R<4], '--C3')
+    # ax.plot(R[R>3.95], SMstars[R>3.95]/LSstars[R>3.95], 'C1', label=r'SM / living stars')
     ax.set_xlabel(r'$R/\mathrm{kpc}$')
     ax.set_ylabel(r'Surface density ratio')
-    ax.set_ylim([0, 1.5])
-    fig.legend()
+    ax.set_ylim([0, 1.5e-3])
+    ax.ticklabel_format(axis='y',scilimits=(0,0))
+    ax.legend()
     path = os.path.join(plotDir, 'ratiosoverR.pdf')
     fig.tight_layout()
-    fig.savefig(path, dpi=300)
-    # print(SMstars/LSstars)
+    fig.savefig(path, dpi=100)
+    print(SMstars/LSstars)
+    
 
 def KSdiff(G,N):
     """ finds how many draws from BH ZINTEGRATED dist needed to get 5% KS test to stellar dist
