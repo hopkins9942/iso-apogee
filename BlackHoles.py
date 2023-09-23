@@ -17,7 +17,7 @@ import mySetup
 import myIsochrones
 
 
-# For black holes letter
+# For black holes paper
 
 
 cmap0 = mpl.colormaps['Blues']
@@ -25,13 +25,14 @@ cmap01 = mpl.colormaps['Purples']
 cmap1 = mpl.colormaps['Greys']#mpl.colormaps['Blues']
 cmap2 = mpl.colormaps['hsv']
 # colourPalette = mpl.colormaps['tab10'](np.linspace(0.05, 0.95, 10))
-colourPalette = [ 'goldenrod','darkslateblue', 'teal', 'red']
+colours = ['darkseagreen', 'goldenrod', 'teal', 'crimson']
 
 plt.rcParams.update({
     "text.usetex": True})
+# plt.rcParams['font.family'] = 'serif'
 
-# plotDir = r'D:\Moved folders\OneDrive\OneDrive\Documents\Code\APOGEE\plots'
-plotDir = f'/Users/hopkinsm/APOGEE/plots/BlackHoles/'
+plotDir = r'D:\Moved folders\OneDrive\OneDrive\Documents\Code\APOGEE\plots'
+# plotDir = f'/Users/hopkinsm/APOGEE/plots/BlackHoles/'
 #f'/Users/hopkinsm/Documents/APOGEE/plots/{sha}/'
 #plotDir = '/home/hopkinsl/Documents/APOGEE/plots'
 os.makedirs(plotDir, exist_ok=True)
@@ -47,15 +48,13 @@ def main():
     # plotFit(G, G.mask())
     # totalBHs(G)
     # ageOverR(G)
-    # plotOverR(G)
+    plotOverR(G)
+    plotmidplane(G)
+    # print(F1(G))
     
-    # plotmidplane(G)
-    # plotOverR(G)
-    # plotTriangle(G)
-    print(F1(G))
-    # p = KSdiff(G, 100)
+    # p = KSdiff(G, 60)
     # fig, ax = plt.subplots()
-    # ax.hist(p, bins=np.linspace(0,0.2, 20))
+    # ax.hist(p, bins=np.linspace(0,0.5, 21))#p curve
     # ax.axvline(0.05, ls='--', c='k')
     # print(np.count_nonzero(p<0.05)/len(p), p.mean(), p.std())
     
@@ -143,7 +142,7 @@ def ageOverR(G):
     ax.set_ylabel(r'rg2_')
     # path = os.path.join(plotDir, '.pdf')
     # fig.tight_layout()
-    # fig.savefig(path, dpi=300)
+    # fig.savefig(path, dpi=100)
     
     fig, ax = plt.subplots()
     ax.plot(R, meanTau0)
@@ -151,7 +150,7 @@ def ageOverR(G):
     ax.set_ylabel(r'mean tau0 / Gyr')
     path = os.path.join(plotDir, 'tau0overR.pdf')
     fig.tight_layout()
-    fig.savefig(path, dpi=300)
+    fig.savefig(path, dpi=100)
     
     fig,ax = plt.subplots()
     ax.imshow(ageDist.T, origin='lower',
@@ -166,7 +165,7 @@ def ageOverR(G):
     fig.legend()
     path = os.path.join(plotDir, 'rg2smOverR.pdf')
     fig.tight_layout()
-    fig.savefig(path, dpi=300)
+    fig.savefig(path, dpi=100)
     
     fig, ax = plt.subplots()
     ax.plot(R, LSstars/RGstars, label='full measured')
@@ -176,7 +175,7 @@ def ageOverR(G):
     fig.legend()
     path = os.path.join(plotDir, 'rg2lsOverR.pdf')
     fig.tight_layout()
-    fig.savefig(path, dpi=300)
+    fig.savefig(path, dpi=100)
     
     fig, ax = plt.subplots()
     ax.plot(R, SMstars/LSstars, label='full measured')
@@ -186,7 +185,7 @@ def ageOverR(G):
     fig.legend()
     path = os.path.join(plotDir, 'ls2smOverR.pdf')
     fig.tight_layout()
-    fig.savefig(path, dpi=300)
+    fig.savefig(path, dpi=100)
     
     print(rg2ls/rg2sm)
     
@@ -201,33 +200,26 @@ def F1(G):
     
     # rBHarray = np.where(G.FeHMidpoints<0.0, rBH, 0.0)
     
-    surSM = np.zeros(len(R))
-    surLS = np.zeros(len(R))
-    surBH = np.zeros(len(R))
     volSM = np.zeros(len(R))
     volLS = np.zeros(len(R))
     volBH = np.zeros(len(R))
     
     for i in range(len(R)):
-        surSM[i], surLS[i], surBH[i] = countsAtR(G,R[i])
-        volSM[i], volLS[i], volBH[i] = countsAtR(G,R[i], volume=True)
-    
-    adj_volBH = volLS*surBH/surLS
-    
+        volSM[i], volLS[i], volBH[i] = countsAtR(G,R[i], volume=True)    
         
     x = np.linspace(0,1,N)
     x = (x[:-1]+x[1:])/2
     
-    averageBHmass = 10
+    averageBHmass = 5
     
-    F1 = (averageBHmass/myIsochrones.meanMini)*(np.sum(adj_volBH*x*(1-x))/np.sum(volLS*x*(1-x)))
+    F1 = (averageBHmass/myIsochrones.meanMini)*(np.sum(volBH*x*(1-x))/np.sum(volLS*x*(1-x)))
     
     return F1
     
 
-def countsAtR(G,R, volume=False):
+def countsAtR(G,R, volume=False, co=0):
     
-    rBHarray = np.where(G.FeHMidpoints<0.0, rBH, 0.0)
+    rBHarray = np.where(G.FeHMidpoints<co, rBH, 0.0)
     
     if volume:
         SMFeHcounts = (G.FeH(G.hist(R), G.mask())*G.FeHWidths)
@@ -242,39 +234,40 @@ def countsAtR(G,R, volume=False):
     
     return SM,LS,BH
 
-def plotmidplane(G):
+def plotmidplane(G, co=0.0, selectionEffect=False):
     
-    R = np.linspace(0,12,76)
+    R = np.linspace(0,mySetup.R_sun,101)
     R = (R[:-1]+R[1:])/2
     
     # rBHarray = np.where(G.FeHMidpoints<0.0, rBH, 0.0)
     
-    surSM = np.zeros(len(R))
-    surLS = np.zeros(len(R))
-    surBH = np.zeros(len(R))
+    # surSM = np.zeros(len(R))
+    # surLS = np.zeros(len(R))
+    # surBH = np.zeros(len(R))
     volSM = np.zeros(len(R))
     volLS = np.zeros(len(R))
     volBH = np.zeros(len(R))
     
     for i in range(len(R)):
-        surSM[i], surLS[i], surBH[i] = countsAtR(G,R[i])
-        volSM[i], volLS[i], volBH[i] = countsAtR(G,R[i], volume=True)
+        # surSM[i], surLS[i], surBH[i] = countsAtR(G,R[i])
+        volSM[i], volLS[i], volBH[i] = countsAtR(G,R[i], volume=True, co=co)
+        
     
-    LSadjusted_volBH = volLS*surBH/surLS
-    SMadjusted_volBH = volSM*surBH/surSM
+    # LSadjusted_volBH = volLS*surBH/surLS
+    # SMadjusted_volBH = volSM*surBH/surSM
         
     fig, ax = plt.subplots()
-    ax.plot(R[R>3.95], volLS[R>3.95]*1e-9, label='Living stars')
-    ax.plot(R[R<4], volLS[R<4]*1e-9, '--')
+    ax.plot(R[R>3.99], volLS[R>3.99]*1e-9, color=colours[1], label='Living stars')
+    ax.plot(R[R<4.01], volLS[R<4.01]*1e-9, linestyle='dashed', color=colours[1])
     # ax.plot(R, SMstars, label='SM stars')
-    ax.plot(R[R>3.95], volBH[R>3.95]*1e3*1e-9, label=r'vol Black holes$\,\cdot 10^3$')
-    ax.plot(R[R<4], volBH[R<4]*1e3*1e-9, '--')
-    ax.plot(R[R>3.95], LSadjusted_volBH[R>3.95]*1e3*1e-9, label=r'LSadj Black holes$\,\cdot 10^3$')
-    ax.plot(R[R<4], LSadjusted_volBH[R<4]*1e3*1e-9, '--')
-    ax.plot(R[R>3.95], SMadjusted_volBH[R>3.95]*1e3*1e-9, label=r'SMadj Black holes$\,\cdot 10^3$')
-    ax.plot(R[R<4], SMadjusted_volBH[R<4]*1e3*1e-9, '--')
+    ax.plot(R[R>3.99], volBH[R>3.99]*1e3*1e-9, color=colours[2], label=r'Black holes$\,\cdot 10^3$')
+    ax.plot(R[R<4.01], volBH[R<4.01]*1e3*1e-9, linestyle='dashed', color=colours[2])
+    # ax.plot(R[R>3.95], LSadjusted_volBH[R>3.95]*1e3*1e-9, label=r'LSadj Black holes$\,\cdot 10^3$')
+    # ax.plot(R[R<4], LSadjusted_volBH[R<4]*1e3*1e-9, linestyle='dashed')
+    # ax.plot(R[R>3.95], SMadjusted_volBH[R>3.95]*1e3*1e-9, label=r'SMadj Black holes$\,\cdot 10^3$')
+    # ax.plot(R[R<4], SMadjusted_volBH[R<4]*1e3*1e-9, linestyle='dashed')
     ax.set_xlabel(r'$R/\mathrm{kpc}$')
-    ax.set_ylabel(r'Midplane volume density /$\;\mathrm{number}\;\mathrm{pc}^{-3}$')
+    ax.set_ylabel(r'Volume density /$\;\mathrm{number}\;\mathrm{pc}^{-3}$')
     # ax.set_yscale('log')
     ax.legend()
     path = os.path.join(plotDir, 'midoverR.pdf')
@@ -282,15 +275,15 @@ def plotmidplane(G):
     fig.savefig(path, dpi=100)
     
     fig, ax = plt.subplots()
-    ax.plot(R[R>3.95], volBH[R>3.95]/volLS[R>3.95], label='Black holes / living stars')
-    ax.plot(R[R<4], volBH[R<4]/volLS[R<4], '--')
-    ax.plot(R[R>3.95], SMadjusted_volBH[R>3.95]/volLS[R>3.95], label='SMadj Black holes / living stars')
-    ax.plot(R[R<4], SMadjusted_volBH[R<4]/volLS[R<4])
-    ax.plot(R[R>3.95], LSadjusted_volBH[R>3.95]/volLS[R>3.95], label='SMadj Black holes / SM stars')
-    ax.plot(R[R<4], LSadjusted_volBH[R<4]/volLS[R<4])
+    ax.plot(R[R>3.99], volBH[R>3.99]/volLS[R>3.99], color=colours[3], label='Black holes / living stars')
+    ax.plot(R[R<4.01], volBH[R<4.01]/volLS[R<4.01], color=colours[3], linestyle='dashed')
+    # ax.plot(R[R>3.95], SMadjusted_volBH[R>3.95]/volLS[R>3.95], label='SMadj Black holes / living stars')
+    # ax.plot(R[R<4], SMadjusted_volBH[R<4]/volLS[R<4])
+    # ax.plot(R[R>3.95], LSadjusted_volBH[R>3.95]/volLS[R>3.95], label='SMadj Black holes / SM stars')
+    # ax.plot(R[R<4], LSadjusted_volBH[R<4]/volLS[R<4])
     ax.set_xlabel(r'$R/\mathrm{kpc}$')
     ax.set_ylabel(r'Midplane volume density ratio')
-    ax.set_ylim([0, 1.5e-3])
+    ax.set_ylim([0, 1.0e-3])
     ax.ticklabel_format(axis='y',scilimits=(0,0))
     ax.legend()
     path = os.path.join(plotDir, 'midratiosoverR.pdf')
@@ -299,35 +292,25 @@ def plotmidplane(G):
     # print(SMstars/LSstars)
     
 def plotOverR(G):
-    R = np.linspace(0,12,51)
+    R = np.linspace(4,12,101)
     R = (R[:-1]+R[1:])/2
+        
+    surSM = np.zeros(len(R))
+    surLS = np.zeros(len(R))
+    surBH = np.zeros(len(R))
     
-    rBHarray = np.where(G.FeHMidpoints<0.0, rBH, 0.0)
-    
-    SMstars = np.zeros(len(R))
-    LSstars = np.zeros(len(R))
-    BHs = np.zeros(len(R))
-    
-    for i, r in enumerate(R):
-        SMstarFeHcounts = (G.FeH(G.zintegratedHist(r), G.mask())*G.FeHWidths)
-        LSstarFeHcounts = (G.FeH(G.zintegratedHist(r)*G.NRG2NLS/G.NRG2NSM, G.mask())*G.FeHWidths)
-        volSMstarFeHcounts = (G.FeH(G.hist(r), G.mask())*G.FeHWidths)
-        volLSstarFeHcounts = (G.FeH(G.hist(r)*G.NRG2NLS/G.NRG2NSM, G.mask())*G.FeHWidths)
-        SMstars[i] = SMstarFeHcounts.sum() 
-        LSstars[i] = LSstarFeHcounts.sum() 
-        BHs[i] = (SMstarFeHcounts*rBHarray).sum()
-        SMstars[i] = SMstarFeHcounts.sum() 
-        LSstars[i] = LSstarFeHcounts.sum() 
-        BHs[i] = (SMstarFeHcounts*rBHarray).sum()
+    for i in range(len(R)):
+        surSM[i], surLS[i], surBH[i] = countsAtR(G,R[i])
+        
         
         
     fig, ax = plt.subplots()
-    ax.plot(R[R>3.95], LSstars[R>3.95]*1e-6, 'C2', label='Living stars')
-    # ax.plot(R[R<4], LSstars[R<4], '--C2')
-    ax.plot(R[R>3.95], SMstars[R>3.95]*1e-6,'C0', label='Sine morte stars')
-    # ax.plot(R[R<4], SMstars[R<4], '--C0')
-    ax.plot(R[R>3.95], BHs[R>3.95]*1e3*1e-6, 'k', label=r'Black holes$\,\cdot 10^3$')
-    # ax.plot(R[R<4], BHs[R<4]*1e3, '--C1')
+    ax.plot(R[R>3.95], surSM[R>3.95]*1e-6, color=colours[0], label='Sine morte stars')
+    # ax.plot(R[R<4], surSM[R<4], '--C0')
+    ax.plot(R[R>3.95], surLS[R>3.95]*1e-6, color=colours[1], label='Living stars')
+    # ax.plot(R[R<4], surLS[R<4], '--C2')
+    ax.plot(R[R>3.95], surBH[R>3.95]*1e3*1e-6, color=colours[2], label=r'Black holes$\,\cdot 10^3$')
+    # ax.plot(R[R<4], surBH[R<4]*1e3, '--C1')
     ax.set_xlabel(r'$R/\mathrm{kpc}$')
     ax.set_ylabel(r'Surface density /$\;\mathrm{number}\;\mathrm{pc}^{-2}$')
     # ax.set_yscale('log')
@@ -337,9 +320,9 @@ def plotOverR(G):
     fig.savefig(path, dpi=100)
     
     fig, ax = plt.subplots()
-    ax.plot(R[R>3.95], BHs[R>3.95]/LSstars[R>3.95], 'C3', label='Black holes / living stars')
-    # ax.plot(R[R<4], BHs[R<4]*1e3/LSstars[R<4], '--C3')
-    # ax.plot(R[R>3.95], SMstars[R>3.95]/LSstars[R>3.95], 'C1', label=r'SM / living stars')
+    ax.plot(R[R>3.95], surBH[R>3.95]/surLS[R>3.95], color=colours[3], label='Black holes / living stars')
+    # ax.plot(R[R<4], surBH[R<4]*1e3/surLS[R<4], '--C3')
+    # ax.plot(R[R>3.95], surSM[R>3.95]/surLS[R>3.95], 'C1', label=r'SM / living stars')
     ax.set_xlabel(r'$R/\mathrm{kpc}$')
     ax.set_ylabel(r'Surface density ratio')
     ax.set_ylim([0, 1.5e-3])
@@ -348,7 +331,7 @@ def plotOverR(G):
     path = os.path.join(plotDir, 'ratiosoverR.pdf')
     fig.tight_layout()
     fig.savefig(path, dpi=100)
-    print(SMstars/LSstars)
+    print(surSM/surLS)
     
 def plotTriangle(G):
     """bulge fields extend down to -8 degrees latitude, a kpc away from midplane
@@ -404,45 +387,36 @@ def plotTriangle(G):
     print(SMstars/LSstars)
     
     
-def KSdiff(G,N):
-    """ finds how many draws from BH triangle dist needed to get 5% KS test to stellar dist
+def KSdiff(G,N, co=0.0):
+    """ finds how many draws from BH midplane dist needed to get 5% KS test to stellar dist
     
     Note R is diffed here so values between posts, taken as average when integrated between posts.
     LSstars and BHs are values between posts, LSdist interpolates, 
     so cumulative sums are evalued at posts using estimations between posts
     first and last post assumed 0 and 1
     
+    23/09/23 - detection probability has additional R(R_0 - R) selection effect
     """
     
     undiffedR = np.linspace(0,mySetup.R_Sun,51)
     R = (undiffedR[:-1]+undiffedR[1:])/2
     dR= R[1]-R[0]
-    rBHarray = np.where(G.FeHMidpoints<0.0, rBH, 0.0)
     
-    SMstars = np.zeros(len(R))
-    LSstars = np.zeros(len(R))
-    BHs = np.zeros(len(R))
-
-    #midplane
-    for i, r in enumerate(R):
-        SMstarFeHcounts = (G.FeH(G.hist(r), G.mask())*G.FeHWidths)
-        LSstarFeHcounts = (G.FeH(G.hist(r)*G.NRG2NLS/G.NRG2NSM, G.mask())*G.FeHWidths)
-        SMstars[i] = SMstarFeHcounts.sum() 
-        LSstars[i] = LSstarFeHcounts.sum() 
-        BHs[i] = (SMstarFeHcounts*rBHarray).sum()
     
-    # triangle
-    # z = (mySetup.R_Sun-R)*np.tan(8*np.pi/180)
-    # for i, r in enumerate(R):
-    #     SMstarFeHcounts = (G.FeH(G.zintegratedHist(r, z[i]), G.mask())*G.FeHWidths)
-    #     LSstarFeHcounts = (G.FeH(G.zintegratedHist(r, z[i])*G.NRG2NLS/G.NRG2NSM, G.mask())*G.FeHWidths)
-    #     SMstars[i] = SMstarFeHcounts.sum()/z[i]
-    #     LSstars[i] = LSstarFeHcounts.sum()/z[i]
-    #     BHs[i] = (SMstarFeHcounts*rBHarray).sum()/z[i]
+    volSM = np.zeros(len(R))
+    volLS = np.zeros(len(R))
+    volBH = np.zeros(len(R))
     
-    BHcs = np.append([0], np.cumsum(BHs))
+    for i in range(len(R)):
+        volSM[i], volLS[i], volBH[i] = countsAtR(G,R[i], volume=True, co=co)
+    
+    volSM *= R*(mySetup.R_Sun)
+    volLS *= R*(mySetup.R_Sun)
+    volBH *= R*(mySetup.R_Sun)
+    
+    BHcs = np.append([0], np.cumsum(volBH))
     BHcs/=BHcs[-1]
-    LScs = np.append([0], np.cumsum(LSstars))
+    LScs = np.append([0], np.cumsum(volLS))
     LScs/=LScs[-1]
     # print(LScs)
     
@@ -450,19 +424,21 @@ def KSdiff(G,N):
     # since LScs is cumulative sum up to that R, -dR/2 makes distirbution
     #oscillate about correct, not under correct
     
-    # pR = np.linspace(0, mySetup.R_Sun, 100)
-    # fig, ax = plt.subplots()
-    # ax.plot(pR, LSdist(pR))
-    # ax.plot(undiffedR, LScs)
-    # ax.plot(undiffedR, BHcs)
-    # fig, ax = plt.subplots()
-    # ax.plot((pR[:-1]+pR[1:])/2, (LSdist(pR[1:])-LSdist(pR[:-1]))/(pR[1]-pR[0]))
-    # ax.plot(R, (LScs[1:]-LScs[:-1])/dR)
-    # ax.plot(R, (BHcs[1:]-BHcs[:-1])/dR)
+    pR = np.linspace(0, mySetup.R_Sun, 100)
+    fig, ax = plt.subplots()
+    ax.plot(pR, LSdist(pR))
+    ax.plot(undiffedR, LScs)
+    ax.plot(undiffedR, BHcs)
+    # ax.set_title(f'cutoff: {co}')
+    fig, ax = plt.subplots()
+    ax.plot((pR[:-1]+pR[1:])/2, (LSdist(pR[1:])-LSdist(pR[:-1]))/(pR[1]-pR[0]))
+    ax.plot(R, (LScs[1:]-LScs[:-1])/dR)
+    ax.plot(R, (BHcs[1:]-BHcs[:-1])/dR)
+    # ax.set_title(f'cutoff: {co}')
     
     p = np.array([])
     
-    for i in range(1000):
+    for i in range(1000): 
         draws = np.random.uniform(size=N)
         BHRs = R[np.digitize(draws,BHcs)-1]
         p = np.append(p, scipy.stats.kstest(BHRs, LSdist).pvalue)
@@ -495,7 +471,7 @@ def plotFit(G, mask, extra=''):
         # cbar.set_label('' if i==0 else r'$\mathrm{kpc}^{-1}$')
         fig.set_tight_layout(True)
         path = plotDir+'/'+str(extra)+str(savename[i])+'fit.pdf'
-        fig.savefig(path, dpi=300)
+        fig.savefig(path, dpi=100)
 
 
 
