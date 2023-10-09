@@ -48,9 +48,10 @@ def main():
     # plotFit(G, G.mask())
     # totalBHs(G)
     # ageOverR(G)
-    plotOverR(G)
-    plotmidplane(G)
-    plotObs(G)
+    # plotOverR(G)
+    # plotmidplane(G)
+    # plotObs(G)
+    print(PISSfraction(G))
     # print(F1(G))
     
     # p = KSdiff(G, 95)
@@ -234,6 +235,18 @@ def countsAtR(G,R, volume=False, co=0):
     BH = (SMFeHcounts*rBHarray).sum()
     
     return SM,LS,BH
+
+
+def PISSfraction(G):
+    
+    counts = (G.FeH(G.integratedHist(), G.mask())*G.FeHWidths)
+    
+    FeHfrac = np.sum(counts[G.FeHMidpoints<-1.3])/np.sum(counts)
+    
+    return (FeHfrac)
+    
+    
+    
 
 def plotmidplane(G, co=0.0):
     
