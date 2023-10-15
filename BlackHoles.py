@@ -49,9 +49,9 @@ def main():
     # totalBHs(G)
     # ageOverR(G)
     # plotOverR(G)
-    # plotmidplane(G)
+    plotmidplane(G)
     # plotObs(G)
-    print(PISSfraction(G))
+    # print(PISSfraction(G))
     # print(F1(G))
     
     # p = KSdiff(G, 95)
@@ -270,37 +270,41 @@ def plotmidplane(G, co=0.0):
     # LSadjusted_volBH = volLS*surBH/surLS
     # SMadjusted_volBH = volSM*surBH/surSM
         
-    fig, ax = plt.subplots()
-    ax.plot(R[R>3.99], volLS[R>3.99]*1e-9, color=colours[1], label='Living stars')
+    fig, axs = plt.subplots(nrows=2, sharex=True)
+    fig.set_figheight(4.0*1.2)
+    ax=axs[0]
+    ax.plot(R[R>3.99], volLS[R>3.99]*1e-9, color=colours[1], label='Living Stars')
     ax.plot(R[R<4.01], volLS[R<4.01]*1e-9, linestyle='dashed', color=colours[1])
     # ax.plot(R, SMstars, label='SM stars')
-    ax.plot(R[R>3.99], volBH[R>3.99]*1e3*1e-9, color=colours[2], label=r'Black holes$\,\cdot 10^3$')
+    ax.plot(R[R>3.99], volBH[R>3.99]*1e3*1e-9, color=colours[2], label=r'Black Holes$\,\times 10^3$')
     ax.plot(R[R<4.01], volBH[R<4.01]*1e3*1e-9, linestyle='dashed', color=colours[2])
     # ax.plot(R[R>3.95], LSadjusted_volBH[R>3.95]*1e3*1e-9, label=r'LSadj Black holes$\,\cdot 10^3$')
     # ax.plot(R[R<4], LSadjusted_volBH[R<4]*1e3*1e-9, linestyle='dashed')
     # ax.plot(R[R>3.95], SMadjusted_volBH[R>3.95]*1e3*1e-9, label=r'SMadj Black holes$\,\cdot 10^3$')
     # ax.plot(R[R<4], SMadjusted_volBH[R<4]*1e3*1e-9, linestyle='dashed')
-    ax.set_xlabel(r'$R\;/\;\mathrm{kpc}$')
-    ax.set_ylabel(r'Volume density /$\;\mathrm{number}\;\mathrm{pc}^{-3}$')
+    # ax.set_xlabel(r'$R\;/\;\mathrm{kpc}$')
+    ax.set_ylabel(r'Volume Density /$\;\mathrm{pc}^{-3}$')
     # ax.set_yscale('log')
     ax.legend()
     path = os.path.join(plotDir, 'midoverR.pdf')
-    fig.tight_layout()
-    fig.savefig(path, dpi=100)
+    # fig.tight_layout()
+    # fig.savefig(path, dpi=100)
     
-    fig, ax = plt.subplots()
-    ax.plot(R[R>3.99], volBH[R>3.99]/volLS[R>3.99], color=colours[3], label='Black holes / living stars')
-    ax.plot(R[R<4.01], volBH[R<4.01]/volLS[R<4.01], color=colours[3], linestyle='dashed')
+    # fig, ax = plt.subplots()
+    ax=axs[1]
+    ax.plot(R[R>3.99], volBH[R>3.99]*1e3/volLS[R>3.99], color=colours[3], label='Black Holes / Living Stars')
+    ax.plot(R[R<4.01], volBH[R<4.01]*1e3/volLS[R<4.01], color=colours[3], linestyle='dashed')
     # ax.plot(R[R>3.95], SMadjusted_volBH[R>3.95]/volLS[R>3.95], label='SMadj Black holes / living stars')
     # ax.plot(R[R<4], SMadjusted_volBH[R<4]/volLS[R<4])
     # ax.plot(R[R>3.95], LSadjusted_volBH[R>3.95]/volLS[R>3.95], label='SMadj Black holes / SM stars')
     # ax.plot(R[R<4], LSadjusted_volBH[R<4]/volLS[R<4])
     ax.set_xlabel(r'$R\;/\;\mathrm{kpc}$')
-    ax.set_ylabel(r'Midplane volume density ratio')
-    ax.set_ylim([0, 1.0e-3])
-    ax.ticklabel_format(axis='y',scilimits=(0,0))
+    ax.set_ylabel(r'Volume Density Ratio $\times10^3$')
+    ax.set_ylim([0, 1.0])
+    # ax.ticklabel_format(axis='y',scilimits=(0,0))
     ax.legend()
-    path = os.path.join(plotDir, 'midratiosoverR.pdf')
+    # path = os.path.join(plotDir, 'midratiosoverR.pdf')
+    fig.subplots_adjust(hspace=0.1) #makes them adjacent
     fig.tight_layout()
     fig.savefig(path, dpi=100)
     # print(SMstars/LSstars)
@@ -330,10 +334,10 @@ def plotObs(G, co=0.0):
         
     
     fig, ax = plt.subplots()
-    ax.plot(R, volLS, color=colours[1], label='Living stars')
-    ax.plot(R, volBH, color=colours[2], label=r'Black holes')
+    ax.plot(R, volLS, color=colours[1], label='Living Stars')
+    ax.plot(R, volBH, color=colours[2], label=r'Black Holes')
     ax.set_xlabel(r'$R\;/\;\mathrm{kpc}$')
-    ax.set_ylabel(r'Observable distribution /$\;\mathrm{kpc}^{-1}$')
+    ax.set_ylabel(r'Observable Distribution /$\;\mathrm{kpc}^{-1}$')
     # ax.set_yscale('log')
     ax.legend()
     path = os.path.join(plotDir, 'obsoverR.pdf')
@@ -367,35 +371,43 @@ def plotOverR(G):
         surSM[i], surLS[i], surBH[i] = countsAtR(G,R[i])
         
         
-        
-    fig, ax = plt.subplots()
-    ax.plot(R[R>3.95], surSM[R>3.95]*1e-6, color=colours[0], label='Sine morte stars')
+    #mpl default figsize is 6.0 for the width and 4.0 for hight (inches), corresponding to width of a page. Try halfing these for figures I'll put side by side
+    #could try putting both on same plot I'f I'm presenting them like that - do need to adjust aspect ratio
+    #however best thing is probably shared x-axis
+    fig, axs = plt.subplots(nrows=2, sharex=True)
+    fig.set_figheight(4.0*1.2)
+    ax = axs[0]
+    ax.plot(R[R>3.95], surSM[R>3.95]*1e-6, color=colours[0], label='Sine Morte Stars')
     # ax.plot(R[R<4], surSM[R<4], '--C0')
-    ax.plot(R[R>3.95], surLS[R>3.95]*1e-6, color=colours[1], label='Living stars')
+    ax.plot(R[R>3.95], surLS[R>3.95]*1e-6, color=colours[1], label='Living Stars')
     # ax.plot(R[R<4], surLS[R<4], '--C2')
-    ax.plot(R[R>3.95], surBH[R>3.95]*1e3*1e-6, color=colours[2], label=r'Black holes$\,\cdot 10^3$')
+    ax.plot(R[R>3.95], surBH[R>3.95]*1e3*1e-6, color=colours[2], label=r'Black Holes$\,\times 10^3$')
     # ax.plot(R[R<4], surBH[R<4]*1e3, '--C1')
-    ax.set_xlabel(r'$R\;/\;\mathrm{kpc}$')
-    ax.set_ylabel(r'Surface density /$\;\mathrm{number}\;\mathrm{pc}^{-2}$')
+    # ax.set_xlabel(r'$R\;/\;\mathrm{kpc}$')
+    ax.set_ylabel(r'Surface Density /$\;\mathrm{pc}^{-2}$')
     # ax.set_yscale('log')
     ax.legend()
     path = os.path.join(plotDir, 'overR.pdf')
-    fig.tight_layout()
-    fig.savefig(path, dpi=100)
+    # fig.tight_layout()
+    # fig.savefig(path, dpi=100)
     
-    fig, ax = plt.subplots()
-    ax.plot(R[R>3.95], surBH[R>3.95]/surLS[R>3.95], color=colours[3], label='Black holes / living stars')
+    # fig, ax = plt.subplots()
+    ax = axs[1]
+    ax.plot(R[R>3.95], surBH[R>3.95]*1e3/(surLS[R>3.95]), color=colours[3], label='Black Holes / Living Stars')
     # ax.plot(R[R<4], surBH[R<4]*1e3/surLS[R<4], '--C3')
     # ax.plot(R[R>3.95], surSM[R>3.95]/surLS[R>3.95], 'C1', label=r'SM / living stars')
     ax.set_xlabel(r'$R\;/\;\mathrm{kpc}$')
-    ax.set_ylabel(r'Surface density ratio')
-    ax.set_ylim([0, 1.5e-3])
-    ax.ticklabel_format(axis='y',scilimits=(0,0))
+    ax.set_ylabel(r'Surface Density Ratio $\times 10^3$')
+    ax.set_ylim([0, 1.5])
+    # ax.ticklabel_format(axis='y',scilimits=(0,0))
     ax.legend()
-    path = os.path.join(plotDir, 'ratiosoverR.pdf')
+    # path = os.path.join(plotDir, 'ratiosoverR.pdf')
     fig.tight_layout()
+    fig.subplots_adjust(hspace=0.1) #makes them adjacent
     fig.savefig(path, dpi=100)
-    print(surSM/surLS)
+    print(fig.get_size_inches())
+    # print(surSM/surLS)
+    
     
 def plotTriangle(G):
     """bulge fields extend down to -8 degrees latitude, a kpc away from midplane
