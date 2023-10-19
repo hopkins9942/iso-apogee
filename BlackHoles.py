@@ -31,10 +31,10 @@ plt.rcParams.update({
     "text.usetex": True})
 # plt.rcParams['font.family'] = 'serif'
 
-plotDir = r'D:\Moved folders\OneDrive\OneDrive\Documents\Code\APOGEE\plots'
+# plotDir = r'D:\Moved folders\OneDrive\OneDrive\Documents\Code\APOGEE\plots'
 # plotDir = f'/Users/hopkinsm/APOGEE/plots/BlackHoles/'
 #f'/Users/hopkinsm/Documents/APOGEE/plots/{sha}/'
-#plotDir = '/home/hopkinsl/Documents/APOGEE/plots'
+plotDir = '/home/hopkinsl/APOGEE/plots'
 os.makedirs(plotDir, exist_ok=True)
 
 rBH = 1.48e-3 # calculated by hand, integrating Kroupa from 0.08 to inf vs 25 to inf
@@ -49,10 +49,10 @@ def main():
     # totalBHs(G)
     # ageOverR(G)
     # plotOverR(G)
-    plotmidplane(G)
+    # plotmidplane(G)
     # plotObs(G)
     # print(PISSfraction(G))
-    # print(F1(G))
+    print(F1(G))
     
     # p = KSdiff(G, 95)
     # fig, ax = plt.subplots()
@@ -193,8 +193,8 @@ def ageOverR(G):
     
 
 def F1(G):
-    """for now ignored BDs (0.05 fraction error) and midplane and assuming
-    average mass of BH is 10"""
+    """Integrates midplane densities weighted by x*(1-x) optical depth factor
+    """
     
     N = 101
     R = np.linspace(0,mySetup.R_Sun,N)
@@ -212,9 +212,15 @@ def F1(G):
     x = np.linspace(0,1,N)
     x = (x[:-1]+x[1:])/2
     
-    averageBHmass = 10
+    averageBHmass = 20
     
-    F1 = (averageBHmass/myIsochrones.meanMini)*(np.sum(volBH*x*(1-x))/np.sum(volLS*x*(1-x)))
+    averageLensMass = 0.4
+    BDperSM = 0.78 # brown dwarfs per sine morte star
+    # both calculated by hand
+    
+    # F1 = (averageBHmass/myIsochrones.meanMini)*(np.sum(volBH*x*(1-x))/np.sum(volLS*x*(1-x)))
+    F1 = (averageBHmass*np.sum(volBH*x*(1-x)))/(averageLensMass*(np.sum(volLS*x*(1-x)) + BDperSM*np.sum(volSM*x*(1-x))))
+
     
     return F1
     
@@ -275,39 +281,22 @@ def plotmidplane(G, co=0.0):
     ax=axs[0]
     ax.plot(R[R>3.99], volLS[R>3.99]*1e-9, color=colours[1], label='Living Stars')
     ax.plot(R[R<4.01], volLS[R<4.01]*1e-9, linestyle='dashed', color=colours[1])
-    # ax.plot(R, SMstars, label='SM stars')
     ax.plot(R[R>3.99], volBH[R>3.99]*1e3*1e-9, color=colours[2], label=r'Black Holes$\,\times 10^3$')
     ax.plot(R[R<4.01], volBH[R<4.01]*1e3*1e-9, linestyle='dashed', color=colours[2])
-    # ax.plot(R[R>3.95], LSadjusted_volBH[R>3.95]*1e3*1e-9, label=r'LSadj Black holes$\,\cdot 10^3$')
-    # ax.plot(R[R<4], LSadjusted_volBH[R<4]*1e3*1e-9, linestyle='dashed')
-    # ax.plot(R[R>3.95], SMadjusted_volBH[R>3.95]*1e3*1e-9, label=r'SMadj Black holes$\,\cdot 10^3$')
-    # ax.plot(R[R<4], SMadjusted_volBH[R<4]*1e3*1e-9, linestyle='dashed')
-    # ax.set_xlabel(r'$R\;/\;\mathrm{kpc}$')
     ax.set_ylabel(r'Volume Density /$\;\mathrm{pc}^{-3}$')
-    # ax.set_yscale('log')
     ax.legend()
-    path = os.path.join(plotDir, 'midoverR.pdf')
-    # fig.tight_layout()
-    # fig.savefig(path, dpi=100)
     
-    # fig, ax = plt.subplots()
     ax=axs[1]
     ax.plot(R[R>3.99], volBH[R>3.99]*1e3/volLS[R>3.99], color=colours[3], label='Black Holes / Living Stars')
     ax.plot(R[R<4.01], volBH[R<4.01]*1e3/volLS[R<4.01], color=colours[3], linestyle='dashed')
-    # ax.plot(R[R>3.95], SMadjusted_volBH[R>3.95]/volLS[R>3.95], label='SMadj Black holes / living stars')
-    # ax.plot(R[R<4], SMadjusted_volBH[R<4]/volLS[R<4])
-    # ax.plot(R[R>3.95], LSadjusted_volBH[R>3.95]/volLS[R>3.95], label='SMadj Black holes / SM stars')
-    # ax.plot(R[R<4], LSadjusted_volBH[R<4]/volLS[R<4])
     ax.set_xlabel(r'$R\;/\;\mathrm{kpc}$')
     ax.set_ylabel(r'Volume Density Ratio $\times10^3$')
     ax.set_ylim([0, 1.0])
-    # ax.ticklabel_format(axis='y',scilimits=(0,0))
     ax.legend()
-    # path = os.path.join(plotDir, 'midratiosoverR.pdf')
+    path = os.path.join(plotDir, 'midoverR.pdf')
     fig.subplots_adjust(hspace=0.1) #makes them adjacent
     fig.tight_layout()
     fig.savefig(path, dpi=100)
-    # print(SMstars/LSstars)
     
 
 def plotObs(G, co=0.0):
@@ -380,28 +369,20 @@ def plotOverR(G):
     ax.plot(R[R>3.95], surSM[R>3.95]*1e-6, color=colours[0], label='Sine Morte Stars')
     # ax.plot(R[R<4], surSM[R<4], '--C0')
     ax.plot(R[R>3.95], surLS[R>3.95]*1e-6, color=colours[1], label='Living Stars')
-    # ax.plot(R[R<4], surLS[R<4], '--C2')
+    # ax.plot(R[R<4], surLS[R<4]*1e-6, '--C2')
     ax.plot(R[R>3.95], surBH[R>3.95]*1e3*1e-6, color=colours[2], label=r'Black Holes$\,\times 10^3$')
-    # ax.plot(R[R<4], surBH[R<4]*1e3, '--C1')
-    # ax.set_xlabel(r'$R\;/\;\mathrm{kpc}$')
+    # ax.plot(R[R<4], surBH[R<4]*1e3*1e-6, '--C1')
     ax.set_ylabel(r'Surface Density /$\;\mathrm{pc}^{-2}$')
-    # ax.set_yscale('log')
     ax.legend()
-    path = os.path.join(plotDir, 'overR.pdf')
-    # fig.tight_layout()
-    # fig.savefig(path, dpi=100)
     
-    # fig, ax = plt.subplots()
     ax = axs[1]
     ax.plot(R[R>3.95], surBH[R>3.95]*1e3/(surLS[R>3.95]), color=colours[3], label='Black Holes / Living Stars')
     # ax.plot(R[R<4], surBH[R<4]*1e3/surLS[R<4], '--C3')
-    # ax.plot(R[R>3.95], surSM[R>3.95]/surLS[R>3.95], 'C1', label=r'SM / living stars')
     ax.set_xlabel(r'$R\;/\;\mathrm{kpc}$')
     ax.set_ylabel(r'Surface Density Ratio $\times 10^3$')
     ax.set_ylim([0, 1.5])
-    # ax.ticklabel_format(axis='y',scilimits=(0,0))
     ax.legend()
-    # path = os.path.join(plotDir, 'ratiosoverR.pdf')
+    path = os.path.join(plotDir, 'overR.pdf')
     fig.tight_layout()
     fig.subplots_adjust(hspace=0.1) #makes them adjacent
     fig.savefig(path, dpi=100)

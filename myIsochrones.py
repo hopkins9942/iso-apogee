@@ -45,6 +45,16 @@ def Chab(M):
     return 0.95*weight/0.0628 # integrated seperately, gives total mass =1 sun
 
 
+def plotKroupaBD():
+    m = np.exp(np.linspace(np.log(0.012), np.log(50), 500))
+    mdiff = m[:-1]-m[1:]
+    mmid = (m[1:]+m[:-1])/2
+    k = KroupaBD(mmid)
+    fig,ax = plt.subplots()
+    ax.plot(mmid, k)
+    print(np.sum(k[mmid<0.08]*mdiff[mmid<0.08])/np.sum(k*mdiff))# fraction of SOs that are BD, not BDperSM
+
+
 def extractIsochrones(isogrid):
     """finds values of MH and age at which isochrones calculated,
     and frst index of each"""
