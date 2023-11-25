@@ -39,6 +39,8 @@ weightPerIsochrone = integrate.quad(Kroupa, minMini, maxMini)[0]
 meanMini = integrate.quad(lambda m:m*Kroupa(m), minMini, maxMini)[0]/weightPerIsochrone
 # this is right - mass*weight/wieght.sum() actually overestimates because weight for each point comes from stars of lower mass 
 
+rBH =1.48e-3 # MJH 20231123 put in for backwards compatibility with pre-revision results, post-revision should use value in myIsochrones2
+
 def Chab(M):
     weight = 0.141*(1/(M*np.log(10)))*np.exp(-0.5*((np.log10(M)-np.log10(0.1))/0.627)**2)
     # 

@@ -13,8 +13,12 @@ import scipy
 
 from scipy.integrate import quad 
 
+import astropy.table as aptable
+import astropy.io 
+
 import mySetup
-import myIsochrones
+# import myIsochrones
+import myIsochrones2 as mI # has updates/improvements from Gaia projects
 
 
 # For black holes paper
@@ -37,9 +41,10 @@ plt.rcParams.update({
 plotDir = '/home/hopkinsl/APOGEE/plots'
 os.makedirs(plotDir, exist_ok=True)
 
-rBH = 1.48e-3 # calculated by hand, integrating Kroupa from 0.08 to inf vs 25 to inf
+# rBH = 1.48e-3 # calculated by hand, integrating Kroupa from 0.08 to inf vs 25 to inf
 # rBH = 6.5e-3 integrating upwars of 8Msun, which is all remnants
-
+rBH = mI.rBH
+# TODO for revision - use updated isochrones, with upper limit to mass. Should be mI.rBH() = 1.34e-3
 
 
 def main():
@@ -59,6 +64,122 @@ def main():
     # ax.hist(p, bins=np.linspace(0,0.5, 21))#p curve
     # ax.axvline(0.05, ls='--', c='k')
     # print(np.count_nonzero(p<0.05)/len(p), p.mean(), p.std())
+    
+    
+
+def dataForHeloise():
+    G = Galaxy.loadFromBins()
+    
+    ageWidth = 1 # technically I'm not sampling age distribution great here, but fine
+    mhWidth = 0.1
+    RWidth = 0.2
+    mh_mid = np.round(np.arange(15)*mhWidth-0.95, 2)
+    age_mid = np.arange(14)*ageWidth+0.5
+    R_mid = np.round(np.arange(40)*RWidth+4.1, 1)
+    print(age_mid)
+    
+    print(mh_mid,R_mid,age_mid)
+    table = aptable.Table(np.array(np.meshgrid(R_mid,mh_mid,age_mid)).reshape(3,-1).T, names=['R', 'FeH', 'age'])
+    
+    RGcol = np.zeros(len(table))
+    SMcol = np.zeros(len(table))
+    
+    
+    def smDist(R,mh,age):
+        ageF = np.sqrt(G.omega/(2*np.pi))*np.exp(-0.5*G.omega*(age-G.tau0)**2) 
+        # grid of age factors at age for each FeH aFe combo
+        # print(ageF)
+        FeHvals = (G.FeH(G.zintegratedHist(R)*ageF, G.mask())*G.FeHWidths)*ageWidth
+        # val of dist at R and age for each FeH
+        # print(FeHvals)
+        return FeHvals[np.digitize(mh, G.FeHEdges)-1]
+        
+    def rgDist(R,mh,age):
+        ageF = np.sqrt(G.omega/(2*np.pi))*np.exp(-0.5*G.omega*(age-G.tau0)**2)*ageWidth
+        # grid of age factors at age for each FeH aFe combo
+        # print(ageF)
+        FeHvals = (G.FeH(G.zintegratedHist(R)*ageF/G.NRG2NSM, G.mask())*G.FeHWidths)*ageWidth
+        # val of dist at R and age for each FeH
+        # print(FeHvals)
+        return FeHvals[np.digitize(mh, G.FeHEdges)-1]
+        
+    # I multiply by FeWidth and ageWidth but not Rwidth
+    # so that result is surface density of stars in that R,age,FeH bin
+    i = 0
+    for row in table.iterrows():
+        # R,mh,age = row
+        # dist = fullDist(R,mh,age)
+        SMcol[i] = smDist(*row)
+        RGcol[i] = rgDist(*row)
+        i+=1
+    
+    SMColumn = aptable.Column(name='SM', data=SMcol)
+    RGColumn = aptable.Column(name='RG', data=RGcol)
+    table.add_columns((RGColumn,SMColumn))
+    table.write('/home/hopkinsl/APOGEE/table.txt', format='ascii', overwrite=True)
+    
+def testHeloise():
+    table = astropy.io.ascii.read('/home/hopkinsl/APOGEE/table.txt')
+    print(table)
+    Rvals = np.unique(table['R'])
+    FeHvals = np.unique(table['FeH'])
+    agevals = np.unique(table['age'])
+    
+    mask = (table['age']==0.5)&(table['FeH']==0.05)
+    fig,ax=plt.subplots()
+    ax.plot(table['R'][mask], table['RG'][mask], label='RG')
+    ax.plot(table['R'][mask], table['SM'][mask]/1000, label='SM/1000')
+    ax.set_xlabel('R / kpc')
+    ax.set_ylabel('Surface Density')
+    ax.set_title('[Fe/H]=0.05, age=0.5Gyr')
+    ax.legend()
+    
+    
+    FeHmask = (table['FeH']==-0.45)
+    RGsums = np.zeros(len(Rvals))
+    SMsums = np.zeros(len(Rvals))
+    for i in range(len(Rvals)):
+        mask = FeHmask&(table['R']==Rvals[i])
+        RGsums[i] = np.sum(table[mask]['RG'])
+        SMsums[i] = np.sum(table[mask]['SM'])
+    fig,ax=plt.subplots()
+    ax.plot(Rvals, RGsums, label='RG')
+    ax.plot(Rvals, SMsums/1000, label='SM/1000')
+    ax.set_xlabel('R / kpc')
+    ax.set_ylabel('Surface Density')
+    ax.set_title('[Fe/H]=-0.45, all ages')
+    ax.legend()
+    
+    
+    RGsums = np.zeros(len(Rvals))
+    SMsums = np.zeros(len(Rvals))
+    for i in range(len(Rvals)):
+        R_mask = (table['R']==Rvals[i])
+        RGsums[i] = np.sum(table[R_mask]['RG'])
+        SMsums[i] = np.sum(table[R_mask]['SM'])
+    fig,ax=plt.subplots()
+    ax.plot(Rvals, RGsums, label='RG')
+    ax.plot(Rvals, SMsums/1000, label='SM/1000')
+    ax.set_xlabel('R / kpc')
+    ax.set_ylabel('Surface Density')
+    ax.set_title('all FeH, all ages')
+    ax.legend()
+    
+    
+    RGsums = np.zeros(len(agevals))
+    SMsums = np.zeros(len(agevals))
+    for i in range(len(agevals)):
+        mask = (table['age']==agevals[i])
+        RGsums[i] = np.sum(table[mask]['RG']*table[mask]['R'])
+        SMsums[i] = np.sum(table[mask]['SM']*table[mask]['R']) # multiplication by R because integrating over an annulus
+    fig,ax=plt.subplots()
+    ax.plot(agevals, RGsums/RGsums.sum(), label='RG')
+    ax.plot(agevals, SMsums/SMsums.sum(), label='SM')
+    ax.set_xlabel('age / Gyr')
+    ax.set_ylabel('normalised age distribution / 1/Gyr')
+    ax.set_title('all FeH, all R')
+    ax.legend()
+    
     
 def totalBHs(G):
     rBHarray = np.where(G.FeHMidpoints<0.0, rBH, 0.0)
@@ -102,7 +223,7 @@ def ageOverR(G):
     tau = np.linspace(0,14,51)
     tau = (tau[:-1]+tau[1:])/2
     
-    isogrid = myIsochrones.loadGrid()
+    isogrid = mI.loadGrid()
     isochrones = isogrid[(-0.5<=isogrid['MH'])&(isogrid['MH']<0)]
     
     SMstars = np.zeros(len(R))
@@ -128,14 +249,14 @@ def ageOverR(G):
                                   G.mask())*G.FeHWidths).sum()
         ageDist[i,:]/=ageDist[i,:].sum()
         
-        rg2sm[i] = myIsochrones.NRG2NSM(isochrones, meanTau0[i], 1)
-        rg2ls[i] = myIsochrones.NRG2NLS(isochrones, meanTau0[i], 1)
+        rg2sm[i] = mI.NRG2NSM(isochrones, meanTau0[i], 1)
+        rg2ls[i] = mI.NRG2NLS(isochrones, meanTau0[i], 1)
     
     overage_rg2sm = np.zeros(len(tau))
     overage_rg2ls = np.zeros(len(tau))
     for j in range(len(tau)):
-        overage_rg2sm[j] = myIsochrones.NRG2NSM(isochrones, tau[j], 1)
-        overage_rg2ls[j] = myIsochrones.NRG2NLS(isochrones, tau[j], 1)
+        overage_rg2sm[j] = mI.NRG2NSM(isochrones, tau[j], 1)
+        overage_rg2ls[j] = mI.NRG2NLS(isochrones, tau[j], 1)
         
     fig, ax = plt.subplots()
     ax.plot(tau, overage_rg2sm)
@@ -218,7 +339,7 @@ def F1(G):
     BDperSM = 0.78 # brown dwarfs per sine morte star
     # both calculated by hand
     
-    # F1 = (averageBHmass/myIsochrones.meanMini)*(np.sum(volBH*x*(1-x))/np.sum(volLS*x*(1-x)))
+    # F1 = (averageBHmass/mI.meanMini)*(np.sum(volBH*x*(1-x))/np.sum(volLS*x*(1-x)))
     F1 = (averageBHmass*np.sum(volBH*x*(1-x)))/(averageLensMass*(np.sum(volLS*x*(1-x)) + BDperSM*np.sum(volSM*x*(1-x))))
 
     
@@ -226,7 +347,7 @@ def F1(G):
     
 
 def countsAtR(G,R, volume=False, co=0):
-    
+    #co is cutoff
     rBHarray = np.where(G.FeHMidpoints<co, rBH, 0.0)
     
     if volume:
@@ -244,7 +365,7 @@ def countsAtR(G,R, volume=False, co=0):
 
 
 def PISSfraction(G):
-    
+    # look at gaia version of myIsochrones, should integrate analytically and use an upper bound
     counts = (G.FeH(G.integratedHist(), G.mask())*G.FeHWidths)
     
     FeHfrac = np.sum(counts[G.FeHMidpoints<-1.3])/np.sum(counts)
@@ -600,7 +721,7 @@ class Galaxy:
         aFeWidths = aFeEdges[1:] - aFeEdges[:-1]
         vols = FeHWidths.reshape(-1,1) * aFeWidths
         
-        isogrid = myIsochrones.loadGrid()
+        isogrid = mI.loadGrid()
         
         for i in range(shape[0]):
             isochrones = isogrid[(FeHEdges[i]<=isogrid['MH'])&(isogrid['MH']<FeHEdges[i+1])]
@@ -627,11 +748,11 @@ class Galaxy:
                         
                 if data[0,i,j] !=0:
                     if FeHEdges[i]<-0.55: #low Fe
-                        NRG2NSM[i,j] = myIsochrones.NRG2NSM(isochrones, 12, 1) #uses old age to get upper lim 
-                        NRG2NLS[i,j] = myIsochrones.NRG2NLS(isochrones, 12, 1) #uses old age to get upper lim 
+                        NRG2NSM[i,j] = mI.NRG2NSM(isochrones, 12, 1) #uses old age to get upper lim 
+                        NRG2NLS[i,j] = mI.NRG2NLS(isochrones, 12, 1) #uses old age to get upper lim 
                     else:
-                        NRG2NSM[i,j] = myIsochrones.NRG2NSM(isochrones, tau0[i,j], omega[i,j]) 
-                        NRG2NLS[i,j] = myIsochrones.NRG2NLS(isochrones, tau0[i,j], omega[i,j]) 
+                        NRG2NSM[i,j] = mI.NRG2NSM(isochrones, tau0[i,j], omega[i,j]) 
+                        NRG2NLS[i,j] = mI.NRG2NLS(isochrones, tau0[i,j], omega[i,j]) 
                     
                     rhoSun[i,j] = NRG2NSM[i,j]*np.exp(logNuSun[i,j])/vols[i,j]
                 else:
@@ -699,8 +820,8 @@ class Galaxy:
     
     
 if __name__=='__main__':
-    main()
-    
+    # main()
+    testHeloise()
     
     
     
