@@ -53,9 +53,9 @@ def main():
     # plotFit(G, G.mask())
     # totalBHs(G)
     # ageOverR(G)
-    # plotOverR(G)
-    # plotmidplane(G)
-    # plotObs(G)
+    plotOverR(G) # Fig1
+    plotmidplane(G) # Fig 2 - needs changing to R=4-8
+    plotObs(G)
     # print(PISSfraction(G))
     print(F1(G))
     
@@ -273,7 +273,7 @@ def ageOverR(G):
     ax.set_ylabel(r'mean tau0 / Gyr')
     path = os.path.join(plotDir, 'tau0overR.pdf')
     fig.tight_layout()
-    fig.savefig(path, dpi=100)
+    # fig.savefig(path, dpi=100)
     
     fig,ax = plt.subplots()
     ax.imshow(ageDist.T, origin='lower',
@@ -288,7 +288,7 @@ def ageOverR(G):
     fig.legend()
     path = os.path.join(plotDir, 'rg2smOverR.pdf')
     fig.tight_layout()
-    fig.savefig(path, dpi=100)
+    # fig.savefig(path, dpi=100)
     
     fig, ax = plt.subplots()
     ax.plot(R, LSstars/RGstars, label='full measured')
@@ -298,7 +298,7 @@ def ageOverR(G):
     fig.legend()
     path = os.path.join(plotDir, 'rg2lsOverR.pdf')
     fig.tight_layout()
-    fig.savefig(path, dpi=100)
+    # fig.savefig(path, dpi=100)
     
     fig, ax = plt.subplots()
     ax.plot(R, SMstars/LSstars, label='full measured')
@@ -308,7 +308,7 @@ def ageOverR(G):
     fig.legend()
     path = os.path.join(plotDir, 'ls2smOverR.pdf')
     fig.tight_layout()
-    fig.savefig(path, dpi=100)
+    # fig.savefig(path, dpi=100)
     
     print(rg2ls/rg2sm)
     
@@ -377,7 +377,7 @@ def PISSfraction(G):
 
 def plotmidplane(G, co=0.0):
     
-    R = np.linspace(0,mySetup.R_Sun,101)
+    R = np.linspace(4,12,101) # changed from 0-8.1 to 4-12 for thesis
     R = (R[:-1]+R[1:])/2
     
     # rBHarray = np.where(G.FeHMidpoints<0.0, rBH, 0.0)
@@ -400,24 +400,29 @@ def plotmidplane(G, co=0.0):
     fig, axs = plt.subplots(nrows=2, sharex=True)
     fig.set_figheight(4.0*1.2)
     ax=axs[0]
-    ax.plot(R[R>3.99], volLS[R>3.99]*1e-9, color=colours[1], label='Living Stars')
-    ax.plot(R[R<4.01], volLS[R<4.01]*1e-9, linestyle='dashed', color=colours[1])
-    ax.plot(R[R>3.99], volBH[R>3.99]*1e3*1e-9, color=colours[2], label=r'Black Holes$\,\times 10^3$')
-    ax.plot(R[R<4.01], volBH[R<4.01]*1e3*1e-9, linestyle='dashed', color=colours[2])
+    ax.plot(R, volSM*1e-9, color=colours[0], label='Sine Morte Stars')
+    # ax.plot(R[R>3.99], volLS[R>3.99]*1e-9, color=colours[1], label='Living Stars')
+    # ax.plot(R[R<4.01], volLS[R<4.01]*1e-9, linestyle='dashed', color=colours[1])
+    ax.plot(R, volLS*1e-9, color=colours[1], label='Living Stars')
+    # ax.plot(R[R>3.99], volBH[R>3.99]*1e3*1e-9, color=colours[2], label=r'Black Holes$\,\times 10^3$')
+    # ax.plot(R[R<4.01], volBH[R<4.01]*1e3*1e-9, linestyle='dashed', color=colours[2])
+    ax.plot(R, volBH*1e3*1e-9, color=colours[2], label=r'Black Holes$\,\times 10^3$')
     ax.set_ylabel(r'Volume Density /$\;\mathrm{pc}^{-3}$')
+    ax.set_ylim([0, 0.5])
     ax.legend()
     
     ax=axs[1]
-    ax.plot(R[R>3.99], volBH[R>3.99]*1e3/volLS[R>3.99], color=colours[3], label='Black Holes / Living Stars')
-    ax.plot(R[R<4.01], volBH[R<4.01]*1e3/volLS[R<4.01], color=colours[3], linestyle='dashed')
+    # ax.plot(R[R>3.99], volBH[R>3.99]*1e3/volLS[R>3.99], color=colours[3], label='Black Holes / Living Stars')
+    # ax.plot(R[R<4.01], volBH[R<4.01]*1e3/volLS[R<4.01], color=colours[3], linestyle='dashed')
+    ax.plot(R, volBH*1e3/volLS, color=colours[3], label='Black Holes / Living Stars')
     ax.set_xlabel(r'$R\;/\;\mathrm{kpc}$')
     ax.set_ylabel(r'Volume Density Ratio $\times10^3$')
-    ax.set_ylim([0, 1.0])
-    ax.legend()
+    ax.set_ylim([0, 1.5])
+    ax.legend(loc='upper left')
     path = os.path.join(plotDir, 'midoverR.pdf')
     fig.subplots_adjust(hspace=0.1) #makes them adjacent
     fig.tight_layout()
-    fig.savefig(path, dpi=100)
+    # fig.savefig(path, dpi=100)
     
 
 def plotObs(G, co=0.0):
@@ -452,7 +457,7 @@ def plotObs(G, co=0.0):
     ax.legend()
     path = os.path.join(plotDir, 'obsoverR.pdf')
     fig.tight_layout()
-    fig.savefig(path, dpi=100)
+    # fig.savefig(path, dpi=100)
     
     # fig, ax = plt.subplots()
     # ax.plot(R[R>3.99], volBH[R>3.99]/volLS[R>3.99], color=colours[3], label='Black holes / living stars')
@@ -494,6 +499,7 @@ def plotOverR(G):
     ax.plot(R[R>3.95], surBH[R>3.95]*1e3*1e-6, color=colours[2], label=r'Black Holes$\,\times 10^3$')
     # ax.plot(R[R<4], surBH[R<4]*1e3*1e-6, '--C1')
     ax.set_ylabel(r'Surface Density /$\;\mathrm{pc}^{-2}$')
+    ax.set_ylim([0, 350])
     ax.legend()
     
     ax = axs[1]
@@ -506,7 +512,7 @@ def plotOverR(G):
     path = os.path.join(plotDir, 'overR.pdf')
     fig.tight_layout()
     fig.subplots_adjust(hspace=0.1) #makes them adjacent
-    fig.savefig(path, dpi=100)
+    # fig.savefig(path, dpi=100)
     print(fig.get_size_inches())
     # print(surSM/surLS)
     
@@ -547,7 +553,7 @@ def plotTriangle(G):
     ax.legend()
     path = os.path.join(plotDir, 'triangleoverR.pdf')
     fig.tight_layout()
-    fig.savefig(path, dpi=100)
+    # fig.savefig(path, dpi=100)
     
     fig, ax = plt.subplots()
     ax.plot(R[R>3.95], BHs[R>3.95]/LSstars[R>3.95], 'C3', label='Black holes / living stars')
@@ -561,7 +567,7 @@ def plotTriangle(G):
     ax.legend()
     path = os.path.join(plotDir, 'triangleratiosoverR.pdf')
     fig.tight_layout()
-    fig.savefig(path, dpi=100)
+    # fig.savefig(path, dpi=100)
     print(SMstars/LSstars)
     
     
@@ -650,7 +656,7 @@ def plotFit(G, mask, extra=''):
         # cbar.set_label('' if i==0 else r'$\mathrm{kpc}^{-1}$')
         fig.set_tight_layout(True)
         path = plotDir+'/'+str(extra)+str(savename[i])+'fit.pdf'
-        fig.savefig(path, dpi=100)
+        # fig.savefig(path, dpi=100)
 
 
 
@@ -820,8 +826,8 @@ class Galaxy:
     
     
 if __name__=='__main__':
-    # main()
-    testHeloise()
+    main()
+    # testHeloise()
     
     
     
