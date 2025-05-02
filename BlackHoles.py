@@ -55,7 +55,7 @@ def main():
     # ageOverR(G)
     plotOverR(G) # Fig1
     plotmidplane(G) # Fig 2 - needs changing to R=4-8
-    plotObs(G)
+    # plotObs(G)
     # print(PISSfraction(G))
     print(F1(G))
     
@@ -333,6 +333,11 @@ def F1(G):
     x = np.linspace(0,1,N)
     x = (x[:-1]+x[1:])/2
     
+    Rfilter = (R>4)
+    # print(Rfilter)
+    # print(R[Rfilter])
+    # print(x[Rfilter])
+    
     averageBHmass = 20
     
     averageLensMass = 0.4
@@ -340,9 +345,11 @@ def F1(G):
     # both calculated by hand
     
     # F1 = (averageBHmass/mI.meanMini)*(np.sum(volBH*x*(1-x))/np.sum(volLS*x*(1-x)))
-    F1 = (averageBHmass*np.sum(volBH*x*(1-x)))/(averageLensMass*(np.sum(volLS*x*(1-x)) + BDperSM*np.sum(volSM*x*(1-x))))
+    OLD_F1 = (averageBHmass*np.sum(volBH*x*(1-x)))/(averageLensMass*(np.sum(volLS*x*(1-x)) + BDperSM*np.sum(volSM*x*(1-x))))
+    F1 = (averageBHmass*np.sum((volBH*x*(1-x))[Rfilter]))/(averageLensMass*(np.sum((volLS*x*(1-x))[Rfilter]) + BDperSM*np.sum((volSM*x*(1-x))[Rfilter])))
 
-    
+    print('old: ',OLD_F1)
+    print('new: ',F1)
     return F1
     
 
@@ -422,12 +429,12 @@ def plotmidplane(G, co=0.0):
     path = os.path.join(plotDir, 'midoverR.pdf')
     fig.subplots_adjust(hspace=0.1) #makes them adjacent
     fig.tight_layout()
-    # fig.savefig(path, dpi=100)
+    fig.savefig(path, dpi=100)
     
 
 def plotObs(G, co=0.0):
     
-    R = np.linspace(0,mySetup.R_Sun,101)
+    R = np.linspace(4,mySetup.R_Sun,101)
     R = (R[:-1]+R[1:])/2
     dR = R[1]-R[0]
     
@@ -512,10 +519,11 @@ def plotOverR(G):
     path = os.path.join(plotDir, 'overR.pdf')
     fig.tight_layout()
     fig.subplots_adjust(hspace=0.1) #makes them adjacent
-    # fig.savefig(path, dpi=100)
+    fig.savefig(path, dpi=100)
     print(fig.get_size_inches())
     # print(surSM/surLS)
     
+    print(surBH[R>3.95]*1e3/(surLS[R>3.95]))
     
 def plotTriangle(G):
     """bulge fields extend down to -8 degrees latitude, a kpc away from midplane
